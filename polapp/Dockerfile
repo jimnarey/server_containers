@@ -34,7 +34,8 @@ RUN apt-get update -y && \
 
 COPY --from=easy-novnc-build /bin/easy-novnc /usr/local/bin/
 COPY menu.xml /etc/xdg/openbox/
-RUN ln -s /etc/xdg/openbox/menu.xml /var/lib/openbox/debian-menu.xml
+COPY rc.xml /etc/xdg/openbox/rc.xml
+# RUN ln -s /etc/xdg/openbox/menu.xml /var/lib/openbox/debian-menu.xml
 COPY supervisord.conf /etc/
 EXPOSE 8080
 
