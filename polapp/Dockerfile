@@ -4,6 +4,20 @@ RUN go mod init build && \
     go get github.com/geek1011/easy-novnc@v1.1.0 && \
     go build -o /bin/easy-novnc github.com/geek1011/easy-novnc
 
+FROM golang:1.14 AS caddy-build
+WORKDIR /src
+RUN echo 'module caddy' > go.mod && \
+    echo 'require github.com/caddyserver/caddy/v2 v2.1.1' >> go.mod && \
+    echo 'require github.com/mholt/caddy-webdav v0.0.0-20200523051447-bc5d19941ac3' >> go.mod
+RUN echo 'package main' > caddy.go && \
+    echo 'import caddycmd "github.com/caddyserver/caddy/v2/cmd"' >> caddy.go && \
+    echo 'import _ "github.com/caddyserver/caddy/v2/modules/standard"' >> caddy.go && \
+    echo 'import _ "github.com/mholt/caddy-webdav"' >> caddy.go && \
+    echo 'func main() { caddycmd.Main() }' >> caddy.go
+RUN go get
+RUN go build -o /bin/caddy .
+
+
 FROM ubuntu:20.04
 
 ENV TZ=Europe/London
@@ -37,7 +51,11 @@ COPY menu.xml /etc/xdg/openbox/
 COPY rc.xml /etc/xdg/openbox/rc.xml
 # RUN ln -s /etc/xdg/openbox/menu.xml /var/lib/openbox/debian-menu.xml
 COPY supervisord.conf /etc/
-EXPOSE 8080
+
+COPY --from=caddy-build /bin/caddy /usr/local/bin/
+COPY Caddyfile /etc/
+
+EXPOSE 8081
 
 RUN groupadd --gid 1000 app && \
     useradd --home-dir /data --shell /bin/bash --uid 1000 --gid 1000 app && \
