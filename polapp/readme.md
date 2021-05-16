@@ -4,11 +4,9 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 docker build -t polapp .
 
-docker network create polapp-net // Check this is needed
-
 docker volume create polapp-volume
 
-docker run --volume=polapp-volume:/data --net=polapp-net --name=playonlinux-app --publish=8080:8080 polapp
+docker run --volume=polapp-volume:/data --name=playonlinux-app --publish=8081:8081 polapp
 
 
 *Uses Ubuntu in place of Debian to get playonlinux via apt.
