@@ -45,21 +45,17 @@ Or pass the hash as an environment variable: [NEED TO TEST!]
 
 ## Run the container
 
-For trying out and debugging...
+For trying out and debugging:
 
-...with the login credentials in the Caddyfile...
+(with the login credentials in the Caddyfile)
 
 ```
 docker run --volume=polapp-volume:/data --name=playonlinux-app --publish=8081:8081 polapp
 ```
 
-...and the credentials passed in as variables:
-
-```
-docker run --volume=polapp-volume:/data --name=playonlinux-app --env=APP_USERNAME="myuser" --env=APP_PASSWORD_HASH="mypass-hash" --publish=8081:8081 polapp
-```
-
 For production:
+
+Something based on this:
 
 ```
 docker run --detach --restart=always --volume=polapp-volume:/data --name=playonlinux-app --env=APP_USERNAME="myuser" --env=APP_PASSWORD_HASH="mypass-hash" --publish=8081:8081 polapp
@@ -73,9 +69,19 @@ docker run --detach --restart=always --volume=polapp-volume:/data --name=playonl
 
 *Specified the app user as an environment variable for PlayOnLinux
 
-*Menu not being found.
+*Changed line in (OpenBox's) rc.xml to point to correct menu location. Also see commented
+out option for dealing with this in Dockerfile
+
+*Includes basic authentication with a password hash set in the Caddyfile. See passhash.sh for
+generating password hash.
 
 *WIP:
 
 docker run --detach --restart=always --volume=thunderbird-data:/data --net=thunderbird-net --name=thunderbird-web --env=APP_USERNAME="myuser" --env=APP_PASSWORD_HASH="mypass-hash" --publish=8080:8080 thunderbird-caddy
+
+...and the credentials passed in as variables:
+
+```
+docker run --volume=polapp-volume:/data --name=playonlinux-app --env=APP_USERNAME="myuser" --env=APP_PASSWORD_HASH="mypass-hash" --publish=8081:8081 polapp
+```
 

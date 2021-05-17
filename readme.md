@@ -4,6 +4,12 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 A set of templace docker configurations for running GUI apps over the local network.
 
-guiapp - initial version, based on above guide. Uses Debian
-
 polapp - PlayOnLinux template. Switch to Ubuntu because Debian doesn't have a PlayOnLinux package.
+
+*passhash.sh usage:
+
+passhash.sh [image] [password]
+
+e.g.
+
+passhash.sh polapp hamster
