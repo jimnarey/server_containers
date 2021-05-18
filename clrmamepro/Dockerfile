@@ -1,19 +1,19 @@
 FROM ubuntu-wine-mono:latest
 
-RUN mkdir /clrmamepro && \
-    wget -P /clrmamepro https://mamedev.emulab.it/clrmamepro/binaries/cmp4041_64.zip
-WORKDIR /clrmamepro
+RUN mkdir /app && \
+    wget -P /app https://mamedev.emulab.it/clrmamepro/binaries/cmp4041_64.zip
+WORKDIR /app
 RUN unzip cmp4041_64.zip && \
-    chown -R app:app /clrmamepro && \
+    chown -R app:app /app && \
     rm -f cmp4041_64.zip
-VOLUME /clrmamepro
+VOLUME /app
 
 RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\
             USER=app\n\
-command=/usr/bin/wine /clrmamepro/cmpro64.exe\n\
+command=/usr/bin/wine /app/cmpro64.exe\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
