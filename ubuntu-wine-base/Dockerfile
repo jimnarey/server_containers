@@ -17,9 +17,3 @@ RUN apt-get update && \
 RUN wine --version
 
 
-# RUN dpkg --add-architecture i386 && \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends wine32 wine32-preloader && \
-#     rm -rf /var/lib/apt/lists
-
-
