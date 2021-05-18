@@ -1,0 +1,15 @@
+:8081 {
+    log
+    root * /data
+    reverse_proxy 127.0.0.1:8080
+
+    handle_path /files/* {
+        file_server browse
+    }
+    redir /files /files/
+
+    basicauth /* {
+        admin JDJhJDEwJEdoQTZxUmExdk15M2pNQUZYcUh1VnU4bXBYTks2eUZrYXUwamtjM2tZeEU2dEJEUi52Q3pp
+    }
+
+}
