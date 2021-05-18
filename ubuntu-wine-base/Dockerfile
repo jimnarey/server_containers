@@ -14,6 +14,5 @@ RUN apt-get update && \
     apt-get install -y --install-recommends winehq-stable && \
     rm -rf /var/lib/apt/lists
 
-RUN wine --version
 
 
