@@ -6,9 +6,9 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 ## Build
 
 ```
-docker build -t guiapp-base .
+docker build -t ubuntu-guiapp-base .
 
-docker volume create guiapp-base-volume
+docker volume create ubuntu-gui-base-volume
 ```
 
 ## Run the container
@@ -16,7 +16,7 @@ docker volume create guiapp-base-volume
 For trying out and debugging:
 
 ```
-docker run  --publish=8081:8081 guiapp-base
+docker run  --publish=8081:8081 ubuntu-gui-base
 ```
 
 For production:
@@ -24,7 +24,7 @@ For production:
 Something based on this:
 
 ```
-docker run --detach --restart=always  --publish=8081:8081 guiapp-base
+docker run --detach --restart=always  --publish=8081:8081 ubuntu-gui-base
 ```
 
 ## Notes
