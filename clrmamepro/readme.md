@@ -7,7 +7,7 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 Needs an additional volume to hold the clrmamepro app which stores data in the same folder as the executable.
 
 ```
-docker run --volume=clrmamepro-home:/data --volume=clrmamepro-app:/clrmamepro  --publish=8081:8081 clrmamepro
+docker run --volume=clrmamepro-home:/data --volume=clrmamepro-app:/app  --publish=8081:8081 clrmamepro
 ```
 
 * Based on ubuntu-wine-base

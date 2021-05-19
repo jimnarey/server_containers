@@ -1,9 +1,0 @@
-:8081 {
-    log
-    root * /data
-    reverse_proxy 127.0.0.1:8080
-    basicauth /* {
-        admin JDJhJDEwJEdoQTZxUmExdk15M2pNQUZYcUh1VnU4bXBYTks2eUZrYXUwamtjM2tZeEU2dEJEUi52Q3pp
-    }
-
-}
