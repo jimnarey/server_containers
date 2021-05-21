@@ -8,14 +8,14 @@ RUN unzip RomLister.zip && \
     rm -f RomLister.zip
 VOLUME /app
 
-# RUN echo \
-# '\n[program:app]\n\
-# priority=1\n\
-# environment=DISPLAY=:0,\n\
-#             USER=app\n\
-# command=/usr/bin/wine /app/cmpro64.exe\n\
-# autorestart=true\n\
-# stdout_logfile=/dev/fd/1\n\
-# stdout_logfile_maxbytes=0\n\
-# redirect_stderr=true\n'\
-# >> /etc/supervisord.conf
+RUN echo \
+'\n[program:app]\n\
+priority=1\n\
+environment=DISPLAY=:0,\n\
+            USER=app\n\
+command=/usr/bin/wine /app/RomLister.exe\n\
+autorestart=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n'\
+>> /etc/supervisord.conf
