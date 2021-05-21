@@ -18,11 +18,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists && \
     apt-get clean && apt-get autoremove
 
-RUN mkdir -p /usr/share/wine/mono && \
-    wget -P /usr/share/wine/mono https://dl.winehq.org/wine/wine-mono/6.1.1/wine-mono-6.1.1-x86.tar.xz
+# RUN mkdir -p /usr/share/wine/mono && \
+#     wget -P /usr/share/wine/mono https://dl.winehq.org/wine/wine-mono/6.1.1/wine-mono-6.1.1-x86.tar.xz
 
-WORKDIR /usr/share/wine/mono
-RUN tar -xJf wine-mono-6.1.1-x86.tar.xz && \
-    rm -f wine-mono-6.1.1-x86.tar.xz && \   
-    ls -la && \
-    wine --version 
+# WORKDIR /usr/share/wine/mono
+# RUN tar -xJf wine-mono-6.1.1-x86.tar.xz && \
+#     rm -f wine-mono-6.1.1-x86.tar.xz && \   
+#     ls -la && \
+#     wine --version 
