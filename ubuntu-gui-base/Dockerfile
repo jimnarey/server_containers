@@ -25,26 +25,12 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends openbox tigervnc-standalone-server supervisor gosu && \
-    rm -rf /var/lib/apt/lists && \
-    mkdir -p /usr/share/desktop-directories
-
-RUN apt-get update -y && \
     apt-get install -y --no-install-recommends lxterminal nano wget openssh-client rsync ca-certificates xdg-utils htop tar xzip gzip bzip2 zip unzip && \
+    apt-get clean && \
+    apt-get autoremove && \
     rm -rf /var/lib/apt/lists
 
-#
-# CHANGE PLAYONLINUX TO DESIRED APP
-#
-#If you are containerizing a different application, you can replace 
-#these commands with the ones required to install your specific app. 
-#Some applications will require a bit more work to run inside Docker. 
-#For example, if you are installing an app that uses Chrome, Chromium, 
-#or QtWebEngine, you’ll need to use the command line argument 
-#--no-sandbox because it won’t be supported within Docker.
-#
-# RUN apt-get update -y && \
-#     apt-get install -y --no-install-recommends playonlinux && \
-#     rm -rf /var/lib/apt/lists
+RUN mkdir -p /usr/share/desktop-directories
 
 COPY --from=easy-novnc-build /bin/easy-novnc /usr/local/bin/
 COPY menu.xml /etc/xdg/openbox/
@@ -65,6 +51,17 @@ COPY supervisord.conf /etc/
 
 COPY --from=caddy-build /bin/caddy /usr/local/bin/
 COPY Caddyfile /etc/
+
+#
+# Allows a PID and GID for the container's user to be passed in 
+# and set on each boot. Default is 1000 for each.
+#
+COPY setids.service /etc/systemd/system
+COPY setids.sh /usr/local/bin
+# RUN ls -la /etc/systemd/system
+RUN chmod 664 /etc/systemd/system/setids.service
+RUN chmod +x /usr/local/bin/setids.sh
+RUN systemctl enable setids.service
 
 EXPOSE 8081
 

@@ -9,6 +9,10 @@ RUN unzip cmp4041_64.zip && \
 VOLUME /app
 
 RUN echo \
+'\nchown app:app /app\n' \
+>> /usr/local/bin/setids.sh
+
+RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\
