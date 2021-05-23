@@ -9,6 +9,10 @@ RUN unzip RomLister.zip && \
 VOLUME /app
 
 RUN echo \
+'\nchown app:app /app\n' \
+>> /usr/local/bin/init_chowns.sh
+
+RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\

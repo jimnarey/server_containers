@@ -10,7 +10,7 @@ VOLUME /app
 
 RUN echo \
 '\nchown app:app /app\n' \
->> /usr/local/bin/setids.sh
+>> /usr/local/bin/init_chowns.sh
 
 RUN echo \
 '\n[program:app]\n\
