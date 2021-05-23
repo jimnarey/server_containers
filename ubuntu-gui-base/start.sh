@@ -1,12 +1,11 @@
 #!/bin/bash
-
 # Taken from linuxserver.io ubuntu base Dockerfile
 
-PUID=${PUID:-1000}
-PGID=${PGID:-1000}
+USERID=${USERID:-1000}
+GROUPID=${GROUPID:-1000}
 
-groupmod -o -g "$PGID" app
-usermod -o -u "$PUID" app
+groupmod -o -g "$GROUPID" app
+usermod -o -u "$USERID" app
 
 echo '
 ----------------------------
@@ -24,14 +23,13 @@ echo '
 -----------------------------
 
 -----------------------------
-GID/UID
+GROUPID/USERID
 -----------------------------'
 echo "
 User uid:    $(id -u app)
 User gid:    $(id -g app)
 -----------------------------
 "
-chown app:app /data
-# chown app:app /app
+/usr/local/bin/init_chowns.sh
 
-# Read additional dirs in from vars
+exec gosu app supervisord

@@ -51,17 +51,14 @@ COPY supervisord.conf /etc/
 
 COPY --from=caddy-build /bin/caddy /usr/local/bin/
 COPY Caddyfile /etc/
+ENV CADDY_USER=admin
+# Hash for 'password'
+ENV CADDY_HASH=JDJhJDEwJE84L1BrOFdSNmxxdUgveGFMRGJieE9kRXVERm1DTDJTMXpmQWdoS1ZNSFNNZHdTb3oxU0k2
 
-#
-# Allows a PID and GID for the container's user to be passed in 
-# and set on each boot. Default is 1000 for each.
-#
-COPY setids.service /etc/systemd/system
-COPY setids.sh /usr/local/bin
-# RUN ls -la /etc/systemd/system
-RUN chmod 664 /etc/systemd/system/setids.service
-RUN chmod +x /usr/local/bin/setids.sh
-RUN systemctl enable setids.service
+COPY start.sh /usr/local/bin
+COPY init_chowns.sh /usr/local/bin
+RUN chmod 744 /usr/local/bin/start.sh
+RUN chmod 744 /usr/local/bin/init_chowns.sh
 
 EXPOSE 8081
 
@@ -70,4 +67,6 @@ RUN groupadd --gid 1000 app && \
     mkdir -p /data
 VOLUME /data
 
-CMD ["sh", "-c", "chown app:app /data /dev/stdout && exec gosu app supervisord"]
+# CMD ["sh", "-c", "chown app:app /data /dev/stdout && exec gosu app supervisord"]
+
+CMD ["/usr/local/bin/start.sh"]
