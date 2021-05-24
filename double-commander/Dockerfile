@@ -12,9 +12,11 @@ RUN echo \
 priority=1\n\
 environment=DISPLAY=:0,\n\
             USER=app\n\
-command=/usr/bin/doublecmd\n\
+command=/usr/bin/doublecmd /host_volumes /host_volumes\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
 >> /etc/supervisord.conf
+
+RUN mkdir /host_volumes
