@@ -12,7 +12,7 @@ docker run --volume=double-commander-home:/data --volume=/mnt:/host_volumes --pu
 
 * Based on ubuntu-wine-base
 
-* Adds an additional volume to hold clrmamepro app and config files
+* Mounts the host's /mnt dir as /host_volumes in the container and points double commander there on start
 
 * Sets the app to start via wine in supervisord.conf
 
