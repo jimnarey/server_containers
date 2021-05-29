@@ -1,16 +1,14 @@
 version: "3"
 
 volumes:
-    clrmamepro-home:
-    clrmamepro-app:
+    calibre-home:
     
 services:
-    clrmamepro:
+    calibre:
         build: .
-        container_name: clrmamepro
+        container_name: calibre
         volumes: 
-            - clrmamepro-home:/data
-            - clrmamepro-app:/app
+            - calibre-home:/data
         ports:
             - "9001:8081"
         restart: always

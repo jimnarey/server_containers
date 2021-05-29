@@ -16,6 +16,12 @@ Set the UID and GID for the container's user:
 docker run --volume=clrmamepro-home:/data --volume=clrmamepro-app:/app  --publish=8081:8081 -e USERID=900 -e GROUPID=900 clrmamepro
 ```
 
+Mount the necessary host dirs in the container:
+
+```
+docker run --volume=clrmamepro-home:/data --volume=clrmamepro-app:/app --volume=$ROM_ROOT:/rom_root --volume=$DAT_ROOT:/dat_root --volume=$ROM_OUTPUT:/rom_output --publish=8081:8081 -e USERID=1001 -e GROUPID=1001 clrmamepro
+```
+
 * Based on ubuntu-wine-base
 
 * Adds an additional volume to hold clrmamepro app and config files

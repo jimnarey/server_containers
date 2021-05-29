@@ -1,4 +1,4 @@
-# Docker Wine App Notepad++ Example
+# Docker Wine RomVault
 
 https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-applications-using-docker-and-caddy-on-debian-9
 
@@ -10,10 +10,9 @@ Needs an additional volume to hold the romvault app which stores data in the sam
 docker run --volume=romvault-home:/data --volume=romvault-app:/app  --publish=8081:8081 romvault
 ```
 
-* Based on ubuntu-wine-base
+Mount the necessary host dirs in the container:
 
-* Adds an additional volume to hold romvault app and config files
-
-* Sets the app to start via wine in supervisord.conf
-
+```
+docker run --volume=romvault-home:/data --volume=romvault-app:/app --volume=$ROM_ROOT:/rom_root --volume=$DAT_ROOT:/dat_root --volume=$ROM_OUTPUT:/rom_output --publish=8081:8081 -e USERID=1001 -e GROUPID=1001 romvault
+```
 

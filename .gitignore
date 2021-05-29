@@ -2,3 +2,4 @@ shared/*
 hashes/*
 *-volume
 romvault/*.exe
+vars.sh
