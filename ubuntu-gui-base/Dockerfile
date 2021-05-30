@@ -4,28 +4,36 @@ RUN go mod init build && \
     go get github.com/geek1011/easy-novnc@v1.1.0 && \
     go build -o /bin/easy-novnc github.com/geek1011/easy-novnc
 
-FROM golang:1.14 AS caddy-build
-WORKDIR /src
-RUN echo 'module caddy' > go.mod && \
-    echo 'require github.com/caddyserver/caddy/v2 v2.1.1' >> go.mod && \
-    echo 'require github.com/mholt/caddy-webdav v0.0.0-20200523051447-bc5d19941ac3' >> go.mod
-RUN echo 'package main' > caddy.go && \
-    echo 'import caddycmd "github.com/caddyserver/caddy/v2/cmd"' >> caddy.go && \
-    echo 'import _ "github.com/caddyserver/caddy/v2/modules/standard"' >> caddy.go && \
-    echo 'import _ "github.com/mholt/caddy-webdav"' >> caddy.go && \
-    echo 'func main() { caddycmd.Main() }' >> caddy.go
-RUN go get
-RUN go build -o /bin/caddy .
+# FROM golang:1.14 AS caddy-build
+# WORKDIR /src
+# RUN echo 'module caddy' > go.mod && \
+#     echo 'require github.com/caddyserver/caddy/v2 v2.1.1' >> go.mod && \
+#     echo 'require github.com/mholt/caddy-webdav v0.0.0-20200523051447-bc5d19941ac3' >> go.mod
+# RUN echo 'package main' > caddy.go && \
+#     echo 'import caddycmd "github.com/caddyserver/caddy/v2/cmd"' >> caddy.go && \
+#     echo 'import _ "github.com/caddyserver/caddy/v2/modules/standard"' >> caddy.go && \
+#     echo 'import _ "github.com/mholt/caddy-webdav"' >> caddy.go && \
+#     echo 'func main() { caddycmd.Main() }' >> caddy.go
+# RUN go get
+# RUN go build -o /bin/caddy .
 
 
-FROM ubuntu:20.04
+# FROM ubuntu:20.04
 
-ENV TZ=Europe/London
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# ENV TZ=Europe/London
+# RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# RUN apt-get update -y && \
+#     apt-get install -y --no-install-recommends openbox tigervnc-standalone-server supervisor gosu && \
+#     apt-get install -y --no-install-recommends lxterminal nano wget openssh-client rsync ca-certificates xdg-utils htop tar xzip gzip bzip2 zip unzip && \
+#     apt-get clean && \
+#     apt-get autoremove && \
+#     rm -rf /var/lib/apt/lists
+
+FROM ubuntu-headless-base:latest
 
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server supervisor gosu && \
-    apt-get install -y --no-install-recommends lxterminal nano wget openssh-client rsync ca-certificates xdg-utils htop tar xzip gzip bzip2 zip unzip && \
+    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
@@ -47,26 +55,55 @@ COPY rc.xml /etc/xdg/openbox/rc.xml
 #
 # RUN ln -s /etc/xdg/openbox/menu.xml /var/lib/openbox/debian-menu.xml
 #
-COPY supervisord.conf /etc/
+# COPY supervisord.conf /etc/
 
-COPY --from=caddy-build /bin/caddy /usr/local/bin/
-COPY Caddyfile /etc/
-ENV CADDY_USER=admin
-# Hash for 'password'
-ENV CADDY_HASH=JDJhJDEwJE84L1BrOFdSNmxxdUgveGFMRGJieE9kRXVERm1DTDJTMXpmQWdoS1ZNSFNNZHdTb3oxU0k2
+# COPY --from=caddy-build /bin/caddy /usr/local/bin/
+# COPY Caddyfile /etc/
+# ENV CADDY_USER=admin
+# # Hash for 'password'
+# ENV CADDY_HASH=JDJhJDEwJE84L1BrOFdSNmxxdUgveGFMRGJieE9kRXVERm1DTDJTMXpmQWdoS1ZNSFNNZHdTb3oxU0k2
 
-COPY start.sh /usr/local/bin
-COPY init_chowns.sh /usr/local/bin
-RUN chmod 744 /usr/local/bin/start.sh
-RUN chmod 744 /usr/local/bin/init_chowns.sh
+# COPY start.sh /usr/local/bin
+# COPY init_chowns.sh /usr/local/bin
+# RUN chmod 744 /usr/local/bin/start.sh
+# RUN chmod 744 /usr/local/bin/init_chowns.sh
 
-EXPOSE 8081
+# EXPOSE 8081
 
-RUN groupadd --gid 1000 app && \
-    useradd --home-dir /data --shell /bin/bash --uid 1000 --gid 1000 app && \
-    mkdir -p /data
-VOLUME /data
+# RUN groupadd --gid 1000 app && \
+#     useradd --home-dir /data --shell /bin/bash --uid 1000 --gid 1000 app && \
+#     mkdir -p /data
+# VOLUME /data
 
-# CMD ["sh", "-c", "chown app:app /data /dev/stdout && exec gosu app supervisord"]
+# # CMD ["sh", "-c", "chown app:app /data /dev/stdout && exec gosu app supervisord"]
 
-CMD ["/usr/local/bin/start.sh"]
+# CMD ["/usr/local/bin/start.sh"]
+
+
+RUN echo \
+'\n[program:x11]\n\
+priority=0\n\
+# CHANGE APP TITLE HERE\n\
+command=/usr/bin/Xtigervnc -desktop "Ubuntu GUI App Base Img" -localhost -rfbport 5900 -SecurityTypes None -AlwaysShared -AcceptKeyEvents -AcceptPointerEvents -AcceptSetDesktopSize -SendCutText -AcceptCutText :0\n\
+autorestart=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n\
+\n\
+[program:easy-novnc]\n\
+priority=0\n\
+command=/usr/local/bin/easy-novnc --addr :8080 --host localhost --port 5900 --no-url-password --novnc-params "resize=remote"\n\
+autorestart=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n\
+\n\
+[program:openbox]\n\
+priority=1\n\
+command=/usr/bin/openbox\n\
+environment=DISPLAY=:0\n\
+autorestart=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n'\
+>> /etc/supervisord.conf
