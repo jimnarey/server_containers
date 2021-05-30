@@ -18,7 +18,7 @@ ENV TZ=Europe/London
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends supervisor gosu nano wget openssh-client rsync ca-certificates xdg-utils htop tar xzip gzip bzip2 zip unzip && \
+    apt-get install -y --no-install-recommends supervisor gosu nano wget openssh-client rsync ca-certificates xdg-utils htop tar xzip gzip bzip2 zip unzip p7zip-full && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists

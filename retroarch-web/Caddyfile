@@ -1,0 +1,8 @@
+:8081 {
+    log
+    root * /var/www
+    file_server
+    basicauth /* {
+        {env.CADDY_USER} {env.CADDY_HASH}
+    }
+}
