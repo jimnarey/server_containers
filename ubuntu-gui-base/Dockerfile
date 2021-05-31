@@ -1,8 +1,8 @@
-FROM golang:1.16 AS easy-novnc-build
-WORKDIR /src
-RUN go mod init build && \
-    go get github.com/geek1011/easy-novnc@v1.1.0 && \
-    go build -o /bin/easy-novnc github.com/geek1011/easy-novnc
+# FROM golang:1.16 AS easy-novnc-build
+# WORKDIR /src
+# RUN go mod init build && \
+#     go get github.com/geek1011/easy-novnc@v1.1.0 && \
+#     go build -o /bin/easy-novnc github.com/geek1011/easy-novnc
 
 FROM ubuntu-headless-base:latest
 
@@ -14,7 +14,8 @@ RUN apt-get update -y && \
 
 RUN mkdir -p /usr/share/desktop-directories
 
-COPY --from=easy-novnc-build /bin/easy-novnc /usr/local/bin/
+# COPY --from=easy-novnc-build /bin/easy-novnc /usr/local/bin/
+COPY --from=build-easy-novnc /bin/easy-novnc /usr/local/bin/
 COPY menu.xml /etc/xdg/openbox/
 
 #
