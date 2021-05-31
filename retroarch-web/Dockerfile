@@ -1,11 +1,5 @@
 FROM ubuntu-headless-base:latest
 
-# WORKDIR /var/www
-# RUN wget https://buildbot.libretro.com/nightly/emscripten/RetroArch.7z && \
-#     7z x RetroArch.7z && \
-#     mv ./retroarch/* . && \
-#     rmdir retroarch
-
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends nodejs npm && \
     apt-get clean && \
@@ -24,4 +18,6 @@ WORKDIR /var/www/assets/cores
 RUN ../../indexer > .index-xhr
 
 COPY Caddyfile /etc/
+
+
 

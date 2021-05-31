@@ -23,3 +23,5 @@ RUN echo \
 # stdout_logfile_maxbytes=0\n\
 # redirect_stderr=true\n'\
 # >> /etc/supervisord.conf
+
+RUN sed -i 's/Ubuntu GUI App Base Img/RomCenter/g' /etc/supervisord.conf

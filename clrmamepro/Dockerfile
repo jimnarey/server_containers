@@ -28,3 +28,5 @@ redirect_stderr=true\n'\
 RUN mkdir /rom_root && \
     mkdir /dat_root && \
     mkdir /output
+
+RUN sed -i 's/Ubuntu GUI App Base Img/ClrMAMEPro/g' /etc/supervisord.conf

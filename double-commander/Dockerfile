@@ -20,3 +20,5 @@ redirect_stderr=true\n'\
 >> /etc/supervisord.conf
 
 RUN mkdir /host_volumes
+
+RUN sed -i 's/Ubuntu GUI App Base Img/Double Commander/g' /etc/supervisord.conf
