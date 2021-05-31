@@ -4,13 +4,9 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 ## Run
 
-
-
 ```
 docker run --volume=double-commander-home:/data --volume=/mnt:/host_volumes --publish=8081:8081 double-commander
 ```
-
-* Based on ubuntu-wine-base
 
 * Mounts the host's /mnt dir as /host_volumes in the container and points double commander there on start
 

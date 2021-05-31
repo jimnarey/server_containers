@@ -4,8 +4,6 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 ## Run
 
-
-
 ```
 docker run --volume=retroarch-web-home:/data --publish=8082:8081 retroarch-web
 ```
