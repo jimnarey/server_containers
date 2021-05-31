@@ -1,12 +1,10 @@
 FROM ubuntu-headless-base:latest
 
-WORKDIR /var/www
-RUN wget https://buildbot.libretro.com/nightly/emscripten/RetroArch.7z && \
-    7z x RetroArch.7z && \
-    mv ./retroarch/* . && \
-    rmdir retroarch
-
-RUN chmod +x /var/www/indexer
+# WORKDIR /var/www
+# RUN wget https://buildbot.libretro.com/nightly/emscripten/RetroArch.7z && \
+#     7z x RetroArch.7z && \
+#     mv ./retroarch/* . && \
+#     rmdir retroarch
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends nodejs npm && \
@@ -15,6 +13,10 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists
 
 RUN npm install --global coffeescript
+
+COPY --from=build-retroarch-emscripten /build /var/www
+
+RUN chmod +x /var/www/indexer
 
 WORKDIR /var/www/assets/frontend/bundle
 RUN ../../../indexer > .index-xhr
