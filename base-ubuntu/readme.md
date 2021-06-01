@@ -10,7 +10,6 @@ docker build -t $(basename $(pwd)) .
 
 ```
 
-
 ## Run the container
 
 Basic:
@@ -19,7 +18,7 @@ Basic:
 docker run -p=8081:8081 base-ubuntu
 ```
 
-Pass the desired UID and GID for the user which runs the container's apps:
+The built image has a user created within it ('runuser') which is essential to managing the permissions for anything run in the container, otherwise everything runs as root. The UID/GID for runuser can be set when the container starts:
 
 ```
 docker run -v=base-ubuntu-home:/data -p=8081:8081 -e USERID=$FILES_ID -e GROUPID=$FILES_ID base-ubuntu
