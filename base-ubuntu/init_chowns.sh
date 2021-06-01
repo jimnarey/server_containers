@@ -1,4 +1,4 @@
 #!/bin/bash
 
-chown app:app /home/runuser
-chown app:app /dev/stdout
+chown runuser:runuser /home/runuser
+chown runuser:runuser /dev/stdout

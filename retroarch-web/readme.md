@@ -5,7 +5,7 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 ## Run
 
 ```
-docker run -v=retroarch-web-home:/data -p=8082:8081 -e USERID=$RETRO_ID -e GROUPID=$RETRO_ID retroarch-web
+docker run -v=retroarch-web-home:/home/runuser -p=8082:8081 -e USERID=$RETRO_ID -e GROUPID=$RETRO_ID retroarch-web
 ```
 
 * Based on ubuntu-wine-base

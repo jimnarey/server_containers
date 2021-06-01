@@ -8,7 +8,7 @@ services:
         build: .
         container_name: calibre
         volumes: 
-            - calibre-home:/data
+            - calibre-home:/home/runuser
         ports:
             - "9001:8081"
         restart: always

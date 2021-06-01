@@ -1,9 +1,8 @@
 # Docker Wine App Template
 
-https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-applications-using-docker-and-caddy-on-debian-9
+## Notes
 
-
-* Based on ubuntu-gui-base
+* Based on base-ubuntu-gui
 
 * Installs 32bit (x86) architecture into Ubuntu
 

@@ -6,7 +6,7 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 
 ```
-docker run -v=hexchat-home:/data -p=$HEXCHAT_PORT:8081 -e USERID=$BASIC_ID -e GROUPID=$BASIC_ID hexchat
+docker run -v=hexchat-home:/home/runuser -p=$HEXCHAT_PORT:8081 -e USERID=$BASIC_ID -e GROUPID=$BASIC_ID hexchat
 ```
 
 

@@ -1,16 +1,19 @@
 # Docker Calibre Template
 
-https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-applications-using-docker-and-caddy-on-debian-9
+## Run
 
 ```
-docker run -v=calibre-home:/data -p=8081:8081 -e USERID=1000 -e GROUPID=1000 calibre
+docker run -d -v=calibre-home:/home/runuser -v=/$CALIBRE_LIBRARY:/library -v=/$CALIBRE_SOURCE:/source -p=$CALIBRE_PORT:8081 -e USERID=$BOOKS_ID -e GROUPID=$BOOKS_ID calibre
 ```
 
+Generic style:
+
 ```
-docker run -d -v=calibre-home:/data -v=/$CALIBRE_LIBRARY:/library -v=/$CALIBRE_SOURCE:/source -p=$CALIBRE_PORT:8081 -e USERID=$BOOKS_ID -e GROUPID=$BOOKS_ID calibre
+docker run -d -v=$(basename $(pwd))-home:/home/runuser -v=/$CALIBRE_LIBRARY:/library -v=/$CALIBRE_SOURCE:/source -p=$CALIBRE_PORT:8081 -e USERID=$BOOKS_ID -e GROUPID=$BOOKS_ID --name=$(basename $(pwd))-c $(basename $(pwd))
 ```
 
+## Notes
 
-* Based on ubuntu-gui-base
+* Based on base-ubuntu-gui
 
 

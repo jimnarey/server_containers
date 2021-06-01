@@ -9,7 +9,7 @@ services:
         build: .
         container_name: clrmamepro
         volumes: 
-            - clrmamepro-home:/data
+            - clrmamepro-home:/home/runuser
             - clrmamepro-app:/app
         ports:
             - "9001:8081"
