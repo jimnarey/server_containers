@@ -11,7 +11,7 @@ RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\
-            USER=app\n\
+            USER=runuser\n\
 command=/usr/bin/doublecmd /host_volumes /host_volumes\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\

@@ -11,8 +11,7 @@ RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\
-            USER=app\n\
-# CHANGE APP NAME HERE\n\
+            USER=runuser\n\
 command=/usr/bin/wine /usr/share/npp/notepad++.exe\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-chown app:app /data
+chown app:app /home/runuser
 chown app:app /dev/stdout

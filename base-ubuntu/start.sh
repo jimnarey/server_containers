@@ -4,8 +4,8 @@
 USERID=${USERID:-1000}
 GROUPID=${GROUPID:-1000}
 
-groupmod -o -g "$GROUPID" app
-usermod -o -u "$USERID" app
+groupmod -o -g "$GROUPID" runuser
+usermod -o -u "$USERID" runuser
 
 echo '
 ----------------------------
@@ -26,10 +26,10 @@ echo '
 GROUPID/USERID
 -----------------------------'
 echo "
-User uid:    $(id -u app)
-User gid:    $(id -g app)
+User uid:    $(id -u runuser)
+User gid:    $(id -g runuser)
 -----------------------------
 "
 /usr/local/bin/init_chowns.sh
 
-exec gosu app supervisord
+exec gosu runuser supervisord

@@ -1,5 +1,4 @@
-FROM ubuntu-gui-base:latest
-
+FROM base-ubuntu-gui:latest
 
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
@@ -22,4 +21,3 @@ RUN apt-get update && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
-

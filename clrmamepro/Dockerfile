@@ -2,23 +2,22 @@ FROM base-ubuntu-wine:latest
 
 # The application is extracted to a volume because it stores data in the same dir
 RUN mkdir /app && \
-    # wget -P /app https://mamedev.emulab.it/clrmamepro/binaries/cmp4041_64.zip
     wget -P /app https://mamedev.emulab.it/clrmamepro/binaries/cmp4041_32.zip 
 WORKDIR /app
 RUN unzip cmp4041_32.zip && \
-    chown -R app:app /app && \
+    chown -R runuser:runuser /app && \
     rm -f cmp4041_32.zip
 VOLUME /app
 
 RUN echo \
-'\nchown app:app /app\n' \
+'\nchown -R runuser:runuser /app\n' \
 >> /usr/local/bin/init_chowns.sh
 
 RUN echo \
 '\n[program:app]\n\
 priority=1\n\
 environment=DISPLAY=:0,\n\
-            USER=app\n\
+            USER=runuser\n\
 command=/usr/bin/wine /app/cmpro.exe\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
