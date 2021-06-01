@@ -1,4 +1,4 @@
-FROM ubuntu-wine-base:latest
+FROM base-ubuntu-wine:latest
 
 RUN mkdir /app && \
     wget -P /app https://www.romvault.com/download/ROMVault_V3.2.5.zip

@@ -1,4 +1,8 @@
-# Docker GUI App Templates
+# Home Server Containers
+
+Includes:
+
+* Template images/Dockerfiles for
 
 https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-applications-using-docker-and-caddy-on-debian-9
 

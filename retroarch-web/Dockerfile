@@ -1,4 +1,4 @@
-FROM ubuntu-headless-base:latest
+FROM base-ubuntu-caddy:latest
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends nodejs npm && \

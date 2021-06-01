@@ -1,4 +1,4 @@
-FROM ubuntu-wine-base:latest
+FROM base-ubuntu-wine:latest
 
 RUN mkdir -p /usr/share/npp
 COPY npp.7.9.5.portable.x64.zip /usr/share/npp/npp.zip

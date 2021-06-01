@@ -1,4 +1,4 @@
-FROM ubuntu-wine-base:latest
+FROM base-ubuntu-wine:latest
 
 RUN mkdir /app && \
     wget -P /app https://www.romcenter.com/downloadfile.php?file=romcenter32_4.1.1.7z

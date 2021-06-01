@@ -4,10 +4,10 @@
 #     go get github.com/geek1011/easy-novnc@v1.1.0 && \
 #     go build -o /bin/easy-novnc github.com/geek1011/easy-novnc
 
-FROM ubuntu-headless-base:latest
+FROM base-ubuntu-caddy:latest
 
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal && \
+    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal htop && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists

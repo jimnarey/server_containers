@@ -6,10 +6,10 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 
 
 ```
-docker run --volume=hexchat-home:/data --publish=8085:8081 hexchat
+docker run -v=hexchat-home:/data -p=$HEXCHAT_PORT:8081 -e USERID=$BASIC_ID -e GROUPID=$BASIC_ID hexchat
 ```
 
 
-* Sets the app to start via wine in supervisord.conf
+* Sets the app to start in supervisord.conf
 
 

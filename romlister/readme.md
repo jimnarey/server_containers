@@ -7,7 +7,7 @@ https://www.digitalocean.com/community/tutorials/how-to-remotely-access-gui-appl
 Needs an additional volume to hold the romlister app which stores data in the same folder as the executable.
 
 ```
-docker run --volume=romlister-home:/data --volume=romlister-app:/app  --publish=8081:8081 romlister
+docker run -v=romlister-home:/data -v=romlister-app:/app -p=8081:8081  -e USERID=$RETRO_ID -e GROUPID=$RETRO_ID romlister
 ```
 
 * Based on ubuntu-wine-base

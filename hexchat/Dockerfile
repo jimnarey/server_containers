@@ -1,4 +1,4 @@
-FROM ubuntu-gui-base:latest
+FROM base-ubuntu-gui:latest
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends hexchat && \
