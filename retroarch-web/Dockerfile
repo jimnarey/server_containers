@@ -8,7 +8,7 @@ RUN apt-get update -y && \
 
 RUN npm install --global coffeescript
 
-COPY --from=build-retroarch-emscripten /build /var/www
+COPY --from=download-retroarch-emscripten /download /var/www
 
 RUN chmod +x /var/www/indexer
 
