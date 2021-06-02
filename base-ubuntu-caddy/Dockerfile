@@ -1,4 +1,4 @@
-FROM base-ubuntu
+FROM base-ubuntu:latest
 
 COPY --from=build-caddy /bin/caddy /usr/local/bin/
 COPY Caddyfile /etc/

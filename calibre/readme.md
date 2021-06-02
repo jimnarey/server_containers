@@ -1,4 +1,4 @@
-# Docker Calibre Template
+# Docker Calibre
 
 ## Run
 
