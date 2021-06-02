@@ -1,0 +1,26 @@
+version: '3.2'
+
+services:
+  openkm:
+    image: openkm/openkm-ce:6.3.9
+    ports:
+      - 8087:8080
+    volumes:
+      - ${PWD}/server.xml:/opt/tomcat/conf/server.xml
+      - ${PWD}/OpenKM.cfg:/opt/tomcat/OpenKM.cfg
+      - /mnt/int_data_b/DocumentLibrary:/opt/tomcat/repository
+    links:
+      - mysql:mysql
+
+  mysql:
+    image: mysql:8.0.13
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8 --collation-server=utf8_bin
+    environment:
+      - MYSQL_DATABASE=okmdb
+      - MYSQL_USER=openkm
+      - MYSQL_PASSWORD=openkm
+      - MYSQL_ROOT_PASSWORD=openkm
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - /mnt/int_data_b/DocumentLibraryDB:/var/lib/mysql

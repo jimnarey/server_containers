@@ -10,6 +10,7 @@ export CALIBRE_SOURCE=/mnt/ext_data_a/Cloud/Dropbox/Fiction
 export VIDEO_ROOT=/mnt/ext_data_a/Cloud/Dropbox/Video
 export MUSIC_ROOT=/mnt/ext_data_a/Cloud/Dropbox/Music
 export PICTURES_ROOT=/home/dockerman/empty
+export DOCS_ROOT=/mnt/int_data_b/DocumentLibrary
 
 # Volume backup mount path
 
