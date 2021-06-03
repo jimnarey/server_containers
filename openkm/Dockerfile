@@ -49,3 +49,6 @@ stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
 >> /etc/supervisord.conf
 
+RUN echo \
+'\nchown -R runuser:runuser /usr/local/tomcat\n' \
+>> /usr/local/bin/init_chowns.sh
