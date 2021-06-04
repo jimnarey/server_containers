@@ -12,6 +12,8 @@ export MUSIC_ROOT=/mnt/ext_data_a/Cloud/Dropbox/Music
 export PICTURES_ROOT=/home/dockerman/empty
 export DOCS_ROOT=/mnt/int_data_b/DocumentLibrary
 
+export DREAMCAST_ISO=/mnt/int_data_a/Retro/Roms/dreamcast
+
 # Volume backup mount path
 
 export VOLUME_BACKUP_DIR=/mnt/int_data_b/volume_backups
@@ -27,4 +29,5 @@ export MEDIA_ID=$BASIC_ID
 
 export CALIBRE_PORT=8082
 export HEXCHAT_PORT=8083
-export DC_PORT=8084
+export DOUBLE_CMDR_PORT=8084
+export FILEZILLA_PORT=8085
