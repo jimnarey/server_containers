@@ -25,4 +25,6 @@ stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
 >> /etc/supervisord.conf
 
+COPY Caddyfile /etc/
+
 RUN sed -i 's/Ubuntu GUI App Base Img/Calibre/g' /etc/supervisord.conf

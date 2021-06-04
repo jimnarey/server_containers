@@ -28,6 +28,7 @@ export MEDIA_ID=$BASIC_ID
 # Port assignment for apps
 
 export CALIBRE_PORT=8082
+export CALIBRE_WEB_PORT=8086
 export HEXCHAT_PORT=8083
 export DOUBLE_CMDR_PORT=8084
 export FILEZILLA_PORT=8085

@@ -9,7 +9,7 @@ docker run -d -v=calibre-home:/home/runuser -v=/$CALIBRE_LIBRARY:/library -v=/$C
 Generic style:
 
 ```
-docker run -d -v=$(basename $(pwd))-home:/home/runuser -v=/$CALIBRE_LIBRARY:/library -v=/$CALIBRE_SOURCE:/source -p=$CALIBRE_PORT:8081 -e USERID=$BOOKS_ID -e GROUPID=$BOOKS_ID --name=$(basename $(pwd))-c $(basename $(pwd))
+docker run -d -v=$(basename $(pwd))-home:/home/runuser -v=/$CALIBRE_LIBRARY:/library -v=/$CALIBRE_SOURCE:/source -p=$CALIBRE_WEB_PORT:8082 -p=$CALIBRE_PORT:8081 -e USERID=$BOOKS_ID -e GROUPID=$BOOKS_ID --name=$(basename $(pwd))-c $(basename $(pwd))
 ```
 
 ## Notes
