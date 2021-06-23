@@ -2,6 +2,14 @@
 
 ## Runtime mount paths
 
+# Cloud Backup
+
+export IDRIVE_BACKUP_ROOT=/mnt/ext_data_a/Cloud/iDrive
+export IDRIVE_RESTORE_ROOT=/mnt/ext_data_a/Cloud/iDriveRestore
+export IDRIVE_SERVICE_ROOT=/mnt/ext_data_a/Cloud/iDriveService
+export IDRIVE_PROFILE_NAME=fileman
+export IDRIVE_CONTAINER_HOSTNAME=nas
+
 # Rom Management
 
 export ROM_ROOT=/mnt/int_data_a/Retro/Roms
