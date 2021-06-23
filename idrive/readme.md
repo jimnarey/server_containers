@@ -1,6 +1,6 @@
 # IDrive
 
-## Note
+## Notes
 
 Unlike other images this needs setenv.sh to be sourced before build, not just before run.
 
@@ -9,6 +9,10 @@ It then needs the account_settings.pl script to be run and configured from withi
 ```
 docker exec -u runuser -it $(basename $(pwd))-c /bin/bash
 ```
+
+There's quite a lot of stuff in the Dockerfile aimed at, as far as possible, duplicating the environement on the host machine (user, paths) so that an iDrive setup running on a Linux box can be transferred into a container. Some of it could be pruned if this isn't the case and it's possible that matching the usernames isn't actually needed if it is the case.
+
+So there's some room for refinement/simplification with this one. Not helped by the iDrive Linux docs not being amazing and some of the way it works being a bit opaque. Nobody on technical support could give me a clear explanation as to what purpose the 'profile' in the iDrive web interface has (the profile name is automatically generated from the Linux username running the scripts).
 
 ## Build
 
