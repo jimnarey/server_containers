@@ -10,6 +10,8 @@ export IDRIVE_SERVICE_ROOT=/mnt/ext_data_a/Cloud/iDriveService
 export IDRIVE_PROFILE_NAME=fileman
 export IDRIVE_CONTAINER_HOSTNAME=nas
 
+export DROPBOX_FOLDER=/mnt/ext_data_b/Cloud/Dropbox
+
 # Rom Management
 
 export ROM_ROOT=/mnt/int_data_a/Retro/Roms
