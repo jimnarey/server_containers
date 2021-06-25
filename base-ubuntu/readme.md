@@ -20,11 +20,6 @@ docker run -p=8081:8081 base-ubuntu
 
 The built image has a user created within it ('runuser') which is essential to managing the permissions for anything run in the container, otherwise everything runs as root. The UID/GID for runuser can be set when the container starts:
 
-```
-docker run -v=base-ubuntu-home:/home/runuser -p=8081:8081 -e USERID=$FILES_ID -e GROUPID=$FILES_ID base-ubuntu
-```
-
-Generic style:
 
 ```
 docker run -v=$(basename $(pwd))-home:/home/runuser -p=8081:8081 -e USERID=$FILES_ID -e GROUPID=$FILES_ID --name=$(basename $(pwd))-c $(basename $(pwd))

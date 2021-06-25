@@ -17,15 +17,8 @@ docker run --rm -it base-ubuntu-caddy caddy hash-password --algorithm bcrypt
 
 ## Run the container
 
-Basic:
 
 Pass in the UID/GID and Caddy credentials (includes the hash for 'caddy'):
-
-```
-docker run -v=base-home:/home/runuser -p=8081:8081 -e USERID=$FILES_ID -e GROUPID=$FILES_ID -e CADDY_USER=caddy -e CADDY_HASH=JDJhJDEwJGF2emhqVGM4RERVQ2dQb2NOOEdiQWVEd2htNjRFSDlVOUJJTWlZNmNPdmRNZnlnT1lLTTBD base-ubuntu-caddy
-```
-
-Generic style:
 
 ```
 docker run -v=$(basename $(pwd))-home:/home/runuser -p=8081:8081 -e USERID=$FILES_ID -e GROUPID=$FILES_ID -e CADDY_USER=caddy -e CADDY_HASH=JDJhJDEwJGF2emhqVGM4RERVQ2dQb2NOOEdiQWVEd2htNjRFSDlVOUJJTWlZNmNPdmRNZnlnT1lLTTBD --name=$(basename $(pwd))-c $(basename $(pwd))

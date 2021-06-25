@@ -22,12 +22,12 @@ export ROM_OUTPUT=/mnt/int_data_a/Retro/Output
 # eBooks
 
 export CALIBRE_LIBRARY=/mnt/int_data_b/CalibreLibrary
-export CALIBRE_SOURCE=/mnt/ext_data_a/Cloud/Dropbox/Fiction
+export CALIBRE_SOURCE=/mnt/int_data_c/Cloud/Dropbox/Fiction
 
 # Media
 
 export VIDEO_ROOT=/mnt/int_data_b/Video
-export MUSIC_ROOT=/mnt/ext_data_a/Cloud/Dropbox/Music
+export MUSIC_ROOT=/mnt/int_data_c/Cloud/Dropbox/Music
 export PICTURES_ROOT=/home/dockerman/empty
 
 # Documents
@@ -54,3 +54,5 @@ export HEXCHAT_PORT=8084
 export DOUBLE_CMDR_PORT=8085
 export FILEZILLA_PORT=8086
 export XFBURN_PORT=8087
+export OPENKM_PORTA=8088
+export OPENKM_PORTB=8089
