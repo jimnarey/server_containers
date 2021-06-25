@@ -34,6 +34,11 @@ export PICTURES_ROOT=/home/dockerman/empty
 
 export DOCS_ROOT=/mnt/int_data_b/DocumentLibrary
 
+# Postgres Admin Credentials
+
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=Fraggle_234
+
 # Volume backup mount path
 
 export VOLUME_BACKUP_DIR=/mnt/int_data_b/volume_backups
