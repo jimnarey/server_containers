@@ -26,6 +26,9 @@ RUN mkdir /transmission_config
 COPY settings.json /transmission_config
 RUN chown -R runuser:runuser /transmission_config
 
+COPY transmission-daemon.conf /etc/init
+RUN chown -R runuser:runuser /var/lib/transmission-daemon
+
 RUN sed -i 's/Ubuntu GUI App Base Img/Transmission/g' /etc/supervisord.conf
 
 RUN sed -i "s/PASSWORD/$TRANSMISSION_PASSWORD/g" /transmission_config/settings.json
