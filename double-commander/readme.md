@@ -16,4 +16,3 @@ docker run -d -v=$(basename $(pwd))-home:/home/runuser -v=/mnt:/host_volumes -p=
 
 * Mounts the host's /mnt dir as /host_volumes in the container and points double commander there on start
 
-* Sets the app to start via wine in supervisord.conf
