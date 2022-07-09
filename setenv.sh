@@ -10,6 +10,9 @@ export IDRIVE_SERVICE_ROOT=/mnt/ext_data_a/Cloud/iDriveService
 export IDRIVE_PROFILE_NAME=fileman
 export IDRIVE_CONTAINER_HOSTNAME=nas
 
+export MEGANZ_SYNC_A=/mnt/ext_data_a/Cloud/Meganz
+export MEGANZ_SYNC_B=/mnt/int_data_a/Cloud/Meganz
+
 export DROPBOX_FOLDER=/mnt/ext_data_b/Cloud/Dropbox
 
 # Rom Management
@@ -62,6 +65,8 @@ export XFBURN_PORT=8087
 export OPENKM_PORTA=8088
 export OPENKM_PORTB=8089
 export TRANSMISSION_PORT=8090
+export PS2TOOLS_PORT=9092
+export CLRMAMEPRO_PORT=8093
 
 export CADDY_HASH=JDJhJDEwJHRTTk1BdzRyNVJHL2ZJSncxaG5CZ3VkejNaRW9uRTg3NFZBLko1bU5YRmNUN01RZ01BZWV1
 
