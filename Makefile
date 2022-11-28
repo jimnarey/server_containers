@@ -1,5 +1,7 @@
 SHELL := /bin/bash
 
+EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map_2.sh fileman runuser)
+
 build-sources:
 	docker build -t build-caddy ./build-caddy
 	docker build -t build-easy-novnc ./build-easy-novnc
@@ -50,13 +52,15 @@ build-filezilla: build-bases
 	docker build -t filezilla ./filezilla
 
 run-filezilla: build-filezilla
-	source env.sh && docker run -v=filezilla-home:/home/runuser -v=/mnt:/host_volumes -p=$$DC_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=filezilla-c filezilla
+	source env.sh && docker run -d -v=filezilla-home:/home/runuser -v=/mnt:/host_volumes -p=$$FILEZILLA_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=filezilla-c filezilla
 
 build-gdmenu-cm: build-bases
 	docker build -t gdmenu-cm ./gdmenu-cm
 
 run-gdmenu-cm: build-gdmenu-cm
-	docker run -d -v=build-gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=build-gdmenu-cm-c build-gdmenu-cm
+# source env.sh
+# EXT_VOLUMES=$(shell ./get_ext_volumes_map.sh $$FILES_ID)
+	docker run -d -v=build-gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
 
 build-hexchat: build-bases
 	docker build -t hexchat ./hexchat
@@ -162,3 +166,8 @@ run-ugly-gdemu-gm: build-ugly-gdemu-gm
 # build-xfburn: build-bases
 # 	docker build -t xfburn-c ./xfburn
 
+test:
+	# source env.sh
+	# MOO := "hello"
+	# MOO:=$(shell ./get_ext_volumes_map.sh fileman)
+	@echo $(EXT_VOLUMES_MAPPING)
