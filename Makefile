@@ -1,6 +1,8 @@
 SHELL := /bin/bash
 
-EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map_2.sh fileman runuser)
+# EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh "/media/fileman" runuser)
+
+EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map_old.sh fileman runuser)
 
 build-sources:
 	docker build -t build-caddy ./build-caddy
@@ -60,7 +62,7 @@ build-gdmenu-cm: build-bases
 run-gdmenu-cm: build-gdmenu-cm
 # source env.sh
 # EXT_VOLUMES=$(shell ./get_ext_volumes_map.sh $$FILES_ID)
-	docker run -d -v=build-gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
+	source env.sh && docker run -d -v=build-gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
 
 build-hexchat: build-bases
 	docker build -t hexchat ./hexchat
@@ -161,7 +163,7 @@ build-ugly-gdemu-gm: build-bases
 	docker build -t ugly-gdemu-gm ./ugly-gdemu-gm
 
 run-ugly-gdemu-gm: build-ugly-gdemu-gm
-	source env.sh && docker run -d -v=ugly-gdemu-gm-home:/home/runuser -v=ugly-gdemu-gm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos -p=$$UGLY_GDEMU_GM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ugly-gdemu-gm-c ugly-gdemu-gm
+	source env.sh && docker run -d -v=ugly-gdemu-gm-home:/home/runuser -v=ugly-gdemu-gm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$UGLY_GDEMU_GM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ugly-gdemu-gm-c ugly-gdemu-gm
 
 # build-xfburn: build-bases
 # 	docker build -t xfburn-c ./xfburn
