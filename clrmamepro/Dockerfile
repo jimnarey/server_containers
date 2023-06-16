@@ -4,7 +4,7 @@ FROM base-ubuntu-wine:latest
 
 # The application is extracted to a volume because it stores data in the same dir
 RUN mkdir /app && \
-    wget -P /app https://mamedev.emulab.it/clrmamepro/binaries/cmp4045_32.zip 
+    wget -P /app https://mamedev.emulab.it/clrmamepro/binaries/cmp4047_64.zip 
 WORKDIR /app
 RUN unzip cmp4045_32.zip && \
     chown -R runuser:runuser /app && \

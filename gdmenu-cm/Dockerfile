@@ -14,7 +14,7 @@ RUN chown -R runuser:runuser /app
 VOLUME /app
 
 RUN echo \
-'\nchown -R runuser:runuser /apps\n' \
+'\nchown -R runuser:runuser /app\n' \
 >> /usr/local/bin/init_chowns.sh
 
 RUN echo \

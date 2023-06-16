@@ -39,6 +39,10 @@ export PICTURES_ROOT=
 
 export DOCS_ROOT=
 
+# Laser Cutter
+
+export LIGHTBURN_ROOT=
+
 # Postgres Admin Credentials
 
 POSTGRES_USER=postgres
@@ -73,6 +77,7 @@ export SIMPLE_ARCADE_MULTIFILTER_PORT=8094
 export MAME_PORT=8095
 export GDMENU_CM_PORT=8096
 export UGLY_GDEMU_GM_PORT=8097
+export LIGHTBURN_PORT=8098
 
 export CADDY_HASH=
 

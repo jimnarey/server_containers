@@ -60,9 +60,7 @@ build-gdmenu-cm: build-bases
 	docker build -t gdmenu-cm ./gdmenu-cm
 
 run-gdmenu-cm: build-gdmenu-cm
-# source env.sh
-# EXT_VOLUMES=$(shell ./get_ext_volumes_map.sh $$FILES_ID)
-	source env.sh && docker run -d -v=build-gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
+	source env.sh && docker run -d -v=gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-app:/app -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
 
 build-hexchat: build-bases
 	docker build -t hexchat ./hexchat
@@ -73,8 +71,14 @@ run-hexchat: build-hexchat
 build-idrive: build-bases
 	source env.sh && docker build -t idrive --build-arg IDRIVE_PROFILE_NAME=$$IDRIVE_PROFILE_NAME --build-arg IDRIVE_BACKUP_ROOT=$$IDRIVE_BACKUP_ROOT --build-arg IDRIVE_RESTORE_ROOT=$$IDRIVE_RESTORE_ROOT --build-arg IDRIVE_SERVICE_ROOT=$$IDRIVE_SERVICE_ROOT ./idrive
 
-run-idrive: build-idrive
-	source env.sh &&
+# run-idrive: build-idrive
+# 	source env.sh &&
+
+build-lightburn:
+	docker build -t lightburn ./lightburn
+
+run-lightburn: build-lightburn
+	source env.sh && docker run -d -v=lightburn-home:/home/runuser -v=$$LIGHTBURN_ROOT:/lightburn -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=basic -e CADDY_HASH=$$LIGHTBURN_CADDY_HASH --name=lightburn-c lightburn
 
 build-meganz: build-bases
 	docker build -t meganz ./meganz
