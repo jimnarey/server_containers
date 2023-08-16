@@ -21,13 +21,13 @@ build-calibre: build-bases
 	docker build -t calibre ./calibre
 
 run-calibre: build-calibre
-	source env.sh && docker run -d -v=calibre-home:/home/runuser -v=/$$CALIBRE_LIBRARY:/library -v=/$$CALIBRE_SOURCE:/source -p=$$CALIBRE_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=calibre-c calibre
+	source env.sh && docker run -d -v=calibre-home:/home/runuser -v=/$$CALIBRE_LIBRARY:/library -v=/$$CALIBRE_SOURCE:/source -p=$$CALIBRE_PORT:8081 -p=$$CALIBRE_WEB_PORT:8083 -e USERID=$$FILES_ID -e CADDY_HASH=$$CADDY_HASH -e GROUPID=$$FILES_ID --name=calibre-c calibre
 
 build-clrmamepro: build-bases
 	docker build -t clrmamepro ./clrmamepro
  
 run-clrmamepro: build-clrmamepro
-	source ./env.sh && docker run -d -v=clrmamepro-home:/home/runuser -v=clrmamepro-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$CLRMAMEPRO_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=calibre-c-c clrmamepro
+	source ./env.sh && docker run -d -v=clrmamepro-home:/home/runuser -v=clrmamepro-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$CLRMAMEPRO_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=clrmamepro-c clrmamepro
 
 build-double-commnder: build-bases
 	docker build -t double-commnder ./double-commnder
