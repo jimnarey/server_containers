@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 RUN echo "\nln -s /opt/dropbox/.dropbox-dist /home/runuser/.dropbox-dist\n" >> /usr/local/bin/init_chowns.sh
 
-RUN mkdir /home/runuser/Dropbox
+RUN mkdir -p /home/runuser/Dropbox
 
 # RUN echo \
 # '\n[program:app]\n\
