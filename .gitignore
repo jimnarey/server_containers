@@ -3,3 +3,4 @@ hashes/*
 *-volume
 romvault/*.exe
 env.sh
+*.ovpn
