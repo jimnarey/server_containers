@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 # EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh "/media/fileman" runuser)
 
-EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh fileman runuser)
+EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh nas runuser)
 
 build-sources:
 	docker build -t build-caddy ./build-caddy

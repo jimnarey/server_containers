@@ -22,10 +22,6 @@ redirect_stderr=true\n'\
 >> /etc/supervisord.conf
 
 RUN mkdir /host_volumes
-RUN mkdir /vpn_configs
-
-COPY connect_vpn.sh /usr/local/bin
-RUN chmod +x /usr/local/bin/connect_vpn.sh
 
 RUN mkdir /transmission_config
 COPY settings.json /transmission_config
