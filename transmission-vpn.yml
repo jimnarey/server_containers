@@ -3,8 +3,8 @@ version: "3.8"
 services:
 
   expressvpn:
+    build: ./expressvpn
     container_name: expressvpn-c
-    image: polkaned/expressvpn
     env_file:
           - env.sh
     cap_add:
