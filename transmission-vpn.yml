@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+
+  expressvpn:
+    container_name: expressvpn-c
+    image: polkaned/expressvpn
+    env_file:
+          - env.sh
+    cap_add:
+      - NET_ADMIN
+    devices: 
+      - /dev/net/tun
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - 9092:9091
+
+  transmission:
+    image: transmission
+    container_name: transmission-vpn-c
+    env_file:
+      - env.sh
+    network_mode: service:expressvpn
+    depends_on:
+      - expressvpn
+    volumes:
+      - transmission-vpn-home:/home/runuser
+
+volumes:
+  transmission-vpn-home: {}
