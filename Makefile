@@ -1,7 +1,5 @@
 SHELL := /bin/bash
 
-# EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh "/media/fileman" runuser)
-
 EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh nas runuser)
 
 build-sources:
@@ -13,6 +11,7 @@ build-ubuntu:
 	docker build --no-cache -t base-ubuntu ./base-ubuntu
 
 build-bases:
+	docker build -t base-ubuntu ./base-ubuntu
 	docker build -t base-ubuntu-caddy ./base-ubuntu-caddy
 	docker build -t base-ubuntu-gui ./base-ubuntu-gui
 	docker build -t base-ubuntu-wine ./base-ubuntu-wine
@@ -71,9 +70,6 @@ run-hexchat: build-hexchat
 build-idrive: build-bases
 	source env.sh && docker build -t idrive --build-arg IDRIVE_PROFILE_NAME=$$IDRIVE_PROFILE_NAME --build-arg IDRIVE_BACKUP_ROOT=$$IDRIVE_BACKUP_ROOT --build-arg IDRIVE_RESTORE_ROOT=$$IDRIVE_RESTORE_ROOT --build-arg IDRIVE_SERVICE_ROOT=$$IDRIVE_SERVICE_ROOT ./idrive
 
-# run-idrive: build-idrive
-# 	source env.sh &&
-
 build-lightburn:
 	docker build -t lightburn ./lightburn
 
@@ -100,18 +96,6 @@ build-mindnla: build-bases
 
 run-minidnla: build-minidnla
 	source env.sh && docker run -d -v=minidnla-home:/home/runuser -v=$$VIDEO_ROOT:/video:ro -v=$$MUSIC_ROOT:/music:ro -v=$$PICTURES_ROOT:/pictures:ro --network=host -e USERID=$$MEDIA_ID -e GROUPID=$$MEDIA_ID --name=minidnla-c minidnla
-
-# build-openkm: build-bases
-# 	source env.sh && docker build -t openkm-c --build-arg=PG_USERNAME="openkm" --build-arg=PG_PASSWORD=$$PG_PASSWORD --build-arg=PG_HOST="localhost" ./openkm
-
-# run-openkm: build-openkm
-# 	source env.sh && docker run -d -v=openkm-home:/home/runuser -p=$$OPENKM_PORTA:8080 -p=$$OPENKM_PORTB:2002  -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=openkm-c openkm
-
-# build-postgres-custom: build-bases
-# 	source env.sh && docker build -t postgres-custom --build-arg POSTGRES_USER=$$POSTGRES_USER --build-arg POSTGRES_PASSWORD=$$POSTGRES_PASSWORD ./postgres-custom
-
-# run-postgres-custom: build-postgres-custom
-# 	source env.sh && ??????????????????
 
 build-ps2tools: build-bases
 	docker build -t ps2tools ./ps2tools
@@ -143,13 +127,8 @@ build-romlister: build-bases
 run-romlister: build-romlister
 	source env.sh && docker run -v=romlister-home:/home/runuser -v=romlister-app:/app -p=8081:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=romlister-c romlister
 
-# build-romulus: build-bases
-
 build-romvault: build-bases
 	docker build -t romvault ./romvault
-
-# run-romvault: build-romvault
-# 	source env.sh && ??????????????????????
 
 build-simple-arcade-multifilter: build-bases
 	docker build -t simple-arcade-multifilter ./simple-arcade-multifilter
@@ -163,17 +142,14 @@ build-transmission: build-bases
 run-transmission: build-transmission
 	source env.sh && docker run -d -v=transmission-home:/home/runuser -v=/mnt:/host_volumes -p=9091:9091 -p=51413:51413 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=transmission-c transmission
 
+run-transmission-vpn:
+	source env.sh && env BUILDKIT_PROGRESS=plain docker compose -f transmission-vpn.yml up -d
+
+transmission-vpn-down:
+	docker compose -f transmission-vpn.yml down
+
 build-ugly-gdemu-gm: build-bases
 	docker build -t ugly-gdemu-gm ./ugly-gdemu-gm
 
 run-ugly-gdemu-gm: build-ugly-gdemu-gm
 	source env.sh && docker run -d -v=ugly-gdemu-gm-home:/home/runuser -v=ugly-gdemu-gm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$UGLY_GDEMU_GM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ugly-gdemu-gm-c ugly-gdemu-gm
-
-# build-xfburn: build-bases
-# 	docker build -t xfburn-c ./xfburn
-
-test:
-	# source env.sh
-	# MOO := "hello"
-	# MOO:=$(shell ./get_ext_volumes_map.sh fileman)
-	@echo $(EXT_VOLUMES_MAPPING)
