@@ -28,13 +28,13 @@ build-clrmamepro: build-bases
 run-clrmamepro: build-clrmamepro
 	source ./env.sh && docker run -d -v=clrmamepro-home:/home/runuser -v=clrmamepro-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$CLRMAMEPRO_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=clrmamepro-c clrmamepro
 
-build-double-commnder: build-bases
-	docker build -t double-commnder ./double-commnder
+build-double-commander:
+	docker build -t double-commander ./double-commander
 
-run-double-commander: build-double-commander
+run-double-commander: 
 	source env.sh && docker run -d -v=double-commander-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOUBLE_CMDR_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=double-commander-c double-commander
 
-run-double-commander-root: build-double-commander
+run-double-commander-root:
 	source env.sh && docker run -d -v=double-commander-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOUBLE_CMDR_PORT:8081 -e USERID=0 -e GROUPID=0 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=double-commander-c docker run -d -v=double-commander-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOUBLE_CMDR_PORT:8081 -e USERID=0 -e GROUPID=0 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=double-commander-c double-commander
 
 build-dropbox: build-bases
@@ -145,7 +145,7 @@ run-transmission: build-transmission
 run-transmission-vpn:
 	source env.sh && env BUILDKIT_PROGRESS=plain docker compose -f transmission-vpn.yml up -d
 
-transmission-vpn-down:
+down-transmission-vpn:
 	docker compose -f transmission-vpn.yml down
 
 build-ugly-gdemu-gm: build-bases
