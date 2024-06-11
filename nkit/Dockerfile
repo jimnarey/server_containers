@@ -1,5 +1,11 @@
 FROM base-ubuntu-wine:latest
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nemo && \
+    apt-get clean && \
+    apt-get autoremove && \
+    rm -rf /var/lib/apt/lists
+
 # The application is extracted to a volume because it stores data in the same dir
 RUN mkdir /app
 COPY NKit_v1.4.zip /app
@@ -19,6 +25,15 @@ priority=1\n\
 environment=DISPLAY=:0,\n\
             USER=runuser\n\
 command=/usr/bin/wine /app/NKitProcessingApp.exe\n\
+autorestart=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n\
+[program:nemo]\n\
+priority=1\n\
+environment=DISPLAY=:0,\n\
+            USER=runuser\n\
+command=nemo\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
