@@ -41,7 +41,7 @@ build-dropbox:
 	docker build -t dropbox ./dropbox
 
 run-dropbox: build-dropbox
-	source env.sh && docker run -d -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
+	source env.sh && docker run -d -v dropbox-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
 
 start-dropbox-sync:
 	docker exec -u runuser -it dropbox-c /opt/dropbox/dropbox.py start
