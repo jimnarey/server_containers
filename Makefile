@@ -7,13 +7,14 @@ build-sources:
 	docker build -t build-easy-novnc ./build-easy-novnc
 	docker build -t download-retroarch-emscripten ./download-retroarch-emscripten
 
-build-ubuntu:
-	docker build --no-cache -t base-ubuntu ./base-ubuntu
-
 build-bases:
 	docker build -t base-ubuntu ./base-ubuntu
+	docker build --no-cache -t base-ubuntu-22 ./base-ubuntu-22
+	docker build --no-cache -t base-ubuntu-24 ./base-ubuntu-24
 	docker build -t base-ubuntu-caddy ./base-ubuntu-caddy
+	docker build -t base-ubuntu-caddy-22 ./base-ubuntu-caddy-22
 	docker build -t base-ubuntu-gui ./base-ubuntu-gui
+	docker build -t base-ubuntu-gui-22 ./base-ubuntu-gui-22
 	docker build -t base-ubuntu-wine ./base-ubuntu-wine
 
 build-calibre:
@@ -43,11 +44,26 @@ build-dropbox:
 run-dropbox: build-dropbox
 	source env.sh && docker run -d -v dropbox-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
 
+# run-dropbox: build-dropbox
+# 	source env.sh && docker run -d -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
+
 start-dropbox-sync:
 	docker exec -u runuser -it dropbox-c /opt/dropbox/dropbox.py start
 
 status-dropbox:
 	docker exec -u runuser -it dropbox-c /opt/dropbox/dropbox.py status
+
+build-dropbox-src:
+	docker build -t dropbox-src ./dropbox-src
+
+run-dropbox-src: build-dropbox-src
+	source env.sh && docker run -d -v dropbox-src-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-src-c dropbox-src
+
+build-dropbox-gui:
+	docker build -t dropbox-gui ./dropbox-gui
+
+run-dropbox-gui: build-dropbox-gui
+	source env.sh && docker run -d -v dropbox-gui-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox -e CADDY_HASH=$$CADDY_HASH -p=$$DROPBOX_GUI_PORT:8081 --name=dropbox-gui-c dropbox-gui
 
 build-filezilla:
 	docker build -t filezilla ./filezilla
