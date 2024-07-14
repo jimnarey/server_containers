@@ -5,10 +5,10 @@ FROM base-ubuntu-gui:latest
 # The application is extracted to a volume because it stores data in the same dir
 
 RUN mkdir /app && \
-    wget -P /app https://github.com/sonik-br/GDMENUCardManager/releases/download/v1.3.5/GDMENUCardManager.v1.3.5-linux-x64.tar.gz
+    wget -P /app https://github.com/sonik-br/GDMENUCardManager/releases/download/v2.0.0/GDMENUCardManager.v2.0.0-linux-x64.tar.gz
 WORKDIR /app
-RUN tar -xf GDMENUCardManager.v1.3.5-linux-x64.tar.gz
-RUN rm -f /app/gdmenucm/GDMENUCardManager.v1.3.5-linux-x64.tar.gz
+RUN tar -xf GDMENUCardManager.v2.0.0-linux-x64.tar.gz
+RUN rm -f /app/gdmenucm/GDMENUCardManager.v2.0.0-linux-x64.tar.gz
 RUN chown -R runuser:runuser /app
 
 VOLUME /app
