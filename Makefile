@@ -66,13 +66,13 @@ build-lightburn:
 	docker build -t lightburn ./lightburn
 
 run-lightburn: build-lightburn
-	source env.sh && docker run -d -v=lightburn-home:/home/runuser -v=$$LIGHTBURN_ROOT:/lightburn -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=basic -e CADDY_HASH=$$LIGHTBURN_CADDY_HASH --name=lightburn-c lightburn
+	source env.sh && docker run -d --device=/dev/ttyUSB0 -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn
 
 build-lasergrbl-install:
 	docker build -t lasergrbl-install lasergrbl-install
 
 run-lasergrbl-install: build-lasergrbl-install
-	source env.sh && docker run --rm -d -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
+	source env.sh && docker run --rm -d --device=/dev/ttyUSB0 -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
 
 build-lasergrbl:
 	docker build -t lasergrbl lasergrbl
