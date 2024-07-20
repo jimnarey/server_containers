@@ -1,14 +1,13 @@
 FROM base-ubuntu-24:latest
 
-# COPY --from=build-caddy /bin/caddy /usr/local/bin/
-
 RUN mkdir -p /home/runuser/caddy_dl
 WORKDIR /home/runuser/caddy_dl
 RUN wget https://github.com/caddyserver/caddy/releases/download/v2.8.2/caddy_2.8.2_linux_amd64.tar.gz
 RUN tar -xvf caddy_2.8.2_linux_amd64.tar.gz && \
-    cp caddy /usr/local/bin && \
-    cd .. && \
-    rm -rf caddy_dl
+    cp caddy /usr/local/bin
+    
+WORKDIR /home/runuser
+RUN rm -rf caddy_dl
 
 COPY Caddyfile /etc/
 ENV CADDY_USER=admin
