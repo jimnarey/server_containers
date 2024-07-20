@@ -1,0 +1,2 @@
+[HKEY_LOCAL_MACHINE\Software\Wine\Ports]
+"COM10"="/dev/ttyUSB0"
