@@ -32,4 +32,4 @@ User gid:    $(id -g runuser)
 "
 /usr/local/bin/init_chowns.sh
 
-exec gosu runuser supervisord
+exec gosu runuser supervisord -c /etc/supervisord.conf
