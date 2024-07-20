@@ -35,21 +35,6 @@ run-double-commander:
 run-double-commander-root:
 	source env.sh && docker run -d -v=double-commander-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOUBLE_CMDR_PORT:8081 -e USERID=0 -e GROUPID=0 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=double-commander-c docker run -d -v=double-commander-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOUBLE_CMDR_PORT:8081 -e USERID=0 -e GROUPID=0 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=double-commander-c double-commander
 
-build-dropbox:
-	docker build -t dropbox ./dropbox
-
-run-dropbox: build-dropbox
-	source env.sh && docker run -d -v dropbox-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
-
-run-dropbox: build-dropbox
-	source env.sh && docker run -d -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
-
-build-dropbox-src:
-	docker build -t dropbox-src ./dropbox-src
-
-run-dropbox-src: build-dropbox-src
-	source env.sh && docker run -d -v dropbox-src-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-src-c dropbox-src
-
 build-dropbox-gui:
 	docker build -t dropbox-gui ./dropbox-gui
 
@@ -83,29 +68,29 @@ build-lightburn:
 run-lightburn: build-lightburn
 	source env.sh && docker run -d -v=lightburn-home:/home/runuser -v=$$LIGHTBURN_ROOT:/lightburn -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=basic -e CADDY_HASH=$$LIGHTBURN_CADDY_HASH --name=lightburn-c lightburn
 
+build-lasergrbl-install:
+	docker build -t lasergrbl-install lasergrbl-install
+
+run-lasergrbl-install: build-lasergrbl-install
+	source env.sh && docker run --rm -d -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
+
+build-lasergrbl:
+	docker build -t lasergrbl lasergrbl
+
+run-lasergrbl: build-lasergrbl
+	source env.sh && docker run -d --device=/dev/ttyUSB0 -v=lasergrbl-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-c lasergrbl
+
 build-meganz:
 	docker build -t meganz ./meganz
 
 run-meganz: build-meganz
 	source env.sh && docker run -d -v=meganz-home:/home/runuser -v=/mnt:/host_mnt --name=meganz-c meganz
 
-build-minidlna:
-	docker build -t minidlna ./minidlna
-
-run-minidlna: build-minidlna
-	source env.sh && docker run -d -v=minidlna-home:/home/runuser -v=$$VIDEO_ROOT:/video:ro -v=$$MUSIC_ROOT:/music:ro -v=$$PICTURES_ROOT:/pictures:ro --network=host -e USERID=$$MEDIA_ID -e GROUPID=$$MEDIA_ID --name=minidlna-c minidlna
-
 build-nkit:
 	docker build -t nkit ./nkit
 
 run-nkit:
 	source ./env.sh && docker run -d -v=nkit-home:/home/runuser -v=nkit-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$NKIT_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=nkit-c nkit
-
-build-ps2tools:
-	docker build -t ps2tools ./ps2tools
-
-run-ps2tools: build-ps2tools
-	source env.sh && docker run -d -v=ps2tools-home:/home/runuser -v=/mnt:/host_mnt -v=/media:/host_media -p=$$PS2TOOLS_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ps2tools-c ps2tools
 
 build-retroarch-web:
 	docker build -t retroarch-web ./retroarch-web
