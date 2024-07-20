@@ -89,11 +89,11 @@ build-meganz:
 run-meganz: build-meganz
 	source env.sh && docker run -d -v=meganz-home:/home/runuser -v=/mnt:/host_mnt --name=meganz-c meganz
 
-build-mindnla:
-	docker build -t minidnla ./minidnla
+build-minidlna:
+	docker build -t minidlna ./minidlna
 
-run-minidnla: build-minidnla
-	source env.sh && docker run -d -v=minidnla-home:/home/runuser -v=$$VIDEO_ROOT:/video:ro -v=$$MUSIC_ROOT:/music:ro -v=$$PICTURES_ROOT:/pictures:ro --network=host -e USERID=$$MEDIA_ID -e GROUPID=$$MEDIA_ID --name=minidnla-c minidnla
+run-minidlna: build-minidlna
+	source env.sh && docker run -d -v=minidlna-home:/home/runuser -v=$$VIDEO_ROOT:/video:ro -v=$$MUSIC_ROOT:/music:ro -v=$$PICTURES_ROOT:/pictures:ro --network=host -e USERID=$$MEDIA_ID -e GROUPID=$$MEDIA_ID --name=minidlna-c minidlna
 
 build-nkit:
 	docker build -t nkit ./nkit
@@ -104,7 +104,7 @@ run-nkit:
 build-ps2tools:
 	docker build -t ps2tools ./ps2tools
 
-run-ps2tools: build ps2tools
+run-ps2tools: build-ps2tools
 	source env.sh && docker run -d -v=ps2tools-home:/home/runuser -v=/mnt:/host_mnt -v=/media:/host_media -p=$$PS2TOOLS_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ps2tools-c ps2tools
 
 build-retroarch-web:

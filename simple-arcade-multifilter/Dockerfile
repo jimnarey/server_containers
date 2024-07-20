@@ -1,7 +1,7 @@
-FROM base-ubuntu-wine:latest
+FROM base-ubuntu-wine-24:latest
 
 RUN mkdir /app && \
-    wget -P /app https://github.com/markwkidd/ahk-retroarch-playlist-helpers/releases/download/a3923ee/Simple.Arcade.Multifilterv1.0_2018-03-02.exe 
+    wget -P /app https://github.com/markwkidd/ahk-retroarch-playlist-helpers/releases/download/v1.22/Simple.Arcade.Multifilterv1.22_2019-01-09.exe
 WORKDIR /app
 VOLUME /app
 
@@ -14,7 +14,7 @@ RUN echo \
 priority=1\n\
 environment=DISPLAY=:0,\n\
             USER=runuser\n\
-command=/usr/bin/wine /app/Simple.Arcade.Multifilterv1.0_2018-03-02.exe\n\
+command=/usr/bin/wine /app/Simple.Arcade.Multifilterv1.22_2019-01-09.exe\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
