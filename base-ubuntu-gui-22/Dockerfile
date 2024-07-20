@@ -1,20 +1,18 @@
 FROM base-ubuntu-caddy-22:latest
 
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal htop && \
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends openbox novnc websockify lxterminal htop \
+    tigervnc-standalone-server && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
+    
+COPY Caddyfile /etc/
 
-RUN mkdir -p /usr/share/desktop-directories
-
-COPY --from=build-easy-novnc /bin/easy-novnc /usr/local/bin/
 COPY menu.xml /etc/xdg/openbox/
 
-#
-# Copy an amended rc.xml to reduce number of desktops to 1 and
-# maximising all apps on start
-#
 COPY rc.xml /etc/xdg/openbox/rc.xml
 
 RUN echo \
@@ -27,9 +25,9 @@ stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n\
 \n\
-[program:easy-novnc]\n\
-priority=0\n\
-command=/usr/local/bin/easy-novnc --addr :8080 --host localhost --port 5900 --no-url-password --novnc-params "resize=remote"\n\
+[program:websockify]\n\
+command=/usr/bin/websockify --web /usr/share/novnc 8080 localhost:5900\n\
+autostart=true\n\
 autorestart=true\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
@@ -44,3 +42,5 @@ stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
 >> /etc/supervisord.conf
+
+
