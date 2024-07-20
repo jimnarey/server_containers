@@ -1,6 +1,9 @@
 FROM base-ubuntu-wine-24:latest
 
-RUN apt install libmpg123-0:i386 && \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get -y install playonlinux && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
@@ -9,7 +12,9 @@ WORKDIR /home/runuser
 RUN wget https://github.com/arkypita/LaserGRBL/releases/download/v7.11.0/install.exe
 
 COPY install.sh /home/runuser
-RUN chmod a+x /home/runuser/install.sh
+COPY POL_LaserGRBL_setup.sh /home/runuser
+RUN chmod a+x /home/runuser/*.sh
+
 RUN echo \
 '\n[program:app]\n\
 priority=1\n\
