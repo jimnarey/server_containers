@@ -44,14 +44,8 @@ build-dropbox:
 run-dropbox: build-dropbox
 	source env.sh && docker run -d -v dropbox-home:/home/runuser -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
 
-# run-dropbox: build-dropbox
-# 	source env.sh && docker run -d -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
-
-start-dropbox-sync:
-	docker exec -u runuser -it dropbox-c /opt/dropbox/dropbox.py start
-
-status-dropbox:
-	docker exec -u runuser -it dropbox-c /opt/dropbox/dropbox.py status
+run-dropbox: build-dropbox
+	source env.sh && docker run -d -v=$$DROPBOX_FOLDER:/home/runuser/Dropbox --name=dropbox-c dropbox
 
 build-dropbox-src:
 	docker build -t dropbox-src ./dropbox-src
@@ -98,15 +92,6 @@ build-meganz:
 run-meganz: build-meganz
 	source env.sh && docker run -d -v=meganz-home:/home/runuser -v=/mnt:/host_mnt --name=meganz-c meganz
 
-shell-mega-nz:
-	docker exec -u runuser -it meganz-c /bin/bash
-
-sync-status-meganz:
-	docker exec -u runuser -it meganz-c mega-sync --path-display-size=150
-
-transfers-status-meganz:
-	docker exec -u runuser -it meganz-c mega-transfers --show-syncs --path-display-size=150
-
 build-mindnla:
 	docker build -t minidnla ./minidnla
 
@@ -131,27 +116,6 @@ build-retroarch-web:
 run-retroarch-web: build-retroarch-web
 	source env.sh && docker run -v=retroarch-web-home:/home/runuser -p=8082:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=retroarch-web-c retroarch-web
 
-build-rk3328:
-	docker build -t rk3328 ./rk3328
-
-run-rk3328: build-rk3328
-	source env.sh && docker run -v=rk3328-home:/home/runuser -v=/home/dockerman/rk3328_buildroot:/buildroot_root -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=rk3328-c rk3328
-
-build-romcenter:
-	docker build -t romcenter ./romcenter
-
-run-romcenter: build-romcenter
-	source env.sh && docker run -v=romcenter-home:/home/runuser -v=romcenter-app:/app -p=8081:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=romcenter-c romcenter
-
-build-romlister:
-	docker build -t romlister ./romlister
-
-run-romlister: build-romlister
-	source env.sh && docker run -v=romlister-home:/home/runuser -v=romlister-app:/app -p=8081:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID --name=romlister-c romlister
-
-build-romvault:
-	docker build -t romvault ./romvault
-
 build-simple-arcade-multifilter:
 	docker build -t simple-arcade-multifilter ./simple-arcade-multifilter
 
@@ -169,9 +133,3 @@ run-transmission-vpn:
 
 down-transmission-vpn:
 	docker compose -f transmission-vpn.yml down
-
-build-ugly-gdemu-gm:
-	docker build -t ugly-gdemu-gm ./ugly-gdemu-gm
-
-run-ugly-gdemu-gm: build-ugly-gdemu-gm
-	source env.sh && docker run -d -v=ugly-gdemu-gm-home:/home/runuser -v=ugly-gdemu-gm-apps:/apps -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$UGLY_GDEMU_GM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=ugly-gdemu-gm-c ugly-gdemu-gm
