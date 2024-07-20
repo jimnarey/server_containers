@@ -3,19 +3,16 @@ SHELL := /bin/bash
 EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh nas runuser)
 
 build-sources:
-	docker build -t build-caddy ./build-caddy
-	docker build -t build-easy-novnc ./build-easy-novnc
 	docker build -t download-retroarch-emscripten ./download-retroarch-emscripten
 
 build-bases:
-	docker build -t base-ubuntu ./base-ubuntu
 	docker build --no-cache -t base-ubuntu-22 ./base-ubuntu-22
 	docker build --no-cache -t base-ubuntu-24 ./base-ubuntu-24
-	docker build -t base-ubuntu-caddy ./base-ubuntu-caddy
 	docker build -t base-ubuntu-caddy-22 ./base-ubuntu-caddy-22
-	docker build -t base-ubuntu-gui ./base-ubuntu-gui
+	docker build -t base-ubuntu-caddy-24 ./base-ubuntu-caddy-24
 	docker build -t base-ubuntu-gui-22 ./base-ubuntu-gui-22
-	docker build -t base-ubuntu-wine ./base-ubuntu-wine
+	docker build -t base-ubuntu-gui-24 ./base-ubuntu-gui-24
+	docker build -t base-ubuntu-wine-24 ./base-ubuntu-wine-24
 
 build-calibre:
 	docker build -t calibre ./calibre
