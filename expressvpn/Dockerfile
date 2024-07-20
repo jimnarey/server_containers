@@ -1,5 +1,5 @@
 
-FROM base-ubuntu
+FROM base-ubuntu-24
 
 ENV EXPRESS_VPN_ACTIVATION_CODE Code
 ENV EXPRESS_VPN_LOCATION smart

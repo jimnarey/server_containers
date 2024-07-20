@@ -1,4 +1,4 @@
-FROM base-ubuntu:latest
+FROM base-ubuntu-24:latest
 
 ARG TRANSMISSION_PASSWORD
 

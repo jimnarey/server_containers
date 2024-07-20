@@ -1,5 +1,6 @@
 :8081 {
     log
+    redir / /vnc.html?resize=remote&autoconnect=true
     reverse_proxy 127.0.0.1:8080
     basicauth /* {
         {env.CADDY_USER} {env.CADDY_HASH}

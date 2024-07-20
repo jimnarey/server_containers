@@ -1,4 +1,4 @@
-FROM base-ubuntu-gui:latest
+FROM base-ubuntu-gui-24:latest
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends filezilla && \

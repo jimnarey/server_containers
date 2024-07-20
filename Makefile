@@ -75,7 +75,7 @@ build-hexchat:
 	docker build -t hexchat ./hexchat
 
 run-hexchat: build-hexchat
-	source env.sh && docker run -d -v=hexchat-home:/home/runuser -p=$$HEXCHAT_PORT:8081 -e USERID=$$BASIC_ID -e GROUPID=$$BASIC_ID --name=hexchat-c hexchat
+	source env.sh && docker run -d -v=hexchat-home:/home/runuser -p=$$HEXCHAT_PORT:8081 -e USERID=$$BASIC_ID -e GROUPID=$$BASIC_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=hexchat-c hexchat
 
 build-idrive:
 	source env.sh && docker build -t idrive --build-arg IDRIVE_PROFILE_NAME=$$IDRIVE_PROFILE_NAME --build-arg IDRIVE_BACKUP_ROOT=$$IDRIVE_BACKUP_ROOT --build-arg IDRIVE_RESTORE_ROOT=$$IDRIVE_RESTORE_ROOT --build-arg IDRIVE_SERVICE_ROOT=$$IDRIVE_SERVICE_ROOT ./idrive

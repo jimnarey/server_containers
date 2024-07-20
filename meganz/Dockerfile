@@ -1,10 +1,10 @@
-FROM base-ubuntu:latest
+FROM base-ubuntu-24:latest
 
 WORKDIR /home/runuser
-RUN wget https://mega.nz/linux/repo/xUbuntu_20.04/amd64/megacmd_1.6.3-2.1_amd64.deb
+RUN wget https://mega.nz/linux/repo/xUbuntu_24.04/amd64/megacmd_1.7.0-6.1_amd64.deb
 RUN apt-get update -y && \
-    apt-get install -y ./megacmd_1.6.3-2.1_amd64.deb  dbus && \
-    rm ./megacmd_1.6.3-2.1_amd64.deb && \
+    apt-get install -y ./megacmd_1.7.0-6.1_amd64.deb  dbus && \
+    rm ./megacmd_1.7.0-6.1_amd64.deb && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
