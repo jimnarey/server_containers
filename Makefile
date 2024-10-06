@@ -51,7 +51,7 @@ build-gdmenu-cm:
 	docker build -t gdmenu-cm ./gdmenu-cm
 
 run-gdmenu-cm: build-gdmenu-cm
-	source env.sh && docker run -d -v=gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-app:/app -v=$$DREAMCAST_ISO_DIR:/dreamcast_isos $(EXT_VOLUMES_MAPPING) -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
+	source env.sh && docker run -d -v=gdmenu-cm-home:/home/runuser -v=build-gdmenu-cm-app:/app -v=/mnt:/host_volumes $(EXT_VOLUMES_MAPPING)  -p=$$GDMENU_CM_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=gdmenu-cm-c gdmenu-cm
 
 build-hexchat:
 	docker build -t hexchat ./hexchat
