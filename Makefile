@@ -62,6 +62,12 @@ run-hexchat: build-hexchat
 build-idrive:
 	source env.sh && docker build -t idrive --build-arg IDRIVE_PROFILE_NAME=$$IDRIVE_PROFILE_NAME --build-arg IDRIVE_BACKUP_ROOT=$$IDRIVE_BACKUP_ROOT --build-arg IDRIVE_RESTORE_ROOT=$$IDRIVE_RESTORE_ROOT --build-arg IDRIVE_SERVICE_ROOT=$$IDRIVE_SERVICE_ROOT ./idrive
 
+build-laserweb:
+	docker build -t laserweb ./laserweb
+
+run-laserweb:
+	source env.sh && docker run -v=laserweb-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERWEB_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=laserweb-c laserweb
+
 build-lightburn:
 	docker build -t lightburn ./lightburn
 
