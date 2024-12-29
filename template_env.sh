@@ -82,6 +82,11 @@ export NKIT_PORT=8099
 export DROPBOX_GUI_PORT=9100
 export LASERWEB_PORT=9101
 
+# Serial ports
+
+export LASERCUTTER_DEV=
+export MONOPRICE_DEV=
+
 export CADDY_HASH=
 
 export TRANSMISSION_PASSWORD=
