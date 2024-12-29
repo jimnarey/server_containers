@@ -66,13 +66,13 @@ build-laserweb:
 	docker build -t laserweb ./laserweb
 
 run-laserweb:
-	source env.sh && docker run -v=laserweb-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERWEB_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=laserweb-c laserweb
+	source env.sh && docker run -d -v=laserweb-home:/home/runuser --device $$LASERCUTTER_DEV -v=$$LASER_CUTTING_ROOT:/lasercutting -p=$$LASERWEB_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=laserweb-c laserweb
 
 build-lightburn:
 	docker build -t lightburn ./lightburn
 
 run-lightburn: build-lightburn
-	source env.sh && docker run -d --device=/dev/ttyUSB0 -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn
+	source env.sh && docker run -d --device=$$LASERCUTTER_DEV -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn
 
 run-lightburn-priv:
 	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn 
@@ -81,13 +81,13 @@ build-lasergrbl-install:
 	docker build -t lasergrbl-install lasergrbl-install
 
 run-lasergrbl-install: build-lasergrbl-install
-	source env.sh && docker run --rm -d --device=/dev/ttyUSB0 -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
+	source env.sh && docker run --rm -d --device=$$LASERCUTTER_DEV -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
 
 build-lasergrbl:
 	docker build -t lasergrbl lasergrbl
 
 run-lasergrbl: build-lasergrbl
-	source env.sh && docker run -d --device=/dev/ttyUSB0 -v=lasergrbl-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-c lasergrbl
+	source env.sh && docker run -d --device=$$LASERCUTTER_DEV -v=lasergrbl-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-c lasergrbl
 
 build-meganz:
 	docker build -t meganz ./meganz
