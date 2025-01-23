@@ -1,14 +1,24 @@
 FROM base-ubuntu-caddy:latest
 
-RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal htop && \
+# RUN apt-get update -y && \
+#     apt-get install -y --no-install-recommends openbox tigervnc-standalone-server lxterminal htop && \
+#     apt-get clean && \
+#     apt-get autoremove && \
+#     rm -rf /var/lib/apt/lists
+
+# RUN mkdir -p /usr/share/desktop-directories
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends openbox novnc websockify lxterminal htop \
+    tigervnc-standalone-server && \
     apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
+    
+COPY Caddyfile /etc/
 
-RUN mkdir -p /usr/share/desktop-directories
-
-COPY --from=build-easy-novnc /bin/easy-novnc /usr/local/bin/
+# COPY --from=build-easy-novnc /bin/easy-novnc /usr/local/bin/
 COPY menu.xml /etc/xdg/openbox/
 
 #
