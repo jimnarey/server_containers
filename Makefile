@@ -26,6 +26,18 @@ build-clrmamepro:
 run-clrmamepro: build-clrmamepro
 	source ./env.sh && docker run -d -v=clrmamepro-home:/home/runuser -v=clrmamepro-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$CLRMAMEPRO_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=clrmamepro-c clrmamepro
 
+build-desktop:
+	docker build -t desktop ./desktop
+
+run-desktop:
+	source env.sh && docker run -d -v=desktop-home:/home/runuser -v=/mnt:/host_volumes -p=$$DESKTOP_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=desktop-c desktop
+
+build-document-viewers:
+	docker build -t document-viewers ./document-viewers
+
+run-document-viewers:
+	source env.sh && docker run -d -v=document-viewers-home:/home/runuser -v=/mnt:/host_volumes -p=$$DOC_VIEWERS_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=document-viewers-c document-viewers
+
 build-double-commander:
 	docker build -t double-commander ./double-commander
 
