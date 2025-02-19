@@ -4,3 +4,4 @@ hashes/*
 romvault/*.exe
 env.sh
 *.ovpn
+.vscode
