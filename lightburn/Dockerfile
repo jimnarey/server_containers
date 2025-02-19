@@ -2,20 +2,27 @@ FROM base-ubuntu-gui-24:latest
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libusb-1.0-0 libpulse-mainloop-glib0 fuse && \
-    apt-get install -y --reinstall libxcb-xinerama0 && \
-    apt-get clean && \
+    apt-get install -y --reinstall libxcb-xinerama0
+
+RUN apt-get install -y --no-install-recommends build-essential
+
+RUN apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
 
 RUN mkdir /lasercutting
 
 WORKDIR /home/runuser
-RUN wget --no-check-certificate -nv https://github.com/LightBurnSoftware/deployment/releases/download/1.6.03/LightBurn-Linux64-v1.6.03.AppImage && \
-    chmod a+x /home/runuser/LightBurn-Linux64-v1.6.03.AppImage && \
-    /home/runuser/LightBurn-Linux64-v1.6.03.AppImage --appimage-extract && \
+RUN wget --no-check-certificate -nv https://release.lightburnsoftware.com/LightBurn/Release/LightBurn-v1.7.06/LightBurn-Linux64-v1.7.06.AppImage && \
+    chmod a+x /home/runuser/LightBurn-Linux64-v1.7.06.AppImage && \
+    /home/runuser/LightBurn-Linux64-v1.7.06.AppImage --appimage-extract && \
     chown -R runuser:runuser /home/runuser 
 
-RUN ls -la /home/runuser
+COPY spoof_uuid.c /home/runuser/
+
+RUN gcc -shared -fPIC -o spoof_uuid.so spoof_uuid.c -ldl
+
+ENV LD_PRELOAD=/home/runuser/spoof_uuid.so
 
 RUN echo \
 '\n[program:app]\n\

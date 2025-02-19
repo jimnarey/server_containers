@@ -14,6 +14,11 @@ build-bases:
 	docker build -t base-ubuntu-gui-24 ./base-ubuntu-gui-24
 	docker build -t base-ubuntu-wine-24 ./base-ubuntu-wine-24
 
+build-old-bases:
+	docker build --no-cache -t base-ubuntu ./base-ubuntu
+	docker build -t base-ubuntu-caddy ./base-ubuntu-caddy
+	docker build -t base-ubuntu-gui ./base-ubuntu-gui
+
 build-calibre:
 	docker build -t calibre ./calibre
 
@@ -86,8 +91,37 @@ build-lightburn:
 run-lightburn: build-lightburn
 	source env.sh && docker run -d --device=$$LASERCUTTER_DEV -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn
 
+# run-lightburn-priv:
+# 	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn 
+
 run-lightburn-priv:
-	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn 
+	source env.sh && \
+	TEMP_SPOOF_DIR=$$(mktemp -d) && \
+	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/machine-id && \
+	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/product_uuid && \
+	RANDOM_MAC=$$(printf '02:42:%02x:%02x:%02x:%02x' $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1)) && \
+	SPOOFED_HOSTNAME="lightburn-$$(shuf -i 1000-9999 -n1)" && \
+	mkdir -p $$TEMP_SPOOF_DIR/sys/class/block && \
+	for dev in /sys/class/block/*; do \
+		DEV_NAME=$$(basename $$dev); \
+		if [[ $$DEV_NAME != loop* ]]; then \
+			echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/sys/class/block/$$DEV_NAME; \
+		fi \
+	done && \
+	sudo mount --bind $$TEMP_SPOOF_DIR/sys/class/block /sys/class/block && \
+	docker run -d --privileged \
+		-v=/dev:/dev \
+		-v=lightburn-home:/home/runuser \
+		-v="$$LASER_CUTTING_ROOT":/lasercutting \
+		-v=$$TEMP_SPOOF_DIR/machine-id:/etc/machine-id:ro \
+		-v=$$TEMP_SPOOF_DIR/product_uuid:/sys/class/dmi/id/product_uuid:ro \
+		--mount type=bind,source=$$TEMP_SPOOF_DIR/sys/class/block,target=/sys/class/block,bind-propagation=rslave \
+		-h $$SPOOFED_HOSTNAME \
+		-p=$$LIGHTBURN_PORT:8081 \
+		-e CADDY_USER=admin \
+		-e CADDY_HASH=$$CADDY_HASH \
+		--mac-address=$$RANDOM_MAC \
+		--name=lightburn-c lightburn
 
 build-lasergrbl-install:
 	docker build -t lasergrbl-install lasergrbl-install
