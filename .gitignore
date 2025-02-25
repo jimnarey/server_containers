@@ -5,3 +5,4 @@ romvault/*.exe
 env.sh
 *.ovpn
 .vscode
+*.so
