@@ -6,18 +6,23 @@ build-sources:
 	docker build -t download-retroarch-emscripten ./download-retroarch-emscripten
 
 build-bases:
-	docker build --no-cache -t base-ubuntu-22 ./base-ubuntu-22
 	docker build --no-cache -t base-ubuntu-24 ./base-ubuntu-24
-	docker build -t base-ubuntu-caddy-22 ./base-ubuntu-caddy-22
 	docker build -t base-ubuntu-caddy-24 ./base-ubuntu-caddy-24
-	docker build -t base-ubuntu-gui-22 ./base-ubuntu-gui-22
 	docker build -t base-ubuntu-gui-24 ./base-ubuntu-gui-24
 	docker build -t base-ubuntu-wine-24 ./base-ubuntu-wine-24
+	docker build -t base-ubuntu-kde-24 ./base-ubuntu-kde-24
+	docker build -t base-ubuntu-kde-wine-24 ./base-ubuntu-kde-wine-24
 
 build-old-bases:
+	docker build --no-cache -t base-ubuntu-22 ./base-ubuntu-22
+	docker build -t base-ubuntu-caddy-22 ./base-ubuntu-caddy-22
+	docker build -t base-ubuntu-gui-22 ./base-ubuntu-gui-22
 	docker build --no-cache -t base-ubuntu ./base-ubuntu
 	docker build -t base-ubuntu-caddy ./base-ubuntu-caddy
 	docker build -t base-ubuntu-gui ./base-ubuntu-gui
+
+run-base-ubuntu-kde-24:
+	source env.sh && docker run -d -v=/mnt:/host_volumes -p=$$DESKTOP_KDE_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=base-ubuntu-kde-24-c base-ubuntu-kde-24
 
 build-calibre:
 	docker build -t calibre ./calibre
@@ -30,12 +35,6 @@ build-clrmamepro:
 
 run-clrmamepro: build-clrmamepro
 	source ./env.sh && docker run -d -v=clrmamepro-home:/home/runuser -v=clrmamepro-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$CLRMAMEPRO_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=clrmamepro-c clrmamepro
-
-build-desktop:
-	docker build -t desktop ./desktop
-
-run-desktop:
-	source env.sh && docker run -d -v=desktop-home:/home/runuser -v=/mnt:/host_volumes -p=$$DESKTOP_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=desktop-c desktop
 
 build-document-viewers:
 	docker build -t document-viewers ./document-viewers
@@ -88,52 +87,20 @@ run-laserweb:
 build-lightburn:
 	docker build -t lightburn ./lightburn
 
-run-lightburn: build-lightburn
-	source env.sh && docker run -d --device=$$LASERCUTTER_DEV -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn
-
-# run-lightburn-priv:
-# 	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn 
-
 run-lightburn-priv:
-	source env.sh && \
-	TEMP_SPOOF_DIR=$$(mktemp -d) && \
-	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/machine-id && \
-	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/product_uuid && \
-	RANDOM_MAC=$$(printf '02:42:%02x:%02x:%02x:%02x' $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1)) && \
-	SPOOFED_HOSTNAME="lightburn-$$(shuf -i 1000-9999 -n1)" && \
-	mkdir -p $$TEMP_SPOOF_DIR/sys/class/block && \
-	for dev in /sys/class/block/*; do \
-		DEV_NAME=$$(basename $$dev); \
-		if [[ $$DEV_NAME != loop* ]]; then \
-			echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/sys/class/block/$$DEV_NAME; \
-		fi \
-	done && \
-	sudo mount --bind $$TEMP_SPOOF_DIR/sys/class/block /sys/class/block && \
-	docker run -d --privileged \
-		-v=/dev:/dev \
-		-v=lightburn-home:/home/runuser \
-		-v="$$LASER_CUTTING_ROOT":/lasercutting \
-		-v=$$TEMP_SPOOF_DIR/machine-id:/etc/machine-id:ro \
-		-v=$$TEMP_SPOOF_DIR/product_uuid:/sys/class/dmi/id/product_uuid:ro \
-		--mount type=bind,source=$$TEMP_SPOOF_DIR/sys/class/block,target=/sys/class/block,bind-propagation=rslave \
-		-h $$SPOOFED_HOSTNAME \
-		-p=$$LIGHTBURN_PORT:8081 \
-		-e CADDY_USER=admin \
-		-e CADDY_HASH=$$CADDY_HASH \
-		--mac-address=$$RANDOM_MAC \
-		--name=lightburn-c lightburn
+	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lightburn-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LIGHTBURN_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lightburn-c lightburn 
 
 build-lasergrbl-install:
 	docker build -t lasergrbl-install lasergrbl-install
 
-run-lasergrbl-install: build-lasergrbl-install
-	source env.sh && docker run --rm -d --device=$$LASERCUTTER_DEV -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
-
 build-lasergrbl:
 	docker build -t lasergrbl lasergrbl
 
+run-lasergrbl-install: build-lasergrbl-install
+	source env.sh && docker run --rm -d --privileged -v=/dev:/dev -v=lasergrbl-home:/home/runuser -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-install-c lasergrbl-install
+
 run-lasergrbl: build-lasergrbl
-	source env.sh && docker run -d --device=$$LASERCUTTER_DEV -v=lasergrbl-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-c lasergrbl
+	source env.sh && docker run -d --privileged -v=/dev:/dev -v=lasergrbl-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$LASERGRBL_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=lasergrbl-c lasergrbl
 
 build-meganz:
 	docker build -t meganz ./meganz
@@ -170,3 +137,50 @@ run-transmission-vpn:
 
 down-transmission-vpn:
 	docker compose -f transmission-vpn.yml down
+
+build-inkscape-visicut:
+	docker build -t inkscape-visicut ./inkscape-visicut
+
+run-inkscape-visicut-priv:
+	source env.sh && docker run -d --privileged -v=/dev:/dev -v=inkscape-visicut-home:/home/runuser -v="$$LASER_CUTTING_ROOT":/lasercutting -p=$$INKSCAPE_VISICUT_PORT:8081 -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=inkscape-visicut-c inkscape-visicut 
+
+
+# run-lightburn-priv:
+# 	source env.sh && \
+# 	TEMP_SPOOF_DIR=$$(mktemp -d) && \
+# 	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/machine-id && \
+# 	echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/product_uuid && \
+# 	RANDOM_MAC=$$(printf '02:42:%02x:%02x:%02x:%02x' $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1) $$(shuf -i 0-255 -n1)) && \
+# 	SPOOFED_HOSTNAME="lightburn-$$(shuf -i 1000-9999 -n1)" && \
+# 	mkdir -p $$TEMP_SPOOF_DIR/sys/class/block && \
+# 	for dev in /sys/class/block/*; do \
+# 		DEV_NAME=$$(basename $$dev); \
+# 		if [[ $$DEV_NAME != loop* ]]; then \
+# 			echo "$$(uuidgen)" > $$TEMP_SPOOF_DIR/sys/class/block/$$DEV_NAME; \
+# 		fi \
+# 	done && \
+# 	sudo mount --bind $$TEMP_SPOOF_DIR/sys/class/block /sys/class/block && \
+# 	TEMP_DEV=$$(mktemp -d) && \
+# 	(test -e /dev/ttyUSB* && cp -r /dev/ttyUSB* $$TEMP_DEV/) || true && \
+# 	(test -e /dev/ttyACM* && cp -r /dev/ttyACM* $$TEMP_DEV/) || true && \
+# 	sudo cp -r /dev/null $$TEMP_DEV/ && \
+# 	sudo cp -r /dev/zero $$TEMP_DEV/ && \
+# 	sudo ln -s /dev/null $$TEMP_DEV/stdout && \
+# 	sudo ln -s /dev/null $$TEMP_DEV/stderr && \
+# 	sudo ln -s /dev/tty && \
+# 	sudo ln -s /dev/stdin $$TEMP_DEV/fd/0 && \
+# 	sudo ln -s /dev/stdout $$TEMP_DEV/fd/1 && \
+# 	sudo ln -s /dev/stderr $$TEMP_DEV/fd/2 && \
+# 	docker run -d --privileged \
+# 		--mount type=bind,source=$$TEMP_DEV,target=/dev,bind-propagation=rslave \
+# 		-v=lightburn-home:/home/runuser \
+# 		-v="$$LASER_CUTTING_ROOT":/lasercutting \
+# 		-v=$$TEMP_SPOOF_DIR/machine-id:/etc/machine-id:ro \
+# 		-v=$$TEMP_SPOOF_DIR/product_uuid:/sys/class/dmi/id/product_uuid:ro \
+# 		--mount type=bind,source=$$TEMP_SPOOF_DIR/sys/class/block,target=/sys/class/block,bind-propagation=rslave \
+# 		-h $$SPOOFED_HOSTNAME \
+# 		-p=$$LIGHTBURN_PORT:8081 \
+# 		-e CADDY_USER=admin \
+# 		-e CADDY_HASH=$$CADDY_HASH \
+# 		--mac-address=$$RANDOM_MAC \
+# 		--name=lightburn-c lightburn
