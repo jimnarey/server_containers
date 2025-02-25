@@ -29,6 +29,7 @@ priority=1\n\
 environment=DISPLAY=:0,\n\
             USER=runuser\n\
 command=x-terminal-emulator -e "/home/runuser/install.sh"\n\
+autorestart=false\n\
 stdout_logfile=/dev/fd/1\n\
 stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
