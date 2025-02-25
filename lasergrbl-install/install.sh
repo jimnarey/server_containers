@@ -4,5 +4,5 @@ rm -rf ~/.wine
 export WINEARCH=win32
 export WINEPREFIX=~/.wine
 winecfg /v win7
-winetricks gdiplus msxml3
+winetricks gdiplus msxml3 dotnet40
 wine ~/install.exe
