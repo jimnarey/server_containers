@@ -18,11 +18,11 @@ RUN wget --no-check-certificate -nv https://release.lightburnsoftware.com/LightB
     /home/runuser/LightBurn-Linux64-v1.7.06.AppImage --appimage-extract && \
     chown -R runuser:runuser /home/runuser 
 
-COPY spoof_uuid.c /home/runuser/
+# COPY spoof_uuid.c /home/runuser/
 
-RUN gcc -shared -fPIC -o spoof_uuid.so spoof_uuid.c -ldl
+# RUN gcc -shared -fPIC -o spoof_uuid.so spoof_uuid.c -ldl
 
-ENV LD_PRELOAD=/home/runuser/spoof_uuid.so
+# ENV LD_PRELOAD=/home/runuser/spoof_uuid.so
 
 RUN echo \
 '\n[program:app]\n\
