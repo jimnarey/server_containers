@@ -4,7 +4,9 @@ WORKDIR /home/runuser
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3-full python3-pip python3-lxml python3-gi python3-appdirs inkscape
-    
+
+RUN apt-get install -y --no-install-recommends python3-cssselect
+
 RUN apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
