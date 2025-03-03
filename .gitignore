@@ -6,4 +6,4 @@ env.sh
 *.ovpn
 .vscode
 *.so
-octoprint/*
+octoprint
