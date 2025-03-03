@@ -126,6 +126,12 @@ build-nkit:
 run-nkit:
 	source ./env.sh && docker run -d -v=nkit-home:/home/runuser -v=nkit-app:/app -v=/mnt:/host_mnt -v=/media:/host_media -p=$$NKIT_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=nkit-c nkit
 
+build-octoprint:
+	rm -rf ./octoprint && git clone https://github.com/OctoPrint/octoprint-docker.git ./octoprint && docker build -t octoprint ./octoprint
+
+run-octoprint:
+	source env.sh && docker run -d --privileged -v octoprint-app:/octoprint -v octoprint-home:/home-runuser -v=/dev:/dev -e ENABLE_MJPG_STREAMER=true -p=$$OCTOPRINT_PORT:80 --name=octoprint-c octoprint
+
 build-retroarch-web:
 	docker build -t retroarch-web ./retroarch-web
 
