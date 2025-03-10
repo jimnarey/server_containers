@@ -5,8 +5,7 @@ x-defaults: &defaults
     USERID: "1000"
     GROUPID: "1000"
     CADDY_USER: "admin"
-    # Hash for 'password'
-    CADDY_HASH: "JDJhJDEwJE84L1BrOFdSNmxxdUgveGFMRGJieE9kRXVERm1DTDJTMXpmQWdoS1ZNSFNNZHdTb3oxU0k2"
+    CADDY_HASH: ${CADDY_HASH}
 
 services:
   calibre:
