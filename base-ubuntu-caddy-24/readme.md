@@ -12,7 +12,7 @@ See readme for base-ubuntu.
 Caddy uses a password hash which is provided via environment variable CADDY_HASH or defaults to the hash for 'password' (default username is 'admin'). To get a hash for your desired password, run:
 
 ```
-docker run --rm -it base-ubuntu-caddy caddy hash-password --algorithm bcrypt
+docker run --rm -it base-ubuntu-caddy-24 caddy hash-password --algorithm bcrypt
 ```
 
 ## Run the container
