@@ -7,3 +7,4 @@ env.sh
 .vscode
 *.so
 octoprint
+.env
