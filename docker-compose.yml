@@ -1,0 +1,267 @@
+version: '3.8'
+
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    # Hash for 'password'
+    CADDY_HASH: "JDJhJDEwJE84L1BrOFdSNmxxdUgveGFMRGJieE9kRXVERm1DTDJTMXpmQWdoS1ZNSFNNZHdTb3oxU0k2"
+
+services:
+  calibre:
+    build: ./calibre
+    volumes:
+      - calibre-home:/home/runuser
+      - ${CALIBRE_LIBRARY}:/library
+      - ${CALIBRE_SOURCE}:/source
+    ports:
+      - "9001:8081"
+      - "9002:8083"
+    <<: *defaults
+    container_name: calibre-c
+
+  clrmamepro:
+    build: ./clrmamepro
+    volumes:
+      - clrmamepro-home:/home/runuser
+      - clrmamepro-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9003:8081"
+    <<: *defaults
+    container_name: clrmamepro-c
+
+  double-commander:
+    build: ./double-commander
+    volumes:
+      - double-commander-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9004:8081"
+    <<: *defaults
+    container_name: double-commander-c
+
+  dropbox-gui:
+    build: ./dropbox-gui
+    volumes:
+      - dropbox-gui-home:/home/runuser
+      - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
+    ports:
+      - "9005:8081"
+    <<: *defaults
+    container_name: dropbox-gui-c
+
+  filezilla:
+    build: ./filezilla
+    volumes:
+      - filezilla-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9006:8081"
+    <<: *defaults
+    container_name: filezilla-c
+
+  gdmenu-cm:
+    build: ./gdmenu-cm
+    volumes:
+      - gdmenu-cm-home:/home/runuser
+      - build-gdmenu-cm-app:/app
+      - /mnt:/host_volumes
+      # The following variable was populed in the Makefile using this line at the top:
+      # EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh nas runuser)
+      # - ${EXT_VOLUMES_MAPPING}
+    ports:
+      - "9007:8081"
+    <<: *defaults
+    container_name: gdmenu-cm-c
+
+  hexchat:
+    build: ./hexchat
+    volumes:
+      - hexchat-home:/home/runuser
+    ports:
+      - "9008:8081"
+    <<: *defaults
+    container_name: hexchat-c
+
+  inkscape:
+    build: ./inkscape
+    volumes:
+      - inkscape-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9009:8081"
+    <<: *defaults
+    container_name: inkscape-c
+
+  laserweb:
+    build: ./laserweb
+    volumes:
+      - laserweb-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9010:8081"
+    privileged: true
+    <<: *defaults
+    container_name: laserweb-c
+
+  lightburn:
+    build: ./lightburn
+    volumes:
+      - lightburn-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9012:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-c
+
+  lightburn-win-install:
+    build: ./lightburn-win-install
+    volumes:
+      - lightburn-win-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9013:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-win-install-c
+
+  lightburn-win:
+    build: ./lightburn-win
+    volumes:
+      - lightburn-win-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9014:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-win-c
+
+  lasergrbl-install:
+    build: ./lasergrbl-install
+    volumes:
+      - lasergrbl-home:/home/runuser
+    ports:
+      - "9015:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-install-c
+
+  lasergrbl:
+    build: ./lasergrbl
+    volumes:
+      - lasergrbl-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9016:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-c
+
+  meganz:
+    build: ./meganz
+    volumes:
+      - meganz-home:/home/runuser
+      - /mnt:/host_mnt
+    ports:
+      - "9017:8081"
+    container_name: meganz-c
+
+  nkit:
+    build: ./nkit
+    volumes:
+      - nkit-home:/home/runuser
+      - nkit-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9018:8081"
+    <<: *defaults
+    container_name: nkit-c
+
+  octoprint:
+    build: ./octoprint
+    volumes:
+      - octoprint-app:/octoprint
+      - octoprint-home:/home-runuser
+      - /dev:/dev
+    ports:
+      - "9019:80"
+    environment:
+      ENABLE_MJPG_STREAMER: "true"
+    privileged: true
+    container_name: octoprint-c
+
+  retroarch-web:
+    build: ./retroarch-web
+    volumes:
+      - retroarch-web-home:/home/runuser
+    ports:
+      - "9020:8081"
+    <<: *defaults
+    container_name: retroarch-web-c
+
+  simple-arcade-multifilter:
+    build: ./simple-arcade-multifilter
+    volumes:
+      - simple-arcade-multifilter-home:/home/runuser
+      - simple-arcade-multifilter-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9021:8081"
+    <<: *defaults
+    container_name: simple-arcade-multifilter-c
+
+  transmission:
+    build:
+      context: ./transmission
+      args:
+        TRANSMISSION_PASSWORD: ${TRANSMISSION_PASSWORD}
+    volumes:
+      - transmission-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9091:9091"
+      - "51413:51413"
+    <<: *defaults
+    container_name: transmission-c
+
+  webdav:
+    build: ./webdav
+    volumes:
+      - webdav-home:/home/runuser
+      - ${WEBDAV_ROOT}:/webdav
+    ports:
+      - "9022:8081"
+    <<: *defaults
+    container_name: webdav-c
+
+volumes:
+  calibre-home:
+  clrmamepro-home:
+  clrmamepro-app:
+  double-commander-home:
+  dropbox-gui-home:
+  filezilla-home:
+  gdmenu-cm-home:
+  build-gdmenu-cm-app:
+  hexchat-home:
+  inkscape-home:
+  laserweb-home:
+  lightburn-home:
+  lightburn-win-home:
+  lasergrbl-home:
+  meganz-home:
+  nkit-home:
+  nkit-app:
+  octoprint-app:
+  octoprint-home:
+  retroarch-web-home:
+  simple-arcade-multifilter-home:
+  simple-arcade-multifilter-app:
+  transmission-home:
+  webdav-home:
