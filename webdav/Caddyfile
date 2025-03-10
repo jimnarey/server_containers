@@ -1,0 +1,11 @@
+:8081 {
+    log
+    route {
+        webdav {
+            root /webdav
+        }
+    }
+    basicauth /* {
+        {env.CADDY_USER} {env.CADDY_HASH}
+    }
+}
