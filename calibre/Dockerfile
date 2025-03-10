@@ -5,7 +5,7 @@ RUN apt-get update && \
     libxcb-randr0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxkbcommon-x11-0 \
     dbus fcitx-rime fonts-wqy-microhei jq libqpdf29t64 libopengl0 python3 python3-xdg ttf-wqy-zenhei && \
     apt-get clean && \
-    apt-get autoremove && \
+    apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists
 
 RUN wget --no-check-certificate -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
