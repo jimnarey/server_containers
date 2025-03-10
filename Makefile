@@ -155,3 +155,9 @@ run-transmission-vpn:
 
 down-transmission-vpn:
 	docker compose -f transmission-vpn.yml down
+
+build-webdav:
+	docker build -t webdav ./webdav
+
+run-webdav: build-webdav
+	source env.sh && docker run -d -v=webdav-home:/home/runuser -v="$$WEBDAV_ROOT":/webdav -p=$$WEBDAV_PORT:8081 -e USERID=$$FILES_ID -e GROUPID=$$FILES_ID -e CADDY_USER=admin -e CADDY_HASH=$$CADDY_HASH --name=webdav-c webdav
