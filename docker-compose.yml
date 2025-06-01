@@ -95,6 +95,16 @@ services:
     <<: *defaults
     container_name: inkscape-c
 
+  jrom-manager:
+    build: ./jrom-manager
+    volumes:
+      - jrom-manager-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9011:8081"
+    <<: *defaults
+    container_name: jrom-manager-c
+
   laserweb:
     build: ./laserweb
     volumes:
@@ -229,11 +239,24 @@ services:
     <<: *defaults
     container_name: transmission-c
 
+  webdav-apache:
+    build:
+      context: ./webdav-apache
+      args:
+        - WEBDAV_USERNAME=${WEBDAV_USERNAME:-webdav}
+        - WEBDAV_PASSWORD=${WEBDAV_PASSWORD:-password}
+    ports:
+      - "9023:80"
+    volumes:
+      - webdav-apache-home:/home/runuser
+      - "${WEBDAV_ROOT}:/var/www/html/webdav"
+    container_name: webdav-apache-c
+
   webdav:
     build: ./webdav
     volumes:
       - webdav-home:/home/runuser
-      - ${WEBDAV_ROOT}:/webdav
+      - "${WEBDAV_ROOT}:/webdav"
     ports:
       - "9022:8081"
     <<: *defaults
@@ -249,6 +272,7 @@ volumes:
   gdmenu-cm-home:
   build-gdmenu-cm-app:
   hexchat-home:
+  jrom-manager-home:
   inkscape-home:
   laserweb-home:
   lightburn-home:
@@ -263,4 +287,5 @@ volumes:
   simple-arcade-multifilter-home:
   simple-arcade-multifilter-app:
   transmission-home:
+  webdav-apache-home:
   webdav-home:
