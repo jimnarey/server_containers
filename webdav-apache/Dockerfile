@@ -18,34 +18,6 @@ RUN apt-get clean && \
     apt-get autoremove && \
     rm -rf /var/lib/apt/lists
 
-# RUN sed -i '/<\/VirtualHost>/i\
-# \t<Directory /var/www/html/webdav>\
-# \n\t    Options Indexes FollowSymLinks\
-# \n\t    AllowOverride None\
-# \n\t    Require all granted\
-# \n\t    Dav On\
-# \n\t</Directory>\
-# \n' /etc/apache2/sites-available/000-default.conf
-
-# This doesn't get the indentation quite right
-# RUN sed -i '/<\/VirtualHost>/i\
-#       <Directory /var/www/html/webdav>\
-# \n        Options Indexes FollowSymLinks\
-# \n        AllowOverride None\
-# \n        Require all granted\
-# \n        Dav On\
-# \n        </Directory>\
-# \n' /etc/apache2/sites-available/000-default.conf
-
-# RUN sed -i '/<\/VirtualHost>/i\
-# \t<Directory /var/www/html/webdav>\
-# \n\t\tOptions Indexes FollowSymLinks\
-# \n\t\tAllowOverride None\
-# \n\t\tRequire all granted\
-# \n\t\tDav On\
-# \n\t</Directory>\
-# \n' /etc/apache2/sites-available/000-default.conf
-
 RUN sed -i '/<\/VirtualHost>/i\
       <Directory /var/www/html/webdav>\
 \n        Options Indexes FollowSymLinks\
