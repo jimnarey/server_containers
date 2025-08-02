@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-defaults: &defaults
   environment:
     USERID: "1000"
@@ -105,6 +103,15 @@ services:
     <<: *defaults
     container_name: jrom-manager-c
 
+  kde:
+    build: base-ubuntu-kde-24
+    volumes:
+      - kde-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9024:8081"
+    <<: *defaults
+    container_name: kde-c
   laserweb:
     build: ./laserweb
     volumes:
@@ -262,6 +269,16 @@ services:
     <<: *defaults
     container_name: webdav-c
 
+  xfce:
+    build: base-ubuntu-xfce-24
+    volumes:
+      - xfce-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9026:8081"
+    <<: *defaults
+    container_name: xfce-c
+
 volumes:
   calibre-home:
   clrmamepro-home:
@@ -273,6 +290,7 @@ volumes:
   build-gdmenu-cm-app:
   hexchat-home:
   jrom-manager-home:
+  kde-home:
   inkscape-home:
   laserweb-home:
   lightburn-home:
@@ -289,3 +307,4 @@ volumes:
   transmission-home:
   webdav-apache-home:
   webdav-home:
+  xfce-home:
