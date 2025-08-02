@@ -6,20 +6,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install KDE Plasma (Minimal) and Required Packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    plasma-desktop \
+    kde-plasma-desktop \
     konsole \
-    xserver-xorg \
+    dolphin \
+    firefox \
     dbus-x11 \
     tigervnc-standalone-server \
     novnc \
     websockify \
-    htop
-
-RUN apt-get install -y --no-install-recommends plasma-widgets-addons
-
-RUN apt-get clean && \
-    apt-get autoremove && \
-    rm -rf /var/lib/apt/lists/*
+    htop \
+    && apt-get clean \
+    && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY Caddyfile /etc/
 
@@ -42,8 +40,8 @@ redirect_stderr=true\n\
 \n\
 [program:kde]\n\
 priority=1\n\
-command=/bin/bash -c '"'"'export DISPLAY=:0 && exec dbus-launch --exit-with-session startplasma-x11'"'"'\n\
-environment=DISPLAY=:0\n\
+command=/bin/bash -c '"'"'export DISPLAY=:0 && mkdir -p /home/runuser/.config && exec dbus-launch --exit-with-session startplasma-x11'"'"'\n\
+environment=DISPLAY=:0,HOME=/home/runuser\n\
 autorestart=true\n\
 stdout_logfile=/home/runuser/kde.log\n\
 stdout_logfile_maxbytes=0\n\
