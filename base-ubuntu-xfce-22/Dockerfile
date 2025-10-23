@@ -1,7 +1,9 @@
-FROM base-ubuntu-caddy-24:latest
+FROM base-ubuntu-caddy-22:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install XFCE and supporting packages for Ubuntu 22.04
+# Note: python3-websockify is explicitly added for Ubuntu 22.04 compatibility
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 \
     xfce4-goodies \
@@ -14,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     websockify \
     htop \
     sudo \
+    python3-websockify \
     adwaita-icon-theme \
     elementary-xfce-icon-theme \
     tango-icon-theme \

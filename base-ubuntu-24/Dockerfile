@@ -20,4 +20,8 @@ RUN chmod 744 /usr/local/bin/init_chowns.sh
 RUN usermod -md /home/runuser -l runuser ubuntu && \
     groupmod -n runuser ubuntu
 
+RUN echo 'runuser:password' | chpasswd
+
+RUN usermod -c "runuser" runuser
+
 CMD ["/usr/local/bin/start.sh"]

@@ -22,4 +22,6 @@ RUN groupadd --gid 1000 runuser && \
     mkdir -p /data
 VOLUME /home/runuser
 
+RUN echo 'runuser:password' | chpasswd
+
 CMD ["/usr/local/bin/start.sh"]
