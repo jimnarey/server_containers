@@ -2,9 +2,6 @@ FROM base-ubuntu-caddy-24:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# kdeplasma-addons
-
-# Install KDE Plasma (Minimal) and Required Packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     kde-plasma-desktop \
     konsole \
@@ -15,9 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     novnc \
     websockify \
     htop \
+    sudo \
     && apt-get clean \
     && apt-get autoremove \
     && rm -rf /var/lib/apt/lists/*
+
+RUN usermod -aG sudo runuser
 
 COPY Caddyfile /etc/
 
