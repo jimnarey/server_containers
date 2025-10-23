@@ -50,6 +50,21 @@ services:
     <<: *defaults
     container_name: dropbox-gui-c
 
+  exodos:
+    build: ./exodos
+    volumes:
+      - /mnt/ext_data_b/Retro/exodos/exodos-home:/home/runuser
+      - /mnt/ext_data_b/Retro/exodos/eXoDOS:/eXoDOS
+      - /mnt:/host_volumes
+    ports:
+      - "9027:8081"
+    privileged: true
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    <<: *defaults
+    container_name: exodos-c
+
   filezilla:
     build: ./filezilla
     volumes:
