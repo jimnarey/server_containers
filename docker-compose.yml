@@ -65,6 +65,15 @@ services:
     <<: *defaults
     container_name: exodos-c
 
+  expressvpn-gui:
+    build: ./expressvpn-gui
+    volumes:
+      - /mnt:/host_volumes
+    ports:
+      - "9030:8081"
+    <<: *defaults
+    container_name: expressvpn-gui-c
+
   filezilla:
     build: ./filezilla
     volumes:
