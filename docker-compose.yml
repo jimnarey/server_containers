@@ -68,6 +68,7 @@ services:
   expressvpn-gui:
     build: ./expressvpn-gui
     volumes:
+      - expressvpn-gui-home:/home/runuser
       - /mnt:/host_volumes
     ports:
       - "9030:8081"
@@ -332,3 +333,4 @@ volumes:
   webdav-apache-home:
   webdav-home:
   xfce-home:
+  expressvpn-gui-home:
