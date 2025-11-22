@@ -50,10 +50,9 @@ redirect_stderr=true\n\
 \n\
 [program:xfce]\n\
 user=runuser\n\
-environment=HOME=/home/runuser\n\
+environment=DISPLAY=:0,HOME=/home/runuser,USER="runuser",LOGNAME="runuser",XDG_RUNTIME_DIR="/home/runuser/.xdg"\n\
 priority=1\n\
 command=/bin/bash -c '"'"'export DISPLAY=:0 && exec dbus-launch --exit-with-session startxfce4'"'"'\n\
-environment=DISPLAY=:0\n\
 autorestart=true\n\
 stdout_logfile=/home/runuser/xfce.log\n\
 stdout_logfile_maxbytes=0\n\
