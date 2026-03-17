@@ -1,20 +1,13 @@
 #!/bin/bash
 
-cd base-ubuntu
-docker build --no-cache -t $(basename $(pwd)) .
-cd ..
-
-cd build-caddy
-docker build -t $(basename $(pwd)) .
-
-cd ../base-ubuntu-caddy
-docker build -t $(basename $(pwd)) .
-
-cd ../build-easy-novnc
-docker build -t $(basename $(pwd)) .
-
-cd ../base-ubuntu-gui
-docker build -t $(basename $(pwd)) .
-
-cd ../base-ubuntu-wine
-docker build -t $(basename $(pwd)) .
+docker compose build --no-cache base-ubuntu-22
+docker compose build --no-cache base-ubuntu-caddy-22
+docker compose build --no-cache base-ubuntu-gui-22
+docker compose build --no-cache base-ubuntu-24
+docker compose build --no-cache base-ubuntu-caddy-24
+docker compose build --no-cache base-ubuntu-gui-24
+docker compose build --no-cache base-ubuntu-kde-24
+docker compose build --no-cache base-ubuntu-kde-wine-24
+docker compose build --no-cache base-ubuntu-wine-24
+docker compose build --no-cache base-ubuntu-xfce-22
+docker compose build --no-cache base-ubuntu-xfce-24

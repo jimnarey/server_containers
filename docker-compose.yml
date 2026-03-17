@@ -6,6 +6,51 @@ x-defaults: &defaults
     CADDY_HASH: ${CADDY_HASH}
 
 services:
+
+  base-ubuntu-22:
+    build: ./base-ubuntu-22
+    profiles: ["base"]
+
+  base-ubuntu-24:
+    build: ./base-ubuntu-24
+    profiles: ["base"]
+
+  base-ubuntu-caddy-22:
+    build: ./base-ubuntu-caddy-22
+    profiles: ["base"]
+
+  base-ubuntu-caddy-24:
+    build: ./base-ubuntu-caddy-24
+    profiles: ["base"]
+
+  base-ubuntu-gui-22:
+    build: ./base-ubuntu-gui-22
+    profiles: ["base"]
+
+  base-ubuntu-gui-24:
+    build: ./base-ubuntu-gui-24
+    profiles: ["base"]
+
+  base-ubuntu-kde-24:
+    build: ./base-ubuntu-kde-24
+    profiles: ["base"]
+
+  base-ubuntu-kde-wine-24:
+    build: ./base-ubuntu-kde-wine-24
+    profiles: ["base"]
+
+  base-ubuntu-wine-24:
+    build: ./base-ubuntu-wine-24
+    profiles: ["base"]
+
+  base-ubuntu-xfce-22:
+    build: ./base-ubuntu-xfce-22
+    profiles: ["base"]
+
+  base-ubuntu-xfce-24:
+    build: ./base-ubuntu-xfce-24
+    profiles: ["base"]
+
   calibre:
     build: ./calibre
     volumes:
@@ -69,7 +114,7 @@ services:
     build: ./expressvpn
     container_name: expressvpn-c
     env_file:
-          - env.sh
+          - .env
     cap_add:
       - NET_ADMIN
     devices: 
