@@ -47,3 +47,18 @@ stdout_logfile=/home/runuser/kde.log\n\
 stdout_logfile_maxbytes=0\n\
 redirect_stderr=true\n'\
 >> /etc/supervisord.conf
+
+RUN mkdir -p /home/runuser/.config && \
+    echo '[Containments][2]\n\
+activityId=00000000-0000-0000-0000-000000000000\n\
+formfactor=0\n\
+immutability=1\n\
+lastScreen=0\n\
+location=0\n\
+plugin=org.kde.desktopcontainment\n\
+wallpaperplugin=org.kde.image\n\
+\n\
+[Containments][2][Wallpaper][org.kde.image][General]\n\
+Image=\n\
+color=0,0,0\n' > /home/runuser/.config/plasmashellrc && \
+    chown -R runuser:runuser /home/runuser/.config
