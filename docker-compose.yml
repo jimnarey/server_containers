@@ -256,9 +256,11 @@ services:
 
   meganz:
     build: ./meganz
+    env_file:
+      - .env
     volumes:
       - meganz-home:/home/runuser
-      - /mnt:/host_mnt
+      - ${MEGANZ_LOCAL}:/meganz_local
     ports:
       - "9017:8081"
     container_name: meganz-c
