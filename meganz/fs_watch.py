@@ -3,7 +3,6 @@
 import os
 import logging
 import subprocess
-import threading
 import time
 
 from watchdog.events import FileSystemEventHandler
@@ -11,7 +10,7 @@ from watchdog.observers import Observer
 
 LOCAL_PATH = "/meganz_local"
 REMOTE_PATH = os.getenv("MEGANZ_REMOTE")
-SYNC_CMD = ["/usr/bin/rclone", "sync", LOCAL_PATH, f"mega:{REMOTE_PATH}", "--verbose",]
+SYNC_CMD = ["/usr/bin/rclone", "sync", LOCAL_PATH, f"mega:{REMOTE_PATH}", "--exclude", ".debris/**", "--verbose",]
 
 DEBOUNCE_SECONDS = 5
 
@@ -26,8 +25,9 @@ class ChangeHandler(FileSystemEventHandler):
     
     def __init__(self):
         super().__init__()
-        self.timer = None
-        self.lock = threading.Lock()
+        self.last_event_time = None
+        self.sync_running = False
+        self.sync_queued = False
     
     def on_any_event(self, event):
         """Called for any filesystem event."""
@@ -35,18 +35,28 @@ class ChangeHandler(FileSystemEventHandler):
             return
         
         logging.info(f"Change detected: {event.event_type} {event.src_path}")
-        self.schedule_sync()
+        
+        if self.sync_running:
+            if not self.sync_queued:
+                logging.info("Sync already running, queueing one more run")
+                self.sync_queued = True
+        else:
+            self.last_event_time = time.time()
     
-    def schedule_sync(self):
-        """Schedule a sync after debounce period, canceling previous timers."""
-        with self.lock:
-            if self.timer:
-                self.timer.cancel()
-            self.timer = threading.Timer(DEBOUNCE_SECONDS, self.run_sync)
-            self.timer.start()
+    def should_run_sync(self):
+        """Check if enough time has passed since last event to run sync."""
+        if self.sync_running:
+            return False
+        if self.last_event_time is None:
+            return False
+        return time.time() - self.last_event_time >= DEBOUNCE_SECONDS
     
     def run_sync(self):
         """Execute the rclone sync command."""
+        self.sync_running = True
+        self.sync_queued = False
+        self.last_event_time = None
+        
         logging.info(f"Running sync: {' '.join(SYNC_CMD)}")
         try:
             process = subprocess.Popen(
@@ -57,7 +67,6 @@ class ChangeHandler(FileSystemEventHandler):
                 bufsize=1
             )
             
-            # Stream output line by line through logger
             for line in process.stdout:
                 line = line.rstrip()
                 if line:
@@ -71,6 +80,12 @@ class ChangeHandler(FileSystemEventHandler):
                 logging.error(f"Sync failed with code {process.returncode}")
         except Exception as e:
             logging.error(f"Sync error: {e}")
+        finally:
+            self.sync_running = False
+            if self.sync_queued:
+                logging.info("Queued sync will run after debounce period")
+                self.last_event_time = time.time()
+                self.sync_queued = False
 
 
 def main():
@@ -81,6 +96,8 @@ def main():
     logging.info(f"Watching {LOCAL_PATH}")
     try:
         while True:
+            if event_handler.should_run_sync():
+                event_handler.run_sync()
             time.sleep(1)
     except KeyboardInterrupt:
         logging.info("Stopping watcher")
