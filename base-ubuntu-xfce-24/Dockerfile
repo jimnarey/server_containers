@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4-goodies \
     xfce4-terminal \
     thunar \
+    pcmanfm \
     firefox \
     dbus-x11 \
     tigervnc-standalone-server \
@@ -19,6 +20,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tango-icon-theme \
     gnome-icon-theme \
     hicolor-icon-theme \
+    file-roller \
+    engrampa \
+    unzip \
+    zip \
+    p7zip-full \
+    p7zip-rar \
+    unrar \
+    rar \
+    arj \
+    lhasa \
+    unace \
+    cabextract \
+    cpio \
+    tar \
+    gzip \
+    bzip2 \
+    xz-utils \
+    lrzip \
+    lzip \
+    lzop \
+    zstd \
+    f3d \
     && apt-get clean \
     && apt-get autoremove \
     && rm -rf /var/lib/apt/lists/*
