@@ -8,51 +8,63 @@ x-defaults: &defaults
 services:
 
   base-ubuntu-22:
+    image: base-ubuntu-22:latest
     build: ./base-ubuntu-22
     profiles: ["base"]
 
   base-ubuntu-24:
+    image: base-ubuntu-24:latest
     build: ./base-ubuntu-24
     profiles: ["base"]
 
   base-ubuntu-caddy-22:
+    image: base-ubuntu-caddy-22:latest
     build: ./base-ubuntu-caddy-22
     profiles: ["base"]
 
   base-ubuntu-caddy-24:
+    image: base-ubuntu-caddy-24:latest
     build: ./base-ubuntu-caddy-24
     profiles: ["base"]
 
   base-ubuntu-gui-22:
+    image: base-ubuntu-gui-22:latest
     build: ./base-ubuntu-gui-22
     profiles: ["base"]
 
   base-ubuntu-gui-24:
+    image: base-ubuntu-gui-24:latest
     build: ./base-ubuntu-gui-24
     profiles: ["base"]
 
   base-ubuntu-kde-24:
+    image: base-ubuntu-kde-24:latest
     build: ./base-ubuntu-kde-24
     profiles: ["base"]
 
   base-ubuntu-kde-wine-24:
+    image: base-ubuntu-kde-wine-24:latest
     build: ./base-ubuntu-kde-wine-24
     profiles: ["base"]
 
   base-ubuntu-wine-24:
+    image: base-ubuntu-wine-24:latest
     build: ./base-ubuntu-wine-24
     profiles: ["base"]
 
   base-ubuntu-xfce-22:
+    image: base-ubuntu-xfce-22:latest
     build: ./base-ubuntu-xfce-22
     profiles: ["base"]
 
   base-ubuntu-xfce-24:
+    image: base-ubuntu-xfce-24:latest
     build: ./base-ubuntu-xfce-24
     profiles: ["base"]
 
   calibre:
     build: ./calibre
+    image: calibre:latest
     volumes:
       - calibre-home:/home/runuser
       - ${CALIBRE_LIBRARY}:/library
@@ -65,6 +77,7 @@ services:
 
   clrmamepro:
     build: ./clrmamepro
+    image: clrmamepro:latest
     volumes:
       - clrmamepro-home:/home/runuser
       - clrmamepro-app:/app
@@ -75,8 +88,20 @@ services:
     <<: *defaults
     container_name: clrmamepro-c
 
+  desktop-kde:
+    build: ./desktop-kde
+    image: desktop-kde:latest
+    volumes:
+      - kde-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9024:8081"
+    <<: *defaults
+    container_name: kde-c
+
   desktop-xfce:
     build: ./desktop-xfce
+    image: desktop-xfce:latest
     volumes:
       - desktop-xfce-home:/home/runuser
       - /mnt:/host_volumes
@@ -87,6 +112,7 @@ services:
 
   double-commander:
     build: ./double-commander
+    image: double-commander:latest
     volumes:
       - double-commander-home:/home/runuser
       - /mnt:/host_volumes
@@ -97,6 +123,7 @@ services:
 
   dropbox-gui:
     build: ./dropbox-gui
+    image: dropbox-gui:latest
     volumes:
       - dropbox-gui-home:/home/runuser
       - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
@@ -107,6 +134,7 @@ services:
 
   exodos:
     build: ./exodos
+    image: exodos:latest
     volumes:
       - exodos-home:/home/runuser
       - /mnt:/host_volumes
@@ -121,9 +149,8 @@ services:
 
   expressvpn:
     build: ./expressvpn
+    image: expressvpn:latest
     container_name: expressvpn-c
-    env_file:
-          - .env
     cap_add:
       - NET_ADMIN
     devices: 
@@ -138,6 +165,7 @@ services:
 
   filezilla:
     build: ./filezilla
+    image: filezilla:latest
     volumes:
       - filezilla-home:/home/runuser
       - /mnt:/host_volumes
@@ -148,6 +176,7 @@ services:
 
   gdmenu-cm:
     build: ./gdmenu-cm
+    image: gdmenu-cm:latest
     volumes:
       - gdmenu-cm-home:/home/runuser
       - build-gdmenu-cm-app:/app
@@ -162,6 +191,7 @@ services:
 
   hexchat:
     build: ./hexchat
+    image: hexchat:latest
     volumes:
       - hexchat-home:/home/runuser
     ports:
@@ -171,6 +201,7 @@ services:
 
   inkscape:
     build: ./inkscape
+    image: inkscape:latest
     volumes:
       - inkscape-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -181,6 +212,7 @@ services:
 
   jrom-manager:
     build: ./jrom-manager
+    image: jrom-manager:latest
     volumes:
       - jrom-manager-home:/home/runuser
       - /mnt:/host_volumes
@@ -189,17 +221,9 @@ services:
     <<: *defaults
     container_name: jrom-manager-c
 
-  kde:
-    build: base-ubuntu-kde-24
-    volumes:
-      - kde-home:/home/runuser
-      - /mnt:/host_volumes
-    ports:
-      - "9024:8081"
-    <<: *defaults
-    container_name: kde-c
   laserweb:
     build: ./laserweb
+    image: laserweb:latest
     volumes:
       - laserweb-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -211,6 +235,7 @@ services:
 
   lightburn:
     build: ./lightburn
+    image: lightburn:latest
     volumes:
       - lightburn-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -222,6 +247,7 @@ services:
 
   lightburn-win-install:
     build: ./lightburn-win-install
+    image: lightburn-win-install:latest
     volumes:
       - lightburn-win-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -233,6 +259,7 @@ services:
 
   lightburn-win:
     build: ./lightburn-win
+    image: lightburn-win:latest
     volumes:
       - lightburn-win-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -244,6 +271,7 @@ services:
 
   lasergrbl-install:
     build: ./lasergrbl-install
+    image: lasergrbl-install:latest
     volumes:
       - lasergrbl-home:/home/runuser
     ports:
@@ -254,6 +282,7 @@ services:
 
   lasergrbl:
     build: ./lasergrbl
+    image: lasergrbl:latest
     volumes:
       - lasergrbl-home:/home/runuser
       - ${LASER_CUTTING_ROOT}:/lasercutting
@@ -265,6 +294,7 @@ services:
 
   meganz:
     build: ./meganz
+    image: meganz:latest
     env_file:
       - .env
     volumes:
@@ -276,6 +306,7 @@ services:
 
   nkit:
     build: ./nkit
+    image: nkit:latest
     volumes:
       - nkit-home:/home/runuser
       - nkit-app:/app
@@ -288,6 +319,7 @@ services:
 
   octoprint:
     build: ./octoprint
+    image: octoprint:latest
     volumes:
       - octoprint-app:/octoprint
       - octoprint-home:/home-runuser
@@ -301,6 +333,7 @@ services:
 
   retroarch-web:
     build: ./retroarch-web
+    image: retroarch-web:latest
     volumes:
       - retroarch-web-home:/home/runuser
     ports:
@@ -310,6 +343,7 @@ services:
 
   simple-arcade-multifilter:
     build: ./simple-arcade-multifilter
+    image: simple-arcade-multifilter:latest
     volumes:
       - simple-arcade-multifilter-home:/home/runuser
       - simple-arcade-multifilter-app:/app
@@ -325,6 +359,7 @@ services:
       context: ./transmission
       args:
         TRANSMISSION_PASSWORD: ${TRANSMISSION_PASSWORD}
+    image: transmission:latest
     volumes:
       - transmission-home:/home/runuser
       - /mnt:/host_volumes
@@ -340,6 +375,7 @@ services:
       args:
         - WEBDAV_USERNAME=${WEBDAV_USERNAME:-webdav}
         - WEBDAV_PASSWORD=${WEBDAV_PASSWORD:-password}
+    image: webdav-apcahe:latest
     ports:
       - "9023:80"
     volumes:
@@ -349,6 +385,7 @@ services:
 
   webdav:
     build: ./webdav
+    image: webdav:latest
     volumes:
       - webdav-home:/home/runuser
       - "${WEBDAV_ROOT}:/webdav"
@@ -361,8 +398,10 @@ volumes:
   calibre-home:
   clrmamepro-home:
   clrmamepro-app:
+  desktop-xfce-home:
   double-commander-home:
   dropbox-gui-home:
+  exodos-home:
   filezilla-home:
   gdmenu-cm-home:
   build-gdmenu-cm-app:
@@ -385,8 +424,7 @@ volumes:
   transmission-home:
   webdav-apache-home:
   webdav-home:
-  desktop-xfce-home:
   xfce-vpn-home:
-  chromium-vpn-home:
-  exodos-home:
+
+
   

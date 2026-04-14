@@ -1,4 +1,4 @@
-FROM base-ubuntu
+FROM base-ubuntu:latest
 
 RUN mkdir /download
 WORKDIR /download
