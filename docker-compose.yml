@@ -75,6 +75,16 @@ services:
     <<: *defaults
     container_name: clrmamepro-c
 
+  desktop-xfce:
+    build: ./desktop-xfce
+    volumes:
+      - desktop-xfce-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9026:8081"
+    <<: *defaults
+    container_name: desktop-xfce-c
+
   double-commander:
     build: ./double-commander
     volumes:
@@ -98,8 +108,7 @@ services:
   exodos:
     build: ./exodos
     volumes:
-      - /mnt/ext_data_b/Retro/exodos/exodos-home:/home/runuser
-      - /mnt/ext_data_b/Retro/exodos/eXoDOS:/eXoDOS
+      - exodos-home:/home/runuser
       - /mnt:/host_volumes
     ports:
       - "9027:8081"
@@ -348,16 +357,6 @@ services:
     <<: *defaults
     container_name: webdav-c
 
-  xfce:
-    build: base-ubuntu-xfce-24
-    volumes:
-      - xfce-home:/home/runuser
-      - /mnt:/host_volumes
-    ports:
-      - "9026:8081"
-    <<: *defaults
-    container_name: xfce-c
-
 volumes:
   calibre-home:
   clrmamepro-home:
@@ -386,6 +385,8 @@ volumes:
   transmission-home:
   webdav-apache-home:
   webdav-home:
-  xfce-home:
+  desktop-xfce-home:
   xfce-vpn-home:
   chromium-vpn-home:
+  exodos-home:
+  
