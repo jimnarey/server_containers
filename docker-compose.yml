@@ -110,6 +110,17 @@ services:
     <<: *defaults
     container_name: desktop-xfce-c
 
+  desktop-dropbox:
+    build: ./desktop-dropbox
+    image: desktop-dropbox:latest
+    volumes:
+      - desktop-dropbox-home:/home/runuser
+      - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
+    ports:
+      - "9005:8081"
+    <<: *defaults
+    container_name: desktop-dropbox-c
+
   double-commander:
     build: ./double-commander
     image: double-commander:latest
@@ -121,16 +132,16 @@ services:
     <<: *defaults
     container_name: double-commander-c
 
-  dropbox-gui:
-    build: ./dropbox-gui
-    image: dropbox-gui:latest
-    volumes:
-      - dropbox-gui-home:/home/runuser
-      - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
-    ports:
-      - "9005:8081"
-    <<: *defaults
-    container_name: dropbox-gui-c
+  # dropbox-gui:
+  #   build: ./dropbox-gui
+  #   image: dropbox-gui:latest
+  #   volumes:
+  #     - dropbox-gui-home:/home/runuser
+  #     - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
+  #   ports:
+  #     - "9005:8081"
+  #   <<: *defaults
+  #   container_name: dropbox-gui-c
 
   exodos:
     build: ./exodos
@@ -399,8 +410,9 @@ volumes:
   clrmamepro-home:
   clrmamepro-app:
   desktop-xfce-home:
+  desktop-dropbox-home:
   double-commander-home:
-  dropbox-gui-home:
+  # dropbox-gui-home:
   exodos-home:
   filezilla-home:
   gdmenu-cm-home:

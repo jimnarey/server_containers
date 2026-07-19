@@ -1,14 +1,13 @@
-FROM base-ubuntu-gui-22:latest
+FROM base-ubuntu-gui-24:latest
 
 WORKDIR /home/runuser
-RUN wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2020.03.04_amd64.deb -O dropbox_2020.03.04_amd64.deb
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libglib2.0-0 libglapi-mesa libxext-dev libxdamage-dev libxcb-glx0-dev libxcb-dri2-0-dev libxcb-dri3-dev \
     libxcb-present-dev libxshmfence-dev libxxf86vm-dev libqt5x11extras5 nautilus
 
-RUN apt-get update
-RUN apt-get install -y ./dropbox_2020.03.04_amd64.deb 
+RUN wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2026.05.06_amd64.deb -O dropbox_2026.05.06_amd64.deb
+RUN apt-get install -y ./dropbox_2026.05.06_amd64.deb
     
 RUN apt-get clean && \
     apt-get autoremove && \
