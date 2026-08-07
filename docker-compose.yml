@@ -342,6 +342,23 @@ services:
     privileged: true
     container_name: octoprint-c
 
+  ollama:
+    image: ollama/ollama:${OLLAMA_TAG:-latest}
+    volumes:
+      - /mnt/models/ollama:/root/.ollama/models
+      - /mnt/models/ollama:/root/.ollama/models
+      - /mnt/work/ollama-nvidia-cache:/root/.nv
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-65536}
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_FLASH_ATTENTION: 1
+      OLLAMA_KV_CACHE_TYPE: q8_0
+    ports:
+      - "192.168.50.136:11434:11434"
+    restart: unless-stopped
+    container_name: ollama-c
+    gpus: all
+
   retroarch-web:
     build: ./retroarch-web
     image: retroarch-web:latest
