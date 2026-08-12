@@ -210,6 +210,22 @@ services:
     <<: *defaults
     container_name: hexchat-c
 
+  goose:
+    build:
+      context: ./goose
+      args:
+        GOOSE_VERSION: ${GOOSE_VERSION:-1.45.0}
+    image: goose:latest
+    volumes:
+      - goose-home:/home/runuser
+      - ${GOOSE_WORKSPACE:-/mnt}:/workspace
+    ports:
+      - "9031:8081"
+    stdin_open: true
+    tty: true
+    <<: *defaults
+    container_name: goose-c
+
   inkscape:
     build: ./inkscape
     image: inkscape:latest
@@ -345,8 +361,8 @@ services:
   ollama:
     image: ollama/ollama:${OLLAMA_TAG:-latest}
     volumes:
-      - /mnt/models/ollama:/root/.ollama/models
-      - /mnt/models/ollama:/root/.ollama/models
+      - /mnt/data/models/ollama:/root/.ollama/models
+      - /mnt/data/models/ollama:/root/.ollama/models
       - /mnt/work/ollama-nvidia-cache:/root/.nv
     environment:
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-65536}
@@ -377,21 +393,22 @@ services:
       - "192.168.50.136:11435:11434"
     restart: unless-stopped
     volumes:
-      - /mnt/models/ollama:/root/.ollama/models:ro
+      - /mnt/data/models/ollama:/root/.ollama/models:ro
 
   openhands:
     image: ghcr.io/openhands/agent-canvas:1.12.0
     container_name: openhands-c
+    user: "1000:1000"
     restart: unless-stopped
     environment:
       LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY}"
       OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY}"
-      GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
+      GIT_CONFIG_GLOBAL: /home/pn/.openhands/gitconfig
+    volumes:
+      - /mnt/work/openhands:/home/pn/.openhands
+      - /mnt/data/projects:/projects
     ports:
       - "192.168.50.136:9030:8000"
-    volumes:
-      - /mnt/work/openhands:/home/openhands/.openhands
-      - /mnt/data/projects:/projects
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -471,6 +488,7 @@ volumes:
   gdmenu-cm-home:
   build-gdmenu-cm-app:
   hexchat-home:
+  goose-home:
   jrom-manager-home:
   kde-home:
   inkscape-home:

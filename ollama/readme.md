@@ -7,7 +7,7 @@ The model directory is mounted from the host and passed to Ollama with
 the official image's default storage path:
 
 ```sh
-/mnt/models/ollama:/root/.ollama
+/mnt/data/models/ollama:/root/.ollama
 ```
 
 This keeps the existing host model store while matching the official
@@ -17,7 +17,7 @@ The official image normally runs as root, so make sure the host directory is
 readable and writable by the container:
 
 ```sh
-sudo chown -R root:root /mnt/models/ollama
+sudo chown -R root:root /mnt/data/models/ollama
 ```
 
 If you later choose to run the container as a non-root uid/gid, change the
