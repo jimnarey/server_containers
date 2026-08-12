@@ -396,16 +396,17 @@ services:
       - /mnt/data/models/ollama:/root/.ollama/models:ro
 
   openhands:
-    image: ghcr.io/openhands/agent-canvas:1.12.0
+    build: ./openhands
+    image: openhands-agent-canvas:1.7.0
     container_name: openhands-c
     user: "1000:1000"
     restart: unless-stopped
     environment:
-      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY}"
-      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY}"
-      GIT_CONFIG_GLOBAL: /home/pn/.openhands/gitconfig
+      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY:?OPENHANDS_API_KEY is required}"
+      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:?OPENHANDS_SECRET_KEY is required}"
+      GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
     volumes:
-      - /mnt/work/openhands:/home/pn/.openhands
+      - /mnt/work/openhands:/home/openhands/.openhands
       - /mnt/data/projects:/projects
     ports:
       - "192.168.50.136:9030:8000"
