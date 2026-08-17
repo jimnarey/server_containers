@@ -122,3 +122,9 @@ Query the OpenAI-compatible model list:
 ```sh
 curl "$OLLAMA_URL/v1/models"
 ```
+
+Check whether the last request was handled on the GPU/CPU/split:
+
+```sh
+docker compose exec ollama ollama ps
+```

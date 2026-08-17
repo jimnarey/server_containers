@@ -10,4 +10,10 @@ RUN userdel pn && \
     usermod --uid 1000 --gid 1000 openhands && \
     chown -R 1000:1000 /home/openhands
 
+# Let the agent install system packages non-interactively while retaining the
+# meaningful `openhands` identity used by the numeric Compose user mapping.
+RUN echo 'openhands ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/openhands && \
+    chmod 0440 /etc/sudoers.d/openhands && \
+    visudo -cf /etc/sudoers.d/openhands
+
 USER openhands

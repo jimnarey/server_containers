@@ -18,10 +18,10 @@ Optional settings are:
 ```dotenv
 OPENCODE_SERVER_USERNAME=opencode
 OPENCODE_VERSION=1.18.9
-OPENCODE_WORKSPACE=/mnt/data/projects
+OPENCODE_WORKSPACE=/mnt/work/projects
 ```
 
-The workspace defaults to `/mnt/data/projects` on the host and is available as
+The workspace defaults to `/mnt/work/projects` on the host and is available as
 `/workspace` in the container. OpenCode configuration is stored under
 `/home/runuser/.config/opencode`, while credentials and session data are stored
 under `/home/runuser/.local/share/opencode`; both persist in `opencode-home`.
