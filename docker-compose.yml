@@ -75,6 +75,43 @@ services:
     <<: *defaults
     container_name: calibre-c
 
+  comfyui:
+    build:
+      context: ./comfy-ui
+      args:
+        COMFYUI_VERSION: ${COMFYUI_VERSION:-v0.29.2}
+        TORCH_VERSION: ${COMFYUI_TORCH_VERSION:-2.11.0}
+        TORCHVISION_VERSION: ${COMFYUI_TORCHVISION_VERSION:-0.26.0}
+        TORCHAUDIO_VERSION: ${COMFYUI_TORCHAUDIO_VERSION:-2.11.0}
+        PYTORCH_INDEX_URL: ${COMFYUI_PYTORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+    image: comfyui:latest
+    container_name: comfyui-c
+    restart: unless-stopped
+    init: true
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      CADDY_USER: ${CADDY_USER:-admin}
+      CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
+      COMFYUI_EXTRA_ARGS: ${COMFYUI_EXTRA_ARGS:-}
+    volumes:
+      - ${COMFYUI_MODELS:-/mnt/data/models/comfyui}:/models
+      - ${COMFYUI_INPUT:-/mnt/data/generation/input}:/data/input
+      - ${COMFYUI_OUTPUT:-/mnt/data/generation/output}:/data/output
+      - ${COMFYUI_USER:-/mnt/work/comfyui/user}:/data/user
+      - ${COMFYUI_CUSTOM_NODES:-/mnt/work/comfyui/custom_nodes}:/opt/ComfyUI/custom_nodes
+    ports:
+      - "${COMFYUI_BIND_ADDRESS:-192.168.50.136}:${COMFYUI_PORT:-9034}:8081"
+    gpus: all
+    shm_size: "2gb"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/system_stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
   clrmamepro:
     build: ./clrmamepro
     image: clrmamepro:latest
@@ -408,7 +445,7 @@ services:
       GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
     volumes:
       - /mnt/work/openhands:/home/openhands/.openhands
-      - /mnt/data/projects:/projects
+      - /mnt/work/projects:/projects
     ports:
       - "192.168.50.136:9030:8000"
     extra_hosts:
@@ -429,7 +466,7 @@ services:
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:?OPENCODE_SERVER_PASSWORD is required}
     volumes:
       - opencode-home:/home/runuser
-      - ${OPENCODE_WORKSPACE:-/mnt/data/projects}:/workspace
+      - ${OPENCODE_WORKSPACE:-/mnt/work/projects}:/workspace
     ports:
       - "192.168.50.136:9032:4096"
     stdin_open: true
@@ -474,11 +511,14 @@ services:
     container_name: transmission-c
 
   vscode:
-    build: ./vscode
+    build:
+      context: ./vscode
+      args:
+        CODE_SERVER_VERSION: ${CODE_SERVER_VERSION:-4.132.0}
     image: vscode:latest
     volumes:
       - vscode-home:/home/runuser
-      - ${VSCODE_WORKSPACE:-/mnt/data/projects}:/workspace
+      - ${VSCODE_WORKSPACE:-/mnt/work}:/workspace
     ports:
       - "9033:8081"
     <<: *defaults

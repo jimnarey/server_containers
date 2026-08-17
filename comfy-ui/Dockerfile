@@ -1,39 +1,71 @@
 FROM base-ubuntu-caddy-24:latest
 
-ENV PYENV_ROOT=/opt/pyenv
-ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
+ARG COMFYUI_VERSION=v0.29.2
+ARG TORCH_VERSION=2.11.0
+ARG TORCHVISION_VERSION=0.26.0
+ARG TORCHAUDIO_VERSION=2.11.0
+ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+
+ENV VIRTUAL_ENV=/opt/comfyui-venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV HF_HUB_DISABLE_TELEMETRY=1
+ENV DO_NOT_TRACK=1
 
 RUN apt-get update -y && \
-	apt-get install -y --no-install-recommends \
-		build-essential curl git ca-certificates libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev libffi-dev liblzma-dev make wget && \
-	apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        git \
+        libgl1 \
+        libglib2.0-0 \
+        python3 \
+        python3-pip \
+        python3-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT && \
-	$PYENV_ROOT/bin/pyenv install -s 3.11.14 && \
-	$PYENV_ROOT/bin/pyenv global 3.11.14 && \
-	$PYENV_ROOT/bin/pyenv rehash
+RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
+        https://github.com/Comfy-Org/ComfyUI.git /opt/ComfyUI && \
+    python3 -m venv "${VIRTUAL_ENV}" && \
+    pip install --upgrade pip setuptools wheel && \
+    pip install \
+        "torch==${TORCH_VERSION}" \
+        "torchvision==${TORCHVISION_VERSION}" \
+        "torchaudio==${TORCHAUDIO_VERSION}" \
+        --index-url "${PYTORCH_INDEX_URL}" && \
+    pip install -r /opt/ComfyUI/requirements.txt && \
+    pip install -r /opt/ComfyUI/manager_requirements.txt && \
+    pip check && \
+    mkdir -p \
+        /models \
+        /data/input \
+        /data/output \
+        /data/temp \
+        /data/user \
+        /opt/ComfyUI/custom_nodes && \
+    chown -R runuser:runuser \
+        "${VIRTUAL_ENV}" \
+        /data \
+        /opt/ComfyUI/custom_nodes
 
-RUN pip install --upgrade pip setuptools wheel && \
-	pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git /home/runuser/ComfyUI && \
-	chown -R runuser:runuser /home/runuser/ComfyUI
-
-COPY extra_model_paths.yaml /home/runuser/ComfyUI/extra_model_paths.yaml
-RUN chown runuser:runuser /home/runuser/ComfyUI/extra_model_paths.yaml || true
-
-RUN pip install -r /home/runuser/ComfyUI/requirements.txt || true
+COPY --chown=runuser:runuser extra_model_paths.yaml /opt/ComfyUI/extra_model_paths.yaml
+COPY --chown=runuser:runuser start-comfyui.sh /usr/local/bin/start-comfyui
+RUN chmod 755 /usr/local/bin/start-comfyui
 
 EXPOSE 8081
 
-RUN echo \
-'\n[program:comfyui]\n\
-priority=1\n\
-environment=DISPLAY=:0,\n\
-            USER=runuser\n\
-command=/opt/pyenv/shims/python /home/runuser/ComfyUI/main.py --listen --port 8080\n\
-autorestart=true\n\
-stdout_logfile=/dev/fd/1\n\
-stdout_logfile_maxbytes=0\n\
-redirect_stderr=true\n'\
->> /etc/supervisord.conf
+RUN printf '%s\n' \
+    '' \
+    '[program:comfyui]' \
+    'priority=10' \
+    'directory=/opt/ComfyUI' \
+    'command=/usr/local/bin/start-comfyui' \
+    'autorestart=true' \
+    'startretries=10' \
+    'stopasgroup=true' \
+    'killasgroup=true' \
+    'stdout_logfile=/dev/fd/1' \
+    'stdout_logfile_maxbytes=0' \
+    'redirect_stderr=true' \
+    >> /etc/supervisord.conf
