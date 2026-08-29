@@ -94,6 +94,8 @@ services:
       CADDY_USER: ${CADDY_USER:-admin}
       CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
       COMFYUI_EXTRA_ARGS: ${COMFYUI_EXTRA_ARGS:-}
+      HF_HUB_CACHE: /models/huggingface
+      HF_TOKEN: ${COMFYUI_HF_TOKEN:-}
     volumes:
       - ${COMFYUI_MODELS:-/mnt/data/models/comfyui}:/models
       - ${COMFYUI_INPUT:-/mnt/data/generation/input}:/data/input
@@ -400,6 +402,7 @@ services:
     volumes:
       - ollama-home:/root/.ollama
       - /mnt/data/models/ollama:/root/.ollama/models
+      - /mnt/data/models/gguf:/models/gguf:ro
       - /mnt/work/ollama-nvidia-cache:/root/.nv
     environment:
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-65536}
