@@ -299,6 +299,29 @@ services:
     <<: *defaults
     container_name: laserweb-c
 
+  lasergrbl-install:
+    build: ./lasergrbl-install
+    image: lasergrbl-install:latest
+    volumes:
+      - lasergrbl-home:/home/runuser
+    ports:
+      - "9015:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-install-c
+
+  lasergrbl:
+    build: ./lasergrbl
+    image: lasergrbl:latest
+    volumes:
+      - lasergrbl-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9016:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-c
+
   lightburn:
     build: ./lightburn
     image: lightburn:latest
@@ -335,28 +358,45 @@ services:
     <<: *defaults
     container_name: lightburn-win-c
 
-  lasergrbl-install:
-    build: ./lasergrbl-install
-    image: lasergrbl-install:latest
+  llama-cpp:
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-cuda13}
+    container_name: llama-cpp-c
+    restart: unless-stopped
+    gpus: all
     volumes:
-      - lasergrbl-home:/home/runuser
+      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf/unsloth/Qwen3.8-27B-GGUF}:/models:ro
+    command:
+      - --models-dir
+      - /models
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CPP_CONTEXT_LENGTH:-65536}
+      - --parallel
+      - ${LLAMA_CPP_PARALLEL:-1}
+      - --n-gpu-layers
+      - all
+      - --split-mode
+      - layer
+      - --cache-type-k
+      - q8_0
+      - --cache-type-v
+      - q8_0
+      - --flash-attn
+      - on
+      - --fit
+      - on
+      - --fit-target
+      - ${LLAMA_CPP_FIT_TARGET:-1024}
+      - --no-webui
+      - --metrics
     ports:
-      - "9015:8081"
-    privileged: true
-    <<: *defaults
-    container_name: lasergrbl-install-c
-
-  lasergrbl:
-    build: ./lasergrbl
-    image: lasergrbl:latest
-    volumes:
-      - lasergrbl-home:/home/runuser
-      - ${LASER_CUTTING_ROOT}:/lasercutting
-    ports:
-      - "9016:8081"
-    privileged: true
-    <<: *defaults
-    container_name: lasergrbl-c
+      - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
 
   meganz:
     build: ./meganz
