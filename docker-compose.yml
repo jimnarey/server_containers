@@ -146,6 +146,7 @@ services:
     volumes:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
     ports:
       - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
     healthcheck:
@@ -288,6 +289,7 @@ services:
     volumes:
       - goose-home:/home/runuser
       - ${GOOSE_WORKSPACE:-/mnt}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
     ports:
       - "9031:8081"
     stdin_open: true
@@ -406,7 +408,7 @@ services:
       - --port
       - "8080"
       - --ctx-size
-      - ${LLAMA_CPP_CONTEXT_LENGTH:-65536}
+      - ${LLAMA_CPP_CONTEXT_LENGTH:-131072}
       - --parallel
       - ${LLAMA_CPP_PARALLEL:-1}
       - --n-gpu-layers
