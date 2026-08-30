@@ -127,6 +127,36 @@ services:
     <<: *defaults
     container_name: clrmamepro-c
 
+  deepseek:
+    build:
+      context: ./deepseek
+      args:
+        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.1.1-rc.2}
+    image: deepseek-harness:latest
+    container_name: deepseek-c
+    restart: unless-stopped
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      HOME: /home/runuser
+      USER: runuser
+      LOGNAME: runuser
+      DSH_HOME: /home/runuser/.dsh
+      SSH_CONNECTION: "container 0 container 0"
+    volumes:
+      - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
+      - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
+    ports:
+      - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--output", "/dev/null", "http://127.0.0.1:3080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stdin_open: true
+    tty: true
+
   desktop-kde:
     build: ./desktop-kde
     image: desktop-kde:latest
