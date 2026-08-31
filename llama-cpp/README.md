@@ -1,13 +1,8 @@
 # llama.cpp
 
-This service runs the official CUDA 13 `llama-server` image in router mode. It
-does not select a model at container startup. Instead, it scans `/models`,
-advertises the discovered GGUF files through the OpenAI-compatible API, and
-loads the model named in each request.
+This service runs the official CUDA 13 `llama-server` image in router mode. It does not select a model at container startup. Instead, it scans `/models`, advertises the discovered GGUF files through the OpenAI-compatible API, and loads the model named in each request.
 
-Only one model may be loaded at once. Switching models therefore unloads the
-least-recently-used model before loading the requested one, preventing multiple
-large models from competing for the two GPUs.
+Only one model may be loaded at once. Switching models therefore unloads the least-recently-used model before loading the requested one, preventing multiple large models from competing for the two GPUs.
 
 ## Configuration
 
@@ -23,19 +18,16 @@ Override it in `.env` when serving a different directory:
 LLAMA_CPP_MODELS=/absolute/path/to/gguf/models
 LLAMA_CPP_BIND_ADDRESS=192.168.50.136
 LLAMA_CPP_PORT=11436
-LLAMA_CPP_CONTEXT_LENGTH=65536
+LLAMA_CPP_CONTEXT_LENGTH=131072
 LLAMA_CPP_PARALLEL=1
 LLAMA_CPP_FIT_TARGET=1024
 ```
 
-`--models-dir` discovers GGUF files at the directory root and treats each
-immediate subdirectory as a possible multi-file model. It does not reliably
-scan arbitrary publisher/repository directory depths. Point
-`LLAMA_CPP_MODELS` at a repository leaf, or later provide a curated flat model
-directory or a llama.cpp model-preset file when serving multiple repositories.
+The current 131,072-token context is shared by the configured number of server slots; `LLAMA_CPP_PARALLEL=1` gives the single slot the full context. KV-cache allocation occurs when a model is loaded and materially increases GPU memory use compared with the earlier 65,536-token setting.
 
-The mounted directory is read-only. Download and manage GGUF files on the host
-rather than from this container.
+`--models-dir` discovers GGUF files at the directory root and treats each immediate subdirectory as a possible multi-file model. It does not reliably scan arbitrary publisher/repository directory depths. Point `LLAMA_CPP_MODELS` at a repository leaf, or later provide a curated flat model directory or a llama.cpp model-preset file when serving multiple repositories.
+
+The mounted directory is read-only. Download and manage GGUF files on the host rather than from this container.
 
 ## Start and inspect
 
@@ -63,9 +55,7 @@ curl http://192.168.50.136:11436/v1/chat/completions \
   }'
 ```
 
-The first request after a model switch includes its loading delay. Subsequent
-requests use the resident model. Do not keep a large Ollama model resident while
-loading a large llama.cpp model, because both services share the same GPUs.
+The first request after a model switch includes its loading delay. Subsequent requests use the resident model. Do not keep a large Ollama model resident while loading a large llama.cpp model, because both services share the same GPUs.
 
 DeepSeek Harness and Pi should use this in-container API URL:
 

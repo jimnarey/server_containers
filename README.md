@@ -12,6 +12,18 @@ Most GUI containers follow the same pattern:
 
 This repo contains both reusable base images and app-specific images built on top of them.
 
+## Scope And Portability
+
+This is a personal repository built for one server and its owner's workflows. It is published in the hope that parts of it are useful to other people, but it is not currently a portable, turnkey distribution. The Compose file and supporting configuration retain traces of the local installation, including host paths, LAN addresses, port choices, UID/GID assumptions, model names, and hardware expectations.
+
+Anyone reusing it should review the complete effective configuration before starting services:
+
+```bash
+docker compose config
+```
+
+In particular, do not assume that paths below `/mnt`, the address `192.168.50.136`, UID/GID 1000, GPU settings, or the agent credential path `/container-ssh` are appropriate on another host.
+
 ## Structure
 
 The repository is organised in layers:
@@ -56,6 +68,16 @@ docker run --rm -it base-ubuntu-caddy-24:latest \
 ```
 
 The Compose file reads `.env`. Some older `Makefile` targets expect an `env.sh` file that can be sourced in the shell; if you use those targets, create a compatible file locally.
+
+Environment-variable coverage is incomplete. Newer services generally expose their important paths and ports through `.env`, but a number of older services and some recently added integration mounts still contain literal host paths and addresses in `docker-compose.yml`. Moving those remaining values into `.env` is intentional future cleanup. Until then, inspect and edit both files when adapting the repository to another machine.
+
+## HTTP And Network Security
+
+The browser services currently operate over HTTP. There is not yet a shared TLS termination layer or general-purpose HTTPS gateway in front of the Compose stack. Services described as using Caddy generally use it for HTTP reverse proxying and basic authentication; that does not encrypt credentials or traffic.
+
+Treat LAN-published ports as trusted-network services. Use SSH port forwarding for host-loopback services, especially DeepSeek Harness, and do not expose the current endpoints directly to the internet. A central authenticated Caddy HTTPS gateway is planned, but its trust boundaries, hostnames, certificates, and per-service access policy have not yet been settled.
+
+DeepSeek is more complicated than the other HTTP applications: its privileged configuration APIs deliberately trust loopback, the application binds inside the container to loopback, and the Compose service publishes only host loopback. A supervised TCP relay bridges those two boundaries so an SSH tunnel can reach the UI. See [`deepseek/README.md`](./deepseek/README.md) before changing that binding or placing a proxy in front of it.
 
 ## Quick Start
 
@@ -121,6 +143,9 @@ These are the main services currently defined in `docker-compose.yml`:
 - Media/library tools: `calibre`, `clrmamepro`, `nkit`, `jrom-manager`, `simple-arcade-multifilter`
 - Design / maker tools: `inkscape`, `laserweb`, `lightburn`, `lightburn-win`, `lightburn-win-install`, `lasergrbl`, `lasergrbl-install`
 - Network / download tools: `transmission`, `expressvpn`
+- Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`
+- Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `vscode`
+- Generative media: `comfyui`
 - Other utilities: `hexchat`, `retroarch-web`, `octoprint`, `exodos`
 
 Not every folder in the repo is currently wired into Compose; some are templates, experiments, or older variants kept for reuse.
