@@ -142,7 +142,10 @@ services:
       USER: runuser
       LOGNAME: runuser
       DSH_HOME: /home/runuser/.dsh
-      SSH_CONNECTION: "container 0 container 0"
+      SSH_CONNECTION: "1 1 1 1"
+      UV_CACHE_DIR: /home/runuser/.cache/uv
+      UV_PYTHON_INSTALL_DIR: /home/runuser/.local/share/uv/python
+      UV_PYTHON_PREFERENCE: managed
     volumes:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace

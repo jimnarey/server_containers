@@ -14,6 +14,16 @@ DeepSeek Harness is a developer preview and may make compatibility-breaking
 changes. The image therefore pins its npm package version rather than installing
 `latest` on every build.
 
+The image includes the common tools needed by the local coding-agent workflow:
+`uv`, Python 3.12 development headers, build tools, `Xvfb`, `xauth`, `7z`,
+`zstd`, `fd`, `jq`, `git`, `openssh-client`, and `ripgrep`. `uv` uses persistent
+cache and managed-Python directories under `/home/runuser`, so Python downloads
+and package caches survive container recreation.
+
+Passwordless `sudo` is available as a fallback for small missing dependency
+installs and diagnostics. Prefer rebuilding the image when a dependency becomes
+part of the normal workflow.
+
 ## Configuration
 
 Optional settings in `.env` are:
