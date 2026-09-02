@@ -6,9 +6,18 @@ Harness profiles, settings, credentials, sessions, and installed plugins are per
 
 DeepSeek Harness is a developer preview and may make compatibility-breaking changes. The image therefore pins its npm package version rather than installing `latest` on every build.
 
-The image includes the common tools needed by the local coding-agent workflow: `uv`, Python 3.12 development headers, build tools, `Xvfb`, `xauth`, `7z`, `zstd`, `fd`, `jq`, `git`, `openssh-client`, and `ripgrep`. `uv` uses persistent cache and managed-Python directories under `/home/runuser`, so Python downloads and package caches survive container recreation.
+The image includes the common tools needed by the local coding-agent workflow:
+`uv`, Python 3.12 development headers, build tools, `Xvfb`, `xauth`, `7z`,
+`zstd`, `fd`, `jq`, `git`, `openssh-client`, `ripgrep`, and the GLib/Qt/XCB
+runtime libraries needed by PySide6 under Xvfb. `uv` uses persistent cache and
+managed-Python directories under `/home/runuser`, so Python downloads and package
+caches survive container recreation.
 
-Passwordless `sudo` is available as a fallback for small missing dependency installs and diagnostics. Prefer rebuilding the image when a dependency becomes part of the normal workflow.
+Passwordless `sudo` is available as a fallback for small missing dependency
+installs and diagnostics when entering the container with `docker compose exec`.
+DSH's normal `workspace-write` bash sandbox may still prevent in-agent `sudo`
+with a `no_new_privileges` error, so dependencies that become part of the normal
+workflow should be added to this image instead.
 
 ## Configuration
 

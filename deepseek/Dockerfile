@@ -15,6 +15,32 @@ RUN apt-get update && \
         fd-find \
         git \
         jq \
+        libasound2t64 \
+        libatk-bridge2.0-0t64 \
+        libatk1.0-0t64 \
+        libcups2t64 \
+        libdbus-1-3 \
+        libegl1 \
+        libfontconfig1 \
+        libglib2.0-0t64 \
+        libgtk-3-0t64 \
+        libnss3 \
+        libopengl0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxkbcommon-x11-0 \
+        libxkbcommon0 \
+        libxtst6 \
+        libxcb-cursor0 \
+        libxcb-icccm4 \
+        libxcb-image0 \
+        libxcb-keysyms1 \
+        libxcb-render-util0 \
+        libxcb-shape0 \
+        libxcb-xinerama0 \
+        libxcb-xinput0 \
+        libxcb-xkb1 \
         pkg-config \
         procps \
         python-is-python3 \
@@ -48,7 +74,7 @@ RUN echo 'runuser ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/runuser && \
     mkdir -p /workspace && \
     chown runuser:runuser /workspace
 
-ENV UV_CACHE_DIR=/home/runuser/.cache/uv \
+ENV UV_CACHE_DIR=/tmp/uv-cache \
     UV_PYTHON_INSTALL_DIR=/home/runuser/.local/share/uv/python \
     UV_PYTHON_PREFERENCE=managed \
     PATH=/home/runuser/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
