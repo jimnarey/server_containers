@@ -1,0 +1,21 @@
+# Sanitized DSH settings example for the local Qwen coding workflow.
+# Copy to $DEEPSEEK_HOME/.dsh/settings.yaml after a fresh deployment, then
+# confirm provider/model values in the DSH web UI before starting a run.
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+llm-pi-ai:
+  providers:
+    llama-cpp:
+      apiKeyEnv: LLAMA_CPP_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp:8080/v1
+      models:
+        - id: Qwen3.8-27B-UD-Q5_K_M
+          contextWindow: 98304
+        - id: Qwen3.8-27B-UD-Q6_K_M
+          contextWindow: 163840
+agent-default-model:
+  provider: llama-cpp
+  model: Qwen3.8-27B-UD-Q6_K_M
+agent-presets:
+  default: local-qwen-coder

@@ -406,6 +406,8 @@ services:
       - /models
       - --models-preset
       - /models-preset.ini
+      - --reasoning-format
+      - deepseek
       - --models-max
       - "1"
       - --models-autoload

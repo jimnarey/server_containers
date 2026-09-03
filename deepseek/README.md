@@ -100,6 +100,31 @@ agent-default-model:
 
 Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
 
+### Local Qwen coding preset backup
+
+This repository keeps deployment examples for a long-running local coding-agent
+setup under [`deepseek/config-examples`](./config-examples/). These files are not
+baked into the image yet; after a fresh deployment, copy the preset and settings
+into the persisted `DEEPSEEK_HOME` volume before starting a new session:
+
+```bash
+install -d /mnt/work/deepseek/.dsh/.agent-presets/local-qwen-coder
+cp deepseek/config-examples/presets/local-qwen-coder/agent.cordis.yml \
+  /mnt/work/deepseek/.dsh/.agent-presets/local-qwen-coder/agent.cordis.yml
+cp deepseek/config-examples/settings/llama-cpp-qwen.yaml \
+  /mnt/work/deepseek/.dsh/settings.yaml
+```
+
+The saved `local-qwen-coder` preset is intended for local autonomous coding runs
+using Qwen through llama.cpp. It enables DSH compaction with a larger 160K-class
+context in mind: it starts compaction at 75% context, keeps 16,384 recent tokens
+verbatim, and caps the generated compaction summary at 12,288 tokens. This is
+intended to avoid the observed loop where retaining too much recent history
+caused compaction to finish still close to the next compaction threshold.
+
+Review `llama-cpp-qwen.yaml` before copying it onto an existing deployment,
+because it contains provider/model selections as well as context-window metadata.
+
 ## Command-line use over SSH
 
 SSH to the server, change to this Compose repository, and open a container shell:
