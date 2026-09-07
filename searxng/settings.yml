@@ -1,0 +1,21 @@
+# Overrides merged onto the image's default settings.yml, mounted read-only
+# at /etc/searxng/settings.yml.
+# https://docs.searxng.org/admin/settings/
+
+use_default_settings: true
+
+server:
+  # Replaced at container start by the SEARXNG_SECRET environment variable
+  # (see .env); this placeholder is never used as-is.
+  secret_key: "ultrasecretkey"
+  image_proxy: true
+
+search:
+  # json is enabled so the instance can later serve as an API-based search
+  # provider; nothing currently queries this endpoint.
+  formats:
+    - html
+    - json
+
+valkey:
+  url: "valkey://searxng-valkey:6379/0"

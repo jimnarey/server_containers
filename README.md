@@ -146,6 +146,7 @@ These are the main services currently defined in `docker-compose.yml`:
 - Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`
 - Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `vscode`
 - Generative media: `comfyui`
+- Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend); not yet used by any other service, see [`searxng/README.md`](./searxng/README.md)
 - Other utilities: `hexchat`, `retroarch-web`, `octoprint`, `exodos`
 
 Not every folder in the repo is currently wired into Compose; some are templates, experiments, or older variants kept for reuse.

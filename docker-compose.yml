@@ -563,6 +563,35 @@ services:
     <<: *defaults
     container_name: retroarch-web-c
 
+  searxng:
+    image: docker.io/searxng/searxng:${SEARXNG_TAG:-latest}
+    container_name: searxng-c
+    restart: unless-stopped
+    depends_on:
+      - searxng-valkey
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is required}
+      SEARXNG_BASE_URL: http://${SEARXNG_BIND_ADDRESS:-192.168.50.136}:${SEARXNG_PORT:-9036}/
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-cache:/var/cache/searxng
+    ports:
+      - "${SEARXNG_BIND_ADDRESS:-192.168.50.136}:${SEARXNG_PORT:-9036}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  searxng-valkey:
+    image: docker.io/valkey/valkey:9-alpine
+    container_name: searxng-valkey-c
+    command: valkey-server --save 30 1 --loglevel warning
+    restart: unless-stopped
+    volumes:
+      - searxng-valkey-data:/data
+
   simple-arcade-multifilter:
     build: ./simple-arcade-multifilter
     image: simple-arcade-multifilter:latest
@@ -660,6 +689,8 @@ volumes:
   ollama-home:
   opencode-home:
   retroarch-web-home:
+  searxng-cache:
+  searxng-valkey-data:
   simple-arcade-multifilter-home:
   simple-arcade-multifilter-app:
   transmission-home:
