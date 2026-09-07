@@ -45,6 +45,7 @@ RUN apt-get update && \
         procps \
         python-is-python3 \
         python3 \
+        python3-capstone \
         python3.12-dev \
         ripgrep \
         socat \
