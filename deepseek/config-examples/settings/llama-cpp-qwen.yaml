@@ -14,6 +14,7 @@ llm-pi-ai:
           contextWindow: 98304
         - id: Qwen3.8-27B-UD-Q6_K_M
           contextWindow: 163840
+          maxTokens: 24576
 agent-default-model:
   provider: llama-cpp
   model: Qwen3.8-27B-UD-Q6_K_M
