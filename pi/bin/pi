@@ -1,7 +1,15 @@
 #!/bin/sh
 
-# Load the repository-maintained, global guarded web-fetch extension for every
-# normal Pi invocation. `pi-real` remains available for diagnostics only.
-exec /usr/local/bin/pi-real \
-  --extension /opt/pi-extensions/guarded-fetch.ts \
-  "$@"
+# The repository-maintained extension exposes web_search and guarded web_fetch.
+# Keep the source installed even when disabled, so it can be re-enabled without
+# rebuilding the image.
+case "${PI_WEB_EXTENSIONS_ENABLED:-1}" in
+  0|false|FALSE|no|NO)
+    exec /usr/local/bin/pi-real "$@"
+    ;;
+  *)
+    exec /usr/local/bin/pi-real \
+      --extension /opt/pi-extensions/guarded-fetch.ts \
+      "$@"
+    ;;
+esac

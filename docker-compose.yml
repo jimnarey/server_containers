@@ -185,6 +185,9 @@ services:
       PI_CODING_AGENT_DIR: /home/runuser/.pi/agent
       PI_SKIP_VERSION_CHECK: "1"
       PI_TELEMETRY: "0"
+      # Temporarily disable Pi's local web_search and guarded web_fetch tools.
+      # Set to 1 in .env when they should be loaded again.
+      PI_WEB_EXTENSIONS_ENABLED: ${PI_WEB_EXTENSIONS_ENABLED:-0}
       GUARDED_FETCH_URL: http://guarded-fetch:8080/v1/fetch
       SEARXNG_URL: http://searxng:8080
     depends_on:
