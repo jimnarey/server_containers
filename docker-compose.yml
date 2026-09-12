@@ -454,7 +454,7 @@ services:
       - .env
     volumes:
       - meganz-home:/home/runuser
-      - ${MEGANZ_LOCAL}:/meganz_local
+      - ${MEGANZ_LOCAL:-/CHANGEME_MEGANZ_LOCAL_PATH}:/meganz_local
     ports:
       - "9017:8081"
     container_name: meganz-c
@@ -532,8 +532,8 @@ services:
     user: "1000:1000"
     restart: unless-stopped
     environment:
-      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY:?OPENHANDS_API_KEY is required}"
-      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:?OPENHANDS_SECRET_KEY is required}"
+      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY:-CHANGEME_OPENHANDS_API_KEY}"
+      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:-CHANGEME_OPENHANDS_SECRET_KEY}"
       GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
     volumes:
       - /mnt/work/openhands:/home/openhands/.openhands
@@ -555,7 +555,7 @@ services:
       USERID: "1000"
       GROUPID: "1000"
       OPENCODE_SERVER_USERNAME: ${OPENCODE_SERVER_USERNAME:-opencode}
-      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:?OPENCODE_SERVER_PASSWORD is required}
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-CHANGEME_OPENCODE_PASSWORD}
     volumes:
       - opencode-home:/home/runuser
       - ${OPENCODE_WORKSPACE:-/mnt/work/projects}:/workspace
@@ -581,7 +581,7 @@ services:
     depends_on:
       - searxng-valkey
     environment:
-      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is required}
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-CHANGEME_SEARXNG_SECRET}
       SEARXNG_BASE_URL: http://${SEARXNG_BIND_ADDRESS:-192.168.50.136}:${SEARXNG_PORT:-9036}/
     volumes:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
