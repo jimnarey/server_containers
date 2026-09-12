@@ -96,17 +96,23 @@ cannot supply HTTP methods, headers, cookies, or a body. The gateway applies
 its SSRF, redirect, timeout, and response-size controls before returning
 bounded text.
 
+The tools are temporarily disabled by default with
+`PI_WEB_EXTENSIONS_ENABLED=0`. Set `PI_WEB_EXTENSIONS_ENABLED=1` in `.env` to
+load them again. The gateway and SearXNG dependencies remain in place so that
+re-enabling needs only a Pi recreation.
+
 `pi` depends on both `guarded-fetch` and SearXNG becoming healthy and uses
 their Compose service names, so no host port or user configuration is needed.
-Rebuild Pi and recreate the services after this change:
+Rebuild Pi and recreate the services after changing the extension wrapper:
 
 ```sh
 docker compose build pi guarded-fetch
 docker compose up -d --force-recreate guarded-fetch pi
 ```
 
-The extension tells Pi to use `web_search` to discover pages and `web_fetch`
-to read them, while treating search results and page text as untrusted. Pi
-still has normal network access for Git, `uv`, and other development tools;
-this is a safer default fetch capability, not enforced egress isolation.
-`pi-real` is retained only for image diagnostics and bypasses the extension.
+When enabled, the extension tells Pi to use `web_search` to discover pages and
+`web_fetch` to read them, while treating search results and page text as
+untrusted. Pi still has normal network access for Git, `uv`, and other
+development tools; this is a safer default fetch capability, not enforced
+egress isolation. `pi-real` is retained only for image diagnostics and bypasses
+the extension.
