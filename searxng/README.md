@@ -7,7 +7,9 @@ A self-hosted metasearch engine, run from the official `searxng/searxng` image w
 - enables the JSON result format alongside the default `html` format, so the instance can later be queried as a search API
 - points the `valkey` setting at the `searxng-valkey` service
 
-This service is not yet wired into any other container. The eventual intent is to use it as the search backend for the `deepseek` harness (and possibly `fetch`), but that integration has not been done.
+DeepSeek Harness uses this service as its built-in `web_search` provider via the
+Compose-internal URL `http://searxng:8080/`. Its separate `web_fetch` provider
+retrieves result URLs directly; SearXNG is search only.
 
 ## Configuration
 

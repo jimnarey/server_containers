@@ -1,0 +1,24 @@
+# Host-plane web capabilities for the browser profile.  Keep provider selection
+# explicit: it avoids silently returning to DeepSeek's paid cloud search if a
+# second provider is installed in a later Harness release.
+- id: web
+  config:
+    searchProvider: searxng
+    fetchProvider: http
+
+- id: web-search-deepseek
+  disabled: true
+
+- insert:
+    - id: web-search-searxng
+      name: '@local/dsh-web-search-searxng'
+      config:
+        baseURL: http://searxng:8080/
+
+    - id: web-fetch-http
+      name: '@deepseek-ai/dsh-web-fetch-http'
+      config:
+        maxResponseBytes: 5000000
+        maxBodyChars: 100000
+        timeoutMs: 30000
+        maxRedirects: 5
