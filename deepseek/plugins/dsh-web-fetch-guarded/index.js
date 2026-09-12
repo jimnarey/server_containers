@@ -4,8 +4,6 @@
  * validation, DNS/IP pinning, redirect checks, and response limits.
  */
 
-import { WebError } from '@deepseek-ai/dsh-web';
-
 export const name = 'dsh-web-fetch-guarded';
 export const inject = ['web'];
 
@@ -35,6 +33,12 @@ function bodyKind(contentType) {
     : 'text';
 }
 
+function providerError(message, code, cause) {
+  const error = cause === undefined ? new Error(message) : new Error(message, { cause });
+  error.code = code;
+  return error;
+}
+
 class GuardedFetchProvider {
   id = PROVIDER_ID;
 
@@ -59,22 +63,18 @@ class GuardedFetchProvider {
         signal,
       });
     } catch (error) {
-      throw new WebError('guarded fetch gateway request failed', 'WEB_PROVIDER_ERROR', {
-        cause: error,
-      });
+      throw providerError('guarded fetch gateway request failed', 'WEB_PROVIDER_ERROR', error);
     }
 
     let payload;
     try {
       payload = await response.json();
     } catch (error) {
-      throw new WebError('guarded fetch gateway returned invalid JSON', 'WEB_PROVIDER_ERROR', {
-        cause: error,
-      });
+      throw providerError('guarded fetch gateway returned invalid JSON', 'WEB_PROVIDER_ERROR', error);
     }
 
     if (!response.ok) {
-      throw new WebError(
+      throw providerError(
         string(payload?.error) ?? 'guarded fetch gateway rejected the request',
         'WEB_BLOCKED_URL',
       );
@@ -84,7 +84,7 @@ class GuardedFetchProvider {
     const statusCode = number(payload?.status);
     const content = string(payload?.body);
     if (finalUrl === undefined || statusCode === undefined || content === undefined) {
-      throw new WebError('guarded fetch gateway returned an invalid result', 'WEB_PROVIDER_ERROR');
+      throw providerError('guarded fetch gateway returned an invalid result', 'WEB_PROVIDER_ERROR');
     }
 
     return {

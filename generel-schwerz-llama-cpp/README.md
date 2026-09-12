@@ -45,8 +45,10 @@ at `/models`. Keep a model GGUF (or its shards) at the root or in an immediate,
 flat model directory below that root.
 
 The 16GB service is exposed on port 11438 and limits CUDA visibility to physical
-GPU 0. The 32GB service is on port 11439 and uses both GPUs with a layer split.
-Run only one of these profiles at a time. In particular, stop ordinary
+GPU 0. The 32GB service is on port 11439 and exposes both GPUs. Its baseline
+keeps ordinary layers on the host, while the fork uses CUDA for cached MoE
+experts; `split-mode = layer` is retained for later measured experiments that
+offload model layers. Run only one of these profiles at a time. In particular, stop ordinary
 `llama-cpp` before the 32GB profile; it is otherwise also free to allocate both
 cards.
 
@@ -54,6 +56,12 @@ The templates start at 64K context, Q8 KV, 8 physical CPU threads, and an MoE
 expert cache of 32 or 64 slots. Expert-cache size is per cached expert tensor
 on its CUDA device. Treat 64 slots as the first 32GB experiment, not a promise
 that every model will fit; reduce it if either GPU runs out of memory.
+
+They deliberately set `n-gpu-layers = 0`. The fork's expert-cache override
+still places routed MoE experts behind a CUDA cache, but this keeps ordinary
+model tensors on the host. In particular, Qwen3.8 Flash Next has a roughly
+29 GiB non-expert tensor which cannot fit on either 16 GiB card; setting
+`n-gpu-layers = all` fails before the expert cache is available.
 
 ## How these profiles are intended to work
 
@@ -123,9 +131,12 @@ when only decode is slow.
 
 **`split-mode = layer`, `tensor-split = 1,1`**
 
-The 32GB service starts with the conservative two-card layer split. Leave the
-experimental tensor split for a measured follow-up: on cards connected only by
-PCIe it can improve some workloads but adds inter-GPU traffic.
+These settings matter only for a later experiment that offloads one or more
+ordinary model layers. Keep `n-gpu-layers = 0` for the Qwen3.8 Flash Next
+baseline: its roughly 29 GiB non-expert tensor cannot be placed on either 16
+GiB GPU. Leave the experimental tensor split for a measured follow-up: on
+cards connected only by PCIe it can improve some workloads but adds inter-GPU
+traffic.
 
 ### GPU and host-memory discipline
 
