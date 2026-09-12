@@ -150,6 +150,13 @@ services:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
       - /container-ssh:/home/runuser/.ssh:ro
+      # These profile overlays select local SearXNG search and enable the
+      # built-in HTTP(S) fetch capability without replacing persisted models,
+      # credentials, sessions, or agent presets under DEEPSEEK_HOME. They are
+      # writable only because init_chowns.sh recursively sets ownership of the
+      # persisted home before supervisord starts; DSH does not modify them.
+      - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml
+      - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml
     ports:
       - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
     healthcheck:
@@ -158,6 +165,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    stdin_open: true
+    tty: true
+
+  pi:
+    build:
+      context: ./pi
+      args:
+        PI_VERSION: ${PI_VERSION:-0.85.1}
+    image: pi-coding-agent:latest
+    container_name: pi-c
+    restart: unless-stopped
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      HOME: /home/runuser
+      USER: runuser
+      LOGNAME: runuser
+      PI_CODING_AGENT_DIR: /home/runuser/.pi/agent
+      PI_SKIP_VERSION_CHECK: "1"
+      PI_TELEMETRY: "0"
+    volumes:
+      - ${PI_HOME:-/mnt/work/pi}:/home/runuser
+      - ${PI_WORKSPACE:-/mnt/work/projects}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
     stdin_open: true
     tty: true
 

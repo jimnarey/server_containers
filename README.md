@@ -144,9 +144,9 @@ These are the main services currently defined in `docker-compose.yml`:
 - Design / maker tools: `inkscape`, `laserweb`, `lightburn`, `lightburn-win`, `lightburn-win-install`, `lasergrbl`, `lasergrbl-install`
 - Network / download tools: `transmission`, `expressvpn`
 - Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`
-- Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `vscode`
+- Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
-- Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend); not yet used by any other service, see [`searxng/README.md`](./searxng/README.md)
+- Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness's built-in web-search tool; see [`searxng/README.md`](./searxng/README.md)
 - Other utilities: `hexchat`, `retroarch-web`, `octoprint`, `exodos`
 
 Not every folder in the repo is currently wired into Compose; some are templates, experiments, or older variants kept for reuse.

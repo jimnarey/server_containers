@@ -76,6 +76,30 @@ This arrangement exists because the current deployment uses HTTP while Harness r
 
 The browser is only a client of the long-running Harness host. Closing the tab, closing the SSH tunnel, or disconnecting the workstation does not normally stop an active turn; reconnect and reopen the persisted session later. A turn may still wait indefinitely for a tool approval or user answer, and an interrupted container/model process is not guaranteed to resume the exact in-flight turn.
 
+## Local web search and fetch
+
+The `web_search` tool uses the Compose-local SearXNG API at
+`http://searxng:8080/`; it does not use DeepSeek's cloud search or require a
+DeepSeek API key. Both the browser (`web`) and `headless` profiles explicitly
+select this provider, so adding a future provider cannot silently change where
+search requests go.
+
+`web_fetch` is enabled through DeepSeek Harness's official anonymous HTTP(S)
+fetch provider. It accepts text, HTML, JSON, and XML, caps a response at 5 MB
+and 100,000 characters, applies a 30-second timeout, and follows at most five
+same-origin redirects. It sends neither browser cookies nor stored credentials.
+
+The upstream fetch provider does **not** implement private-network/SSRF
+blocking. It can therefore reach Compose-local services as well as the public
+web. Treat it as a capability granted to the active agent: do not put secrets
+in services reachable from this container, and do not expose DeepSeek's UI
+beyond its existing SSH-tunnel boundary.
+
+The checked-in `local-qwen-coder` preset enables both `web_search` and
+`web_fetch`. Existing custom presets retain their own `tool-web` configuration;
+set `fetch: true` and `fetchTimeoutMs: 30000` in their `tool-web` row to enable
+fetch there as well.
+
 ## Configure the local llama.cpp model
 
 In Settings -> Models, add a custom provider with:

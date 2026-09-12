@@ -1,0 +1,23 @@
+# Match the browser profile: local SearXNG search and the Harness HTTP(S)
+# fetch provider are available to headless DeepSeek sessions too.
+- id: web
+  config:
+    searchProvider: searxng
+    fetchProvider: http
+
+- id: web-search-deepseek
+  disabled: true
+
+- insert:
+    - id: web-search-searxng
+      name: '@local/dsh-web-search-searxng'
+      config:
+        baseURL: http://searxng:8080/
+
+    - id: web-fetch-http
+      name: '@deepseek-ai/dsh-web-fetch-http'
+      config:
+        maxResponseBytes: 5000000
+        maxBodyChars: 100000
+        timeoutMs: 30000
+        maxRedirects: 5

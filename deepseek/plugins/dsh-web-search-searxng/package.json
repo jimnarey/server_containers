@@ -1,0 +1,11 @@
+{
+  "name": "@local/dsh-web-search-searxng",
+  "version": "1.0.0",
+  "description": "SearXNG search provider for DeepSeek Harness",
+  "type": "module",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
