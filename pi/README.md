@@ -73,14 +73,14 @@ unreviewed third-party extension into the image.
 ## Local llama.cpp
 
 Pi has native llama.cpp-router support. From an interactive Pi session, run
-`/login llama.cpp`, use the in-container API URL below when prompted, then use
-`/llama` to manage the router's loaded model and `/model` to select it:
+`/login llama.cpp`, use the in-container router URL below when prompted, then
+use `/llama` to manage the router's loaded model and `/model` to select it:
 
 ```text
-http://llama-cpp:8080/v1
+http://llama-cpp:8080
 ```
 
-Use `http://llama-cpp-cpu:8080/v1` for the CPU router. Do not use `localhost`:
+Use `http://llama-cpp-cpu:8080` for the CPU router. Do not use `localhost`:
 inside the Pi container it identifies Pi itself, not the llama.cpp service.
 
 Pi's provider settings and credentials are user state under `PI_HOME`; they are

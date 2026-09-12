@@ -135,11 +135,11 @@ services:
     image: deepseek-harness:latest
     container_name: deepseek-c
     restart: unless-stopped
-    depends_on:
-      guarded-fetch:
-        condition: service_healthy
-      searxng:
-        condition: service_healthy
+    # depends_on:
+    #   guarded-fetch:
+    #     condition: service_healthy
+    #   searxng:
+    #     condition: service_healthy
     environment:
       USERID: "1000"
       GROUPID: "1000"
@@ -193,11 +193,11 @@ services:
       PI_WEB_EXTENSIONS_ENABLED: ${PI_WEB_EXTENSIONS_ENABLED:-0}
       GUARDED_FETCH_URL: http://guarded-fetch:8080/v1/fetch
       SEARXNG_URL: http://searxng:8080
-    depends_on:
-      guarded-fetch:
-        condition: service_healthy
-      searxng:
-        condition: service_healthy
+    # depends_on:
+    #   guarded-fetch:
+    #     condition: service_healthy
+    #   searxng:
+    #     condition: service_healthy
     volumes:
       - ${PI_HOME:-/mnt/work/pi}:/home/runuser
       - ${PI_WORKSPACE:-/mnt/work/projects}:/workspace
