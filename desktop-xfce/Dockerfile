@@ -1,6 +1,7 @@
 FROM base-ubuntu-xfce-24:latest
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client \
     file-roller \
     engrampa \
     unzip \
