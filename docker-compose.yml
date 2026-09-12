@@ -185,6 +185,10 @@ services:
       PI_CODING_AGENT_DIR: /home/runuser/.pi/agent
       PI_SKIP_VERSION_CHECK: "1"
       PI_TELEMETRY: "0"
+      GUARDED_FETCH_URL: http://guarded-fetch:8080/v1/fetch
+    depends_on:
+      guarded-fetch:
+        condition: service_healthy
     volumes:
       - ${PI_HOME:-/mnt/work/pi}:/home/runuser
       - ${PI_WORKSPACE:-/mnt/work/projects}:/workspace
@@ -192,7 +196,8 @@ services:
     stdin_open: true
     tty: true
 
-  # A Compose-local, read-only HTTPS text-fetch gateway for agent extensions.
+  # A Compose-local, read-only HTTPS text-fetch gateway for Pi's web_fetch
+  # extension and other explicit callers.
   # It is deliberately not published on the host: callers use
   # http://guarded-fetch:8080/v1/fetch from the default Compose network.
   guarded-fetch:

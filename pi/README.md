@@ -85,3 +85,26 @@ inside the Pi container it identifies Pi itself, not the llama.cpp service.
 
 Pi's provider settings and credentials are user state under `PI_HOME`; they are
 not committed to this repository.
+
+## Guarded web fetch
+
+Every normal `pi` invocation loads a repository-maintained global extension
+that gives the agent a `web_fetch` tool. The tool sends a public HTTPS URL to
+the Compose-local `guarded-fetch` service; it cannot supply HTTP methods,
+headers, cookies, or a body. The gateway applies its SSRF, redirect, timeout,
+and response-size controls before returning bounded text.
+
+`pi` depends on `guarded-fetch` becoming healthy and uses its Compose service
+name, so no host port or user configuration is needed. Rebuild Pi and recreate
+both services after this change:
+
+```sh
+docker compose build pi guarded-fetch
+docker compose up -d --force-recreate guarded-fetch pi
+```
+
+The extension tells Pi to use `web_fetch` for web pages and to treat page text
+as untrusted. Pi still has normal network access for Git, `uv`, and other
+development tools; this is a safer default fetch capability, not enforced
+egress isolation. `pi-real` is retained only for image diagnostics and bypasses
+the extension.

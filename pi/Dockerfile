@@ -62,6 +62,14 @@ RUN npm install --global --ignore-scripts \
         "@earendil-works/pi-coding-agent@${PI_VERSION}" && \
     npm cache clean --force
 
+# Keep the trusted global extension in the image, rather than PI_HOME, so a
+# fresh persistent Pi home still receives the same guarded web_fetch tool.
+RUN mv /usr/local/bin/pi /usr/local/bin/pi-real
+COPY extensions/ /opt/pi-extensions/
+COPY bin/pi /usr/local/bin/pi
+RUN chmod 0444 /opt/pi-extensions/guarded-fetch.ts && \
+    chmod 0755 /usr/local/bin/pi
+
 RUN curl -LsSf https://astral.sh/uv/install.sh | \
         env UV_INSTALL_DIR=/usr/local/bin sh && \
     uv --version
