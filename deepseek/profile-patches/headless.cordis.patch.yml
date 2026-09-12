@@ -3,7 +3,7 @@
 - id: web
   config:
     searchProvider: searxng
-    fetchProvider: http
+    fetchProvider: guarded-fetch
 
 - id: web-search-deepseek
   disabled: true
@@ -14,10 +14,7 @@
       config:
         baseURL: http://searxng:8080/
 
-    - id: web-fetch-http
-      name: '@deepseek-ai/dsh-web-fetch-http'
+    - id: web-fetch-guarded
+      name: '@local/dsh-web-fetch-guarded'
       config:
-        maxResponseBytes: 5000000
-        maxBodyChars: 100000
-        timeoutMs: 30000
-        maxRedirects: 5
+        baseURL: http://guarded-fetch:8080/v1/fetch

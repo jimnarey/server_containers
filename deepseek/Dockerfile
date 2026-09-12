@@ -67,14 +67,14 @@ RUN npm install --global \
         "@deepseek-ai/dsh@${DEEPSEEK_VERSION}" \
         "pnpm@${PNPM_VERSION}"
 
-# DSH loads capability providers from its own node_modules tree.  The SearXNG
-# provider is local; the fetch provider is the official package matched to the
-# pinned Harness release.
+# DSH loads capability providers from its own node_modules tree. Both deployed
+# providers are local: SearXNG search and a guarded-fetch adapter for fetch.
 COPY plugins/dsh-web-search-searxng /opt/dsh-web-search-searxng
+COPY plugins/dsh-web-fetch-guarded /opt/dsh-web-fetch-guarded
 RUN npm install --omit=dev \
         --prefix /usr/local/lib/node_modules/@deepseek-ai/dsh \
-        "@deepseek-ai/dsh-web-fetch-http@${DEEPSEEK_VERSION}" \
-        /opt/dsh-web-search-searxng && \
+        /opt/dsh-web-search-searxng \
+        /opt/dsh-web-fetch-guarded && \
     npm cache clean --force
 
 RUN echo 'runuser ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/runuser && \

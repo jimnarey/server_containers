@@ -84,16 +84,20 @@ DeepSeek API key. Both the browser (`web`) and `headless` profiles explicitly
 select this provider, so adding a future provider cannot silently change where
 search requests go.
 
-`web_fetch` is enabled through DeepSeek Harness's official anonymous HTTP(S)
-fetch provider. It accepts text, HTML, JSON, and XML, caps a response at 5 MB
-and 100,000 characters, applies a 30-second timeout, and follows at most five
-same-origin redirects. It sends neither browser cookies nor stored credentials.
+`web_fetch` is enabled through the local `dsh-web-fetch-guarded` provider. It
+only forwards a URL to the Compose-local `guarded-fetch` gateway, which permits
+public HTTPS text retrieval and applies destination/DNS validation, redirect,
+timeout, and response-size limits. The provider cannot forward browser cookies,
+stored credentials, HTTP methods, headers, or a request body.
 
-The upstream fetch provider does **not** implement private-network/SSRF
-blocking. It can therefore reach Compose-local services as well as the public
-web. Treat it as a capability granted to the active agent: do not put secrets
-in services reachable from this container, and do not expose DeepSeek's UI
-beyond its existing SSH-tunnel boundary.
+DeepSeek waits for both `guarded-fetch` and SearXNG to become healthy before it
+starts. Their Compose service names are used internally; neither integration
+needs a host-published port.
+
+This prevents DeepSeek's `web_fetch` tool from reaching Compose-local services
+or private-network addresses. It is not a complete egress boundary: an agent
+with shell access can still use its normal network tools, so keep the UI within
+its existing SSH-tunnel boundary and treat fetched page text as untrusted.
 
 The checked-in `local-qwen-coder` preset enables both `web_search` and
 `web_fetch`. Existing custom presets retain their own `tool-web` configuration;

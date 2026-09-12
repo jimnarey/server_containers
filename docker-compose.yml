@@ -135,6 +135,11 @@ services:
     image: deepseek-harness:latest
     container_name: deepseek-c
     restart: unless-stopped
+    depends_on:
+      guarded-fetch:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
     environment:
       USERID: "1000"
       GROUPID: "1000"
@@ -150,13 +155,11 @@ services:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
       - /container-ssh:/home/runuser/.ssh:ro
-      # These profile overlays select local SearXNG search and enable the
-      # built-in HTTP(S) fetch capability without replacing persisted models,
-      # credentials, sessions, or agent presets under DEEPSEEK_HOME. They are
-      # writable only because init_chowns.sh recursively sets ownership of the
-      # persisted home before supervisord starts; DSH does not modify them.
-      - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml
-      - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml
+      # These overlays select local SearXNG search and the guarded fetch
+      # provider without replacing persisted models, credentials, sessions, or
+      # agent presets under DEEPSEEK_HOME. They are configuration, not state.
+      - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml:ro
+      - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml:ro
     ports:
       - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
     healthcheck:
