@@ -399,8 +399,8 @@ services:
     restart: unless-stopped
     gpus: all
     volumes:
-      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf/unsloth/Qwen3.8-27B-GGUF}:/models:ro
-      - ./llama-cpp/models-preset.ini:/models-preset.ini:ro
+      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_CONFIG:-/mnt/work/llama-cpp/models-preset.ini}:/models-preset.ini:ro
     command:
       - --models-dir
       - /models
@@ -435,6 +435,105 @@ services:
       - --metrics
     ports:
       - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
+
+  llama-cpp-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_CPU_TAG:-server}
+    container_name: llama-cpp-cpu-c
+    restart: unless-stopped
+    volumes:
+      - ${LLAMA_CPP_CPU_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_CPU_CONFIG:-/mnt/work/llama-cpp-cpu/models-preset.ini}:/models-preset.ini:ro
+    command:
+      - --models-dir
+      - /models
+      - --models-preset
+      - /models-preset.ini
+      - --reasoning-format
+      - deepseek
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --parallel
+      - ${LLAMA_CPP_CPU_PARALLEL:-1}
+      - --n-gpu-layers
+      - "0"
+      - --cache-type-k
+      - q8_0
+      - --cache-type-v
+      - q8_0
+      - --fit
+      - on
+      - --fit-target
+      - ${LLAMA_CPP_CPU_FIT_TARGET:-1024}
+      - --no-webui
+      - --metrics
+    ports:
+      - "${LLAMA_CPP_CPU_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_CPU_PORT:-11437}:8080"
+
+  # Experimental GenerelSchwerz/llama.cpp build for MoE expert caching.
+  # It uses only physical GPU 0, leaving GPU 1 available to another workload.
+  llama-cpp-generel-schwerz-16gb:
+    build:
+      context: /mnt/work/generel-schwerz-llama-cpp/16gb/source
+      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      target: server
+    image: generel-schwerz-llama-cpp:moe-cache-b46f7f7
+    container_name: llama-cpp-generel-schwerz-16gb-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+    command:
+      - --models-dir
+      - /models
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${GS_LLAMA_CPP_16GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_PORT:-11438}:8080"
+
+  # Experimental GenerelSchwerz/llama.cpp build using both physical GPUs.
+  llama-cpp-generel-schwerz-32gb:
+    build:
+      context: /mnt/work/generel-schwerz-llama-cpp/32gb/source
+      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      target: server
+    image: generel-schwerz-llama-cpp:moe-cache-b46f7f7
+    container_name: llama-cpp-generel-schwerz-32gb-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+    command:
+      - --models-dir
+      - /models
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${GS_LLAMA_CPP_32GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_32GB_PORT:-11439}:8080"
 
   meganz:
     build: ./meganz
