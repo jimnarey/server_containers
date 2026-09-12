@@ -146,7 +146,7 @@ These are the main services currently defined in `docker-compose.yml`:
 - Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`
 - Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
-- Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness's built-in web-search tool; see [`searxng/README.md`](./searxng/README.md)
+- Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness and Pi's web-search extension; see [`searxng/README.md`](./searxng/README.md)
 - Guarded agent web fetch: `guarded-fetch`, a private HTTPS text-fetch gateway; see [`guarded-fetch/README.md`](./guarded-fetch/README.md)
 - Other utilities: `hexchat`, `retroarch-web`, `octoprint`, `exodos`
 

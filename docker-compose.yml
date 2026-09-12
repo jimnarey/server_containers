@@ -186,8 +186,11 @@ services:
       PI_SKIP_VERSION_CHECK: "1"
       PI_TELEMETRY: "0"
       GUARDED_FETCH_URL: http://guarded-fetch:8080/v1/fetch
+      SEARXNG_URL: http://searxng:8080
     depends_on:
       guarded-fetch:
+        condition: service_healthy
+      searxng:
         condition: service_healthy
     volumes:
       - ${PI_HOME:-/mnt/work/pi}:/home/runuser
