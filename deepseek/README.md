@@ -78,13 +78,18 @@ The browser is only a client of the long-running Harness host. Closing the tab, 
 
 ## Local web search and fetch
 
-The `web_search` tool uses the Compose-local SearXNG API at
+`web_search` and `web_fetch` are temporarily disabled in both DeepSeek
+profiles. The local provider definitions remain in the profile overlays so they
+can be re-enabled deliberately by removing the `tool-web` `disabled: true`
+entries from both patch files.
+
+When enabled, the `web_search` tool uses the Compose-local SearXNG API at
 `http://searxng:8080/`; it does not use DeepSeek's cloud search or require a
 DeepSeek API key. Both the browser (`web`) and `headless` profiles explicitly
 select this provider, so adding a future provider cannot silently change where
 search requests go.
 
-`web_fetch` is enabled through the local `dsh-web-fetch-guarded` provider. It
+When enabled, `web_fetch` uses the local `dsh-web-fetch-guarded` provider. It
 only forwards a URL to the Compose-local `guarded-fetch` gateway, which permits
 public HTTPS text retrieval and applies destination/DNS validation, redirect,
 timeout, and response-size limits. The provider cannot forward browser cookies,
