@@ -192,6 +192,41 @@ services:
     stdin_open: true
     tty: true
 
+  # A Compose-local, read-only HTTPS text-fetch gateway for agent extensions.
+  # It is deliberately not published on the host: callers use
+  # http://guarded-fetch:8080/v1/fetch from the default Compose network.
+  guarded-fetch:
+    build:
+      context: ./guarded-fetch
+      args:
+        GUARDED_FETCH_VERSION: ${GUARDED_FETCH_VERSION:-0.1.4}
+    image: guarded-fetch:latest
+    container_name: guarded-fetch-c
+    restart: unless-stopped
+    init: true
+    environment:
+      GUARDED_FETCH_PORT: "8080"
+      GUARDED_FETCH_TIMEOUT_MS: ${GUARDED_FETCH_TIMEOUT_MS:-15000}
+      GUARDED_FETCH_MAX_REDIRECTS: ${GUARDED_FETCH_MAX_REDIRECTS:-5}
+      GUARDED_FETCH_MAX_RESPONSE_BYTES: ${GUARDED_FETCH_MAX_RESPONSE_BYTES:-1048576}
+      GUARDED_FETCH_MAX_BODY_CHARS: ${GUARDED_FETCH_MAX_BODY_CHARS:-100000}
+      # Leave empty to permit public hosts. A comma-separated allowlist narrows
+      # the gateway without disabling guarded-fetch's IP-range checks.
+      GUARDED_FETCH_ALLOWED_HOSTS: ${GUARDED_FETCH_ALLOWED_HOSTS:-}
+    expose:
+      - "8080"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   desktop-kde:
     build: ./desktop-kde
     image: desktop-kde:latest
