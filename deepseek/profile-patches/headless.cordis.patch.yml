@@ -8,6 +8,11 @@
 - id: web-search-deepseek
   disabled: true
 
+# Temporarily remove both model-visible web_search and web_fetch tools. Keep
+# the provider definitions below so re-enabling is a small profile change.
+- id: tool-web
+  disabled: true
+
 - insert:
     - id: web-search-searxng
       name: '@local/dsh-web-search-searxng'
