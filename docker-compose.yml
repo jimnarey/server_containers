@@ -436,6 +436,17 @@ services:
     ports:
       - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
 
+  meerk40t:
+    build: ./meerk40t
+    volumes:
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+      - meerk40t-home:/home/runuser
+    ports:
+      - "9025:8081"
+    privileged: true
+    <<: *defaults
+    container_name: meerk40t-c
+
   meganz:
     build: ./meganz
     image: meganz:latest
@@ -680,6 +691,7 @@ volumes:
   lightburn-home:
   lightburn-win-home:
   lasergrbl-home:
+  meerk40t-home:
   meganz-home:
   nkit-home:
   nkit-app:
