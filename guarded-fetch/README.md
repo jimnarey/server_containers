@@ -12,9 +12,8 @@ The image is pinned to `guarded-fetch` 0.1.4 by default. Change
 `GUARDED_FETCH_VERSION` deliberately when updating it, then rebuild the image.
 
 It is not published to the host. Other services on this Compose project can
-use `http://guarded-fetch:8080`; no service is configured to use it by default.
-In particular, Pi will need a small extension that calls this API before it has
-a `web_fetch` tool.
+use `http://guarded-fetch:8080`. Pi's built-in repository extension calls this
+API for its `web_fetch` tool.
 
 ## Build and start
 

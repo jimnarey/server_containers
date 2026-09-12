@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Load the repository-maintained, global guarded web-fetch extension for every
+# normal Pi invocation. `pi-real` remains available for diagnostics only.
+exec /usr/local/bin/pi-real \
+  --extension /opt/pi-extensions/guarded-fetch.ts \
+  "$@"
