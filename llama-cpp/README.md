@@ -54,7 +54,7 @@ The mounted directory is read-only. Download and manage GGUF files on the host r
 
 [`generate-models-preset.py`](generate-models-preset.py) is for maintaining a runtime preset whose input file contains only a `[*]` default section and the models needing exceptions. `MODEL_ROOT` near the top of the script defaults to `/mnt/data/models/gguf`; `LLAMA_CPP_MODEL_ROOT` can override it for one run.
 
-The script starts a temporary, loopback-only `llama-cpp` router with `--models-dir /models`, reads its generated IDs and resolved paths from `/v1/models`, then removes that router. It does not restart or modify the normal service. It preserves the override file verbatim and writes `models-preset.ini` to the positional target directory, adding a basic entry for every discovered model that is not already named or referenced by path.
+Before starting discovery, the script validates every explicit `/models/...` path in an override block, including speculative-decoding sidecars and all siblings of a sharded GGUF. It stops with a grouped error naming the preset and missing file(s), without modifying a target file. It then starts a temporary, loopback-only `llama-cpp` router with `--models-dir /models`, reads its generated IDs and resolved paths from `/v1/models`, then removes that router. It does not restart or modify the normal service. It preserves the override file verbatim and writes `models-preset.ini` to the positional target directory, adding a basic entry for every discovered model that is not already named or referenced by path.
 
 ```sh
 ./llama-cpp/generate-models-preset.py \

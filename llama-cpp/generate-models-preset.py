@@ -40,6 +40,10 @@ DISCOVERY_TIMEOUT_SECONDS = 90
 
 SECTION_RE = re.compile(r"^\s*\[([^]\r\n]+)]\s*(?:[;#].*)?$")
 SETTING_RE = re.compile(r"^\s*([^=;#\s][^=;#]*?)\s*=\s*(.*?)\s*$")
+SHARDED_GGUF_RE = re.compile(
+    r"^(?P<prefix>.+-)(?P<index>\d+)-of-(?P<total>\d+)(?P<suffix>\.gguf)$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -50,10 +54,20 @@ class Model:
     path: str
 
 
-def parse_preset(text: str) -> tuple[set[str], set[str], bool, bool]:
-    """Return section IDs, explicitly configured paths, and global defaults."""
+@dataclass(frozen=True)
+class PresetPath:
+    """A local model-library file reference from an explicit preset section."""
+
+    section: str
+    setting: str
+    path: str
+
+
+def parse_preset(text: str) -> tuple[set[str], set[str], bool, bool, list[PresetPath]]:
+    """Return section IDs, explicit model paths, global-default flags, and file paths."""
     section_names: set[str] = set()
     model_paths: set[str] = set()
+    preset_paths: list[PresetPath] = []
     section: str | None = None
     has_version = False
     has_wildcard = False
@@ -74,8 +88,65 @@ def parse_preset(text: str) -> tuple[set[str], set[str], bool, bool]:
             has_version = True
         if section is not None and key == "model":
             model_paths.add(value)
+        if section is not None and value.startswith("/models/"):
+            preset_paths.append(PresetPath(section, key, value))
 
-    return section_names, model_paths, has_version, has_wildcard
+    return section_names, model_paths, has_version, has_wildcard, preset_paths
+
+
+def validate_preset_paths(preset_paths: Iterable[PresetPath]) -> None:
+    """Raise a readable error when an explicit model-library file is absent.
+
+    llama.cpp opens sharded GGUFs from the first shard.  Checking just that
+    file gives an unhelpful later load failure when a sibling is missing, so
+    validate the complete shard set here as well.
+    """
+    missing: dict[str, list[str]] = {}
+
+    def add_missing(section: str, description: str) -> None:
+        missing.setdefault(section, []).append(description)
+
+    for preset_path in preset_paths:
+        relative = Path(preset_path.path).relative_to("/models")
+        if ".." in relative.parts:
+            add_missing(
+                preset_path.section,
+                f"{preset_path.setting}: {preset_path.path} (path escapes /models)",
+            )
+            continue
+
+        host_path = MODEL_ROOT.joinpath(*relative.parts)
+        if not host_path.is_file():
+            add_missing(preset_path.section, f"{preset_path.setting}: {preset_path.path}")
+            continue
+
+        shard_match = SHARDED_GGUF_RE.match(host_path.name)
+        if not shard_match:
+            continue
+
+        index_width = len(shard_match["index"])
+        total_width = len(shard_match["total"])
+        total = int(shard_match["total"])
+        for index in range(1, total + 1):
+            sibling = host_path.with_name(
+                f"{shard_match['prefix']}{index:0{index_width}d}-of-"
+                f"{total:0{total_width}d}{shard_match['suffix']}"
+            )
+            if not sibling.is_file():
+                sibling_path = Path("/models").joinpath(*relative.parent.parts, sibling.name)
+                add_missing(preset_path.section, f"{preset_path.setting} shard: {sibling_path}")
+
+    if not missing:
+        return
+
+    details = []
+    for section, paths in missing.items():
+        details.append(f"  [{section}]")
+        details.extend(f"    - {path}" for path in paths)
+    raise RuntimeError(
+        "Preset references missing files under "
+        f"{MODEL_ROOT}:\n" + "\n".join(details)
+    )
 
 
 def find_model_path(args: object) -> str | None:
@@ -220,7 +291,7 @@ def discover_models() -> list[Model]:
 
 def render_preset(overrides: str, models: Iterable[Model]) -> tuple[str, list[Model]]:
     """Keep overrides verbatim and append default entries for undisclosed models."""
-    section_names, model_paths, has_version, has_wildcard = parse_preset(overrides)
+    section_names, model_paths, has_version, has_wildcard, _ = parse_preset(overrides)
     missing = [
         model
         for model in models
@@ -282,6 +353,8 @@ def main() -> int:
         raise RuntimeError(f"Refusing to replace {destination}; pass --force after reviewing it.")
 
     overrides = args.preset.read_text(encoding="utf-8")
+    _, _, _, _, preset_paths = parse_preset(overrides)
+    validate_preset_paths(preset_paths)
     models = discover_models()
     rendered, missing = render_preset(overrides, models)
 
