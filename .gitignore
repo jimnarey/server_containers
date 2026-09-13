@@ -8,3 +8,4 @@ env.sh
 *.so
 octoprint
 .env
+*.pyc

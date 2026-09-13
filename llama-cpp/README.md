@@ -1,6 +1,6 @@
 # llama.cpp
 
-These services run the official `llama-server` image in router mode. They do not select a model at container startup. Instead, they scan `/models`, advertise the discovered GGUF files through the OpenAI-compatible API, and load the model named in each request.
+These services run the official `llama-server` image in router mode. They do not select a model at container startup. Instead, they advertise only the explicit entries in their mounted `models-preset.ini` files and load the model named in each request.
 
 Only one model may be loaded at once. Switching models therefore unloads the least-recently-used model before loading the requested one, preventing multiple large models from competing for GPU or system memory.
 
@@ -32,18 +32,37 @@ LLAMA_CPP_CPU_PARALLEL=1
 LLAMA_CPP_CPU_FIT_TARGET=1024
 ```
 
-The model preset is runtime state, not repository state. Before first start, create an independent copy for each service:
+`llama-cpp/models-preset.ini` is a sparse override source, not a complete catalogue. It contains only models with an intentional setting different from `[*]`; each such section retains its `model = /models/...` path so the generator can preserve its friendly ID. Generate an independent complete runtime preset for each service before first start, and repeat this after downloading models or changing overrides:
 
 ```sh
-install -D -m 0644 llama-cpp/models-preset.ini /mnt/work/llama-cpp/models-preset.ini
-install -D -m 0644 llama-cpp/models-preset.ini /mnt/work/llama-cpp-cpu/models-preset.ini
+./llama-cpp/generate-models-preset.py \
+  --preset llama-cpp/models-preset.ini \
+  --force /mnt/work/llama-cpp
+
+./llama-cpp/generate-models-preset.py \
+  --preset llama-cpp/models-preset.ini \
+  --force /mnt/work/llama-cpp-cpu
 ```
 
-The GPU service mounts only `/mnt/work/llama-cpp/models-preset.ini`; the CPU service mounts only `/mnt/work/llama-cpp-cpu/models-preset.ini`. Editing either therefore cannot modify the checkout or affect the other service. Set `ctx-size` per model in the relevant preset; the context is shared by the configured number of server slots, so `*_PARALLEL=1` gives the sole slot the full configured context. KV-cache allocation occurs when a model is loaded and materially increases memory use.
+The GPU service mounts only `/mnt/work/llama-cpp/models-preset.ini`; the CPU service mounts only `/mnt/work/llama-cpp-cpu/models-preset.ini`. Editing either therefore cannot modify the checkout or affect the other service. Set `ctx-size` per model in the sparse source; the context is shared by the configured number of server slots, so `*_PARALLEL=1` gives the sole slot the full configured context. KV-cache allocation occurs when a model is loaded and materially increases memory use.
 
-Both services mount the whole shared library at `/models`, so models added to `/mnt/data/models/gguf` are available to both without another Compose edit. `--models-dir` discovers GGUF files at the directory root and treats immediate subdirectories as possible multi-file models. Keep each model's GGUF file (or its shards) at one of those two levels; use a flat, model-specific directory name when downloading from different publishers.
+Both services mount the whole shared library at `/models`, but deliberately omit `--models-dir`. This prevents an automatically discovered directory name from becoming a second, unconfigured model ID. The generated runtime files contain one explicit entry for every discovered model. Add a source section only when a new model requires a non-default setting, then regenerate both runtime files.
 
 The mounted directory is read-only. Download and manage GGUF files on the host rather than from this container.
+
+## Generate a complete preset from sparse overrides
+
+[`generate-models-preset.py`](generate-models-preset.py) is for maintaining a runtime preset whose input file contains only a `[*]` default section and the models needing exceptions. `MODEL_ROOT` near the top of the script defaults to `/mnt/data/models/gguf`; `LLAMA_CPP_MODEL_ROOT` can override it for one run.
+
+The script starts a temporary, loopback-only `llama-cpp` router with `--models-dir /models`, reads its generated IDs and resolved paths from `/v1/models`, then removes that router. It does not restart or modify the normal service. It preserves the override file verbatim and writes `models-preset.ini` to the positional target directory, adding a basic entry for every discovered model that is not already named or referenced by path.
+
+```sh
+./llama-cpp/generate-models-preset.py \
+  --preset /path/to/models-preset-overrides.ini \
+  /mnt/work/llama-cpp
+```
+
+The command refuses to overwrite an existing runtime preset. Review the generated file and pass `--force` only when replacing it deliberately.
 
 ## Start and inspect
 

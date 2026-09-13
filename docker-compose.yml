@@ -482,8 +482,6 @@ services:
       - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${LLAMA_CPP_CONFIG:-/mnt/work/llama-cpp/models-preset.ini}:/models-preset.ini:ro
     command:
-      - --models-dir
-      - /models
       - --models-preset
       - /models-preset.ini
       - --reasoning-format
@@ -499,8 +497,6 @@ services:
       - ${LLAMA_CPP_PARALLEL:-1}
       - --n-gpu-layers
       - all
-      - --split-mode
-      - layer
       - --cache-type-k
       - q8_0
       - --cache-type-v
@@ -536,8 +532,6 @@ services:
       - ${LLAMA_CPP_CPU_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${LLAMA_CPP_CPU_CONFIG:-/mnt/work/llama-cpp-cpu/models-preset.ini}:/models-preset.ini:ro
     command:
-      - --models-dir
-      - /models
       - --models-preset
       - /models-preset.ini
       - --reasoning-format
@@ -582,9 +576,10 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
-      - --models-dir
-      - /models
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
       - --models-max
       - "1"
       - --models-autoload
@@ -612,9 +607,10 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
-      - --models-dir
-      - /models
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
       - --models-max
       - "1"
       - --models-autoload

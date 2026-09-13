@@ -36,13 +36,22 @@ install -D -m 0644 generel-schwerz-llama-cpp/config/16gb.ini \
   /mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini
 install -D -m 0644 generel-schwerz-llama-cpp/config/32gb.ini \
   /mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini
+install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset.ini \
+  /mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset.ini
+install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset.ini \
+  /mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset.ini
 ```
 
 The config files are mounted at `/etc/llama.cpp/config.ini` and are deliberately
-outside this repository. They configure all models selected through the router.
-Both services mount the shared model library, `/mnt/data/models/gguf`, read-only
-at `/models`. Keep a model GGUF (or its shards) at the root or in an immediate,
-flat model directory below that root.
+outside this repository. The separate `models-preset.ini` copies are mounted at
+`/etc/llama.cpp/models-preset.ini`. Both services mount the shared model
+library, `/mnt/data/models/gguf`, read-only at `/models`.
+
+The router deliberately has no `--models-dir`. It exposes only the explicit,
+large-MoE entries in its model preset, so a raw publisher/directory ID cannot
+appear as a duplicate or bypass a profile. Add a direct `model = /models/...`
+section to the repository template, install it to each runtime location, then
+recreate the service when deliberately making another model available.
 
 The 16GB service is exposed on port 11438 and limits CUDA visibility to physical
 GPU 0. The 32GB service is on port 11439 and exposes both GPUs. Its baseline
@@ -164,14 +173,12 @@ reuse, while RAM and batch sizing strongly affect prompt evaluation.
 
 ## Model layout and sharded GGUFs
 
-The router discovers GGUFs at `/models` and in its immediate model
-directories. Keep each model in one flat, model-specific directory under
-`/mnt/data/models/gguf`. A shard set such as
+Keep each model in one flat, model-specific directory under
+`/mnt/data/models/gguf`, then refer to its file directly from the preset. A
+shard set such as
 `MODEL-00001-of-00003.gguf` through `MODEL-00003-of-00003.gguf` is one model,
 not three alternatives: every shard is required. Point llama.cpp at (or select)
-the first shard and it automatically opens its siblings. The Qwen3.8 download
-command creates links to its three shards in the model directory specifically
-to keep that set discoverable without duplicating the files.
+the first shard and it automatically opens its siblings.
 
 ## Build and run
 
@@ -185,7 +192,7 @@ docker compose build llama-cpp-generel-schwerz-32gb
 docker compose up -d llama-cpp-generel-schwerz-32gb
 ```
 
-Use `/v1/models` and the returned model ID to select a GGUF in a request:
+Use `/v1/models` and the returned preset ID to select a GGUF in a request:
 
 ```sh
 curl http://192.168.50.136:11438/v1/models
