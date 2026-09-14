@@ -160,6 +160,9 @@ services:
       # agent presets under DEEPSEEK_HOME. They are configuration, not state.
       - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml:ro
       - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml:ro
+      # Retains Standard as one capability mode while making compaction policy
+      # exact-provider/model aware. This file follows DEEPSEEK_VERSION.
+      - ./deepseek/agent-preset-overrides/standard/agent.cordis.yml:/usr/local/lib/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml:ro
     ports:
       - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
     healthcheck:
