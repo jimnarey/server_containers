@@ -1,4 +1,7 @@
-# The `standard` agent preset: the full coding agent, mounted once per process.
+# The shipped `standard` preset with this deployment's model-specific
+# compaction policy. It is bind-mounted over the version-pinned Harness file,
+# so it intentionally preserves the Standard capability composition and does
+# not create a separate entry in the Mode menu.
 #
 # This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
 # standing scope; every session naming it joins by scope parentage, so the
@@ -144,11 +147,53 @@
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
       config:
-        thresholdRatio: 0.75
-        retainTokens: 16384
-        maxTokens: 12288
-        compactionRetries: 2
-        maxOverflowRetries: 2
+        # The plugin's unmodified defaults continue to apply to every other
+        # model. These exact route overrides keep compaction model-specific
+        # without exposing model names as capability modes in the UI.
+        modelPolicies:
+          # 163,840-token general GPU coding route: compact sooner, while
+          # retaining an absolute 16K recent working set.
+          - provider: llama-cpp
+            model: Qwen3.8-27B-UD-Q6_K_M
+            thresholdRatio: 0.75
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
+          # Flash Next has a smaller tested 98,304-token route, so begin at
+          # 80% rather than applying the Qwen threshold proportionally. The
+          # unchanged 16K tail leaves room for an agent turn and summary.
+          #
+          # maxTokens history: 12,288 (untested — every 2026-09-14 attempt at
+          # that value died to streamIdleTimeoutMs before generation meant
+          # anything) -> 4,096 (to bound wall-clock once the timeout was
+          # fixed) -> back to 12,288 here, because 4,096 turned out to be the
+          # active failure: dsh-compaction-basic treats a max-tokens finish as
+          # an unconditional error ("summarization truncated at the token
+          # cap"), with no retry-with-a-bigger-budget and no chunking of an
+          # oversized region — see finishError() /
+          # dsh-compaction-basic/lib/index.js. Two consecutive real attempts
+          # both truncated at 4,096 on a ~62K-token shadowed region. 12,288 is
+          # still a guess, not a measurement — nothing about a *successful*
+          # compaction (including its real usage token count) has ever been
+          # logged by this deployment to size it from. Once one succeeds,
+          # read its `compaction/summary` session event: it carries `usage`
+          # and `shadowedTokenCount`, which is the evidence to right-size this
+          # value precisely instead of guessing again.
+          - provider: llama-cpp-moe-16gb
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+            thresholdRatio: 0.80
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
+          - provider: llama-cpp-moe-32gb
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+            thresholdRatio: 0.80
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
 
     - id: command-compact
       name: '@deepseek-ai/dsh-command-compact'
@@ -156,9 +201,9 @@
     - id: tool-result-pruner
       name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
       config:
-        thresholdChars: 4096
-        headChars: 2048
-        tailChars: 512
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
 
 # ── delegation and workflows ────────────────────────────────────────────────
 

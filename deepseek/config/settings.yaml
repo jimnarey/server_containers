@@ -1,0 +1,176 @@
+# Repository-owned DeepSeek Harness settings for the local Qwen workflow.
+# `sync-config.py` mirrors this file to $DEEPSEEK_HOME/.dsh/settings.yaml.
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+llm-pi-ai:
+  providers:
+    llama-cpp:
+      apiKeyEnv: LLAMA_CPP_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp:8080/v1
+      models:
+        - id: Qwen3-Embedding-0.6B-Q8_0
+          contextWindow: 32768
+        - id: embeddinggemma-300M-Q8_0
+          contextWindow: 2048
+        - id: codellama-13b-instruct.Q4_0
+          contextWindow: 16384
+        - id: magicoder-s-ds-6.7b.Q4_0
+          contextWindow: 16384
+        - id: wizardcoder-python-13b-v1.0.Q4_0
+          contextWindow: 16384
+        - id: wizardcoder-python-13b-v1.0.Q4_K_M
+          contextWindow: 16384
+        - id: starcoder2-15b-instruct.Q4_0
+          contextWindow: 16384
+        - id: Llama-3.3-70B-Instruct-Q3_K_M
+          contextWindow: 8192
+        - id: Qwen2.5-72B-Instruct-Q3_K_S
+          contextWindow: 8192
+        - id: qwen2.5-coder-7b-instruct-q4_k_m
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q4_k_m
+          contextWindow: 32768
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 8192
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 8192
+        - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
+          contextWindow: 65536
+        - id: DeepSeek-R1-Distill-Llama-70B-Q4_K_M
+          contextWindow: 65536
+        - id: Qwen3.8-27B-UD-Q4_K_M
+          contextWindow: 131072
+        - id: Qwen3.8-27B-UD-Q5_K_M
+          contextWindow: 131072
+        - id: Qwen3.8-27B-UD-Q6_K_M
+          contextWindow: 163840
+          maxTokens: 24576
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 4096
+        - id: gpt-oss-20b-F16
+          contextWindow: 131072
+    # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
+    # decode rates in prior testing. Their router presets intentionally use 8K.
+    llama-cpp-cpu:
+      apiKeyEnv: LLAMA_CPP_CPU_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-cpu:8080/v1
+      models:
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 4096
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 4096
+    # The one-GPU MoE-cache router has a deliberately explicit catalogue.
+    # Its friendly IDs are defined by generel-schwerz-llama-cpp, not directory
+    # names under /models.
+    llama-cpp-moe-16gb:
+      apiKeyEnv: LLAMA_CPP_MOE_16GB_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-generel-schwerz-16gb:8080/v1
+      # The pi-ai adapter's default streamIdleTimeoutMs (300000 = 5 minutes) is
+      # too short for this service: a 2026-09-14 session showed compaction on
+      # Flash Next reliably taking just over 5 minutes end-to-end (six
+      # consecutive compaction attempts, each failing with "pi-ai stream idle
+      # timeout after 300000ms" at exactly the 5-minute mark), which stalled
+      # the session in a compact-fail/retry loop for over two hours before the
+      # user aborted it. 30 minutes gives real headroom for a cold prefill on
+      # this card's CPU-cached-expert architecture.
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 98304
+          maxTokens: 12288
+          # This model's own chat template defaults reasoning_effort to
+          # "xhigh" whenever a request omits it, which on a debugging-style
+          # prompt was observed to consume an entire multi-hundred-token
+          # budget on <think> content before any answer was produced. `off`
+          # is pi-ai's fallback key when no session-level effort is
+          # requested, so this makes "low" the effective default. `minimal`
+          # and `max` are pi-ai levels the model's template does not accept
+          # (it only understands low/medium/xhigh and errors on anything
+          # else), so they are clamped rather than left to pass through.
+          reasoning: true
+          thinkingLevelMap:
+            off: low
+            minimal: low
+            max: xhigh
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+        - id: Qwen3.5-35B-A3B-Q4_K_M
+          contextWindow: 65536
+        - id: Qwen3.5-35B-A3B-UD-Q6_K_XL
+          contextWindow: 65536
+        - id: Qwen3.6-35B-A3B-Q4_K_M
+          contextWindow: 65536
+        - id: GLM-4.7-Flash-Q4_K_M
+          contextWindow: 65536
+        - id: Laguna-XS-2.1-Q4_K_M
+          contextWindow: 65536
+        - id: Ornith-1.5-35B-Q4_K_M
+          contextWindow: 65536
+        - id: granite-4.0-h-small-Q4_K_M
+          contextWindow: 65536
+    # The two-GPU service exposes the same explicit MoE catalogue. It stays
+    # separate so choosing it is an intentional decision to occupy both cards.
+    llama-cpp-moe-32gb:
+      apiKeyEnv: LLAMA_CPP_MOE_32GB_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-generel-schwerz-32gb:8080/v1
+      # See the matching comment under llama-cpp-moe-16gb: the default
+      # streamIdleTimeoutMs (300000ms) is too short for Flash Next's compaction
+      # calls on this shared architecture.
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 98304
+          maxTokens: 12288
+          # See the matching comment under llama-cpp-moe-16gb: this model
+          # defaults to reasoning_effort "xhigh" unless a request sets it,
+          # which was observed to exhaust the output budget on reasoning
+          # alone. `off` is pi-ai's no-preference fallback, so this makes
+          # "low" the effective default; `minimal`/`max` are clamped to
+          # values the model's chat template actually accepts.
+          reasoning: true
+          thinkingLevelMap:
+            off: low
+            minimal: low
+            max: xhigh
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+        - id: Qwen3.5-35B-A3B-Q4_K_M
+          contextWindow: 65536
+        - id: Qwen3.5-35B-A3B-UD-Q6_K_XL
+          contextWindow: 65536
+        - id: Qwen3.6-35B-A3B-Q4_K_M
+          contextWindow: 65536
+        - id: GLM-4.7-Flash-Q4_K_M
+          contextWindow: 65536
+        - id: Laguna-XS-2.1-Q4_K_M
+          contextWindow: 65536
+        - id: Ornith-1.5-35B-Q4_K_M
+          contextWindow: 65536
+        - id: granite-4.0-h-small-Q4_K_M
+          contextWindow: 65536
+agent-default-model:
+  provider: llama-cpp
+  model: Qwen3.8-27B-UD-Q6_K_M
+agent-presets:
+  # Presets are capability/tool compositions, not model routes. Keep the
+  # shipped Standard composition as the default; agent-default-model above
+  # independently selects the Qwen route for newly created sessions.
+  default: standard

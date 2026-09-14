@@ -4,7 +4,7 @@ This service runs the official DeepSeek Harness (`dsh`) developer preview. It pr
 
 Harness profiles, settings, credentials, sessions, and installed plugins are persisted in `/mnt/work/deepseek` on the host by default. The shared agent workspace defaults to `/mnt/work/projects` on the host and is mounted at `/workspace`.
 
-DeepSeek Harness is a developer preview and may make compatibility-breaking changes. The image therefore pins its npm package version rather than installing `latest` on every build.
+DeepSeek Harness is a developer preview and may make compatibility-breaking changes. The image therefore pins its npm package version rather than installing `latest` on every build. The repository also bind-mounts a version-matched copy of the shipped Standard agent composition to apply local compaction policies; review that copy whenever `DEEPSEEK_VERSION` changes.
 
 The image includes the common tools needed by the local coding-agent workflow:
 `uv`, Python 3.12 development headers, build tools, Python Capstone,
@@ -104,10 +104,9 @@ or private-network addresses. It is not a complete egress boundary: an agent
 with shell access can still use its normal network tools, so keep the UI within
 its existing SSH-tunnel boundary and treat fetched page text as untrusted.
 
-The checked-in `local-qwen-coder` preset enables both `web_search` and
-`web_fetch`. Existing custom presets retain their own `tool-web` configuration;
-set `fetch: true` and `fetchTimeoutMs: 30000` in their `tool-web` row to enable
-fetch there as well.
+The shipped capability modes retain their own `tool-web` configuration; set
+`fetch: true` and `fetchTimeoutMs: 30000` in the relevant mode composition to
+enable fetch there as well.
 
 ## Configure the local llama.cpp model
 
@@ -134,30 +133,55 @@ agent-default-model:
 
 Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
 
-### Local Qwen coding preset backup
+### Synchronised local model configuration
 
-This repository keeps deployment examples for a long-running local coding-agent
-setup under [`deepseek/config-examples`](./config-examples/). These files are not
-baked into the image yet; after a fresh deployment, copy the preset and settings
-into the persisted `DEEPSEEK_HOME` volume before starting a new session:
+[`config`](./config/) is the repository-owned source for persistent Harness
+configuration. Install every file below it with the generic synchroniser:
 
 ```bash
-install -d /mnt/work/deepseek/.dsh/.agent-presets/local-qwen-coder
-cp deepseek/config-examples/presets/local-qwen-coder/agent.cordis.yml \
-  /mnt/work/deepseek/.dsh/.agent-presets/local-qwen-coder/agent.cordis.yml
-cp deepseek/config-examples/settings/llama-cpp-qwen.yaml \
-  /mnt/work/deepseek/.dsh/settings.yaml
+python3 deepseek/sync-config.py --dry-run
+python3 deepseek/sync-config.py
 ```
 
-The saved `local-qwen-coder` preset is intended for local autonomous coding runs
-using Qwen through llama.cpp. It enables DSH compaction with a larger 160K-class
-context in mind: it starts compaction at 75% context, keeps 16,384 recent tokens
-verbatim, and caps the generated compaction summary at 12,288 tokens. This is
-intended to avoid the observed loop where retaining too much recent history
-caused compaction to finish still close to the next compaction threshold.
+The destination defaults to `/mnt/work/deepseek/.dsh`; change that single
+installation-specific default near the top of the script, pass
+`--deepseek-home /other/path`, or set `DEEPSEEK_HOME`. The synchroniser walks
+the source tree, so new ordinary configuration files are copied without adding
+them to Python. It never deletes credentials, sessions, or other Harness
+state.
 
-Review `llama-cpp-qwen.yaml` before copying it onto an existing deployment,
-because it contains provider/model selections as well as context-window metadata.
+This installation keeps every session on the built-in `standard` preset, with
+model-specific policy (including compaction) expressed as `modelPolicies` in
+[`agent-preset-overrides/standard/agent.cordis.yml`](./agent-preset-overrides/standard/agent.cordis.yml)
+rather than as separate named presets. An earlier setup tried per-model
+repository-owned presets (with a `.agent-presets` sync/prune mechanism and a
+`migrate-agent-preset.py` tool to reattach old sessions when one was retired);
+that approach was rejected in favor of the single-preset design above, and the
+now-unused machinery has been removed. Since `standard` is a built-in preset
+this synchroniser cannot delete, there is no retirement/migration scenario to
+plan for.
+
+The **mode** menu selects an agent capability composition (Standard, Code,
+Minimal, and Cordis). It is not a model selector. This installation deliberately
+uses `standard` by default. Its repository-owned, version-matched composition
+adds exact model policies to `compaction-basic` without adding any model-named
+modes:
+
+- `llama-cpp` / `Qwen3.8-27B-UD-Q6_K_M`: compact at 75% of its 163,840-token
+  route, retain 16,384 recent tokens, and allow a 12,288-token checkpoint.
+- `llama-cpp-moe-16gb` or `llama-cpp-moe-32gb` / Flash Next: compact at 80% of
+  its 98,304-token route, retain 16,384 tokens, and use the same checkpoint cap.
+
+All other Standard routes retain Harness's normal context-relative defaults.
+The local Standard composition is bind-mounted into the pinned Harness package,
+so revisit it as part of every `DEEPSEEK_VERSION` upgrade.
+
+The **Select Model** control chooses a provider/model independently. New
+sessions default to `llama-cpp` / `Qwen3.8-27B-UD-Q6_K_M` through
+`agent-default-model` in `settings.yaml`. To use Flash Next, keep Standard mode
+selected and choose `llama-cpp-moe-16gb` (or `llama-cpp-moe-32gb`) with
+`Qwen3.8-Flash-Next-UD-Q3_K_XL` in Select Model. A session's existing model
+selection remains durable when its capability mode changes.
 
 ## Command-line use over SSH
 
