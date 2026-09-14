@@ -619,6 +619,43 @@ services:
       - "${GS_LLAMA_CPP_32GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_32GB_PORT:-11439}:8080"
 >>>>>>> 79fc72d (Add llama.cpp variants)
 
+  # Independent csantiago78/llama.cpp MoE expert cache (draft PR #27861 against
+  # ggml-org/llama.cpp, branch moe-expert-cache), using both physical GPUs.
+  # Alternative to llama-cpp-generel-schwerz-32gb: that fork's own expert
+  # cache is pinned to CUDA device 0 and cannot use a second GPU
+  # (GenerelSchwerz/llama.cpp#90); this is a separate implementation reported
+  # to distribute cache slots across devices under --split-mode layer. Not yet
+  # build- or run-tested in this deployment — see config/config.ini.
+  llama-cpp-csantiago78:
+    build:
+      context: /mnt/work/csantiago78-llama-cpp/source
+      dockerfile: /home/ai/server_containers/csantiago78-llama-cpp/Dockerfile
+      target: server
+    image: csantiago78-llama-cpp:moe-expert-cache-bccbacd
+    container_name: llama-cpp-csantiago78-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/csantiago78-llama-cpp/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/csantiago78-llama-cpp/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${CSANTIAGO78_LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${CSANTIAGO78_LLAMA_CPP_PORT:-11440}:8080"
+
   meganz:
     build: ./meganz
     image: meganz:latest

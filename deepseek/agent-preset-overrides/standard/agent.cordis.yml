@@ -194,6 +194,21 @@
             maxTokens: 12288
             compactionRetries: 2
             maxOverflowRetries: 2
+          # llama-cpp-csantiago78 is a separate provider route (see
+          # settings.yaml), so modelPolicies matching on {provider, model}
+          # does not pick it up from the entries above by itself — without
+          # this entry it would silently fall back to the plugin's own
+          # defaults (maxTokens 8192, retainRatio 0.16, compactionRetries 1),
+          # not the values settled above after the 2026-09-14 failures.
+          # Mirrors llama-cpp-moe-32gb: same model, same context route,
+          # same reasoning/idle-timeout handling in settings.yaml.
+          - provider: llama-cpp-csantiago78
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+            thresholdRatio: 0.80
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
 
     - id: command-compact
       name: '@deepseek-ai/dsh-command-compact'
