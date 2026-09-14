@@ -1,0 +1,22 @@
+{
+  "defaultProvider": "llama-cpp",
+  "defaultModel": "Qwen3.8-27B-UD-Q6_K_M",
+  "defaultThinkingLevel": "low",
+  "showCacheMissNotices": true,
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 8192,
+    "keepRecentTokens": 16384
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 2,
+    "baseDelayMs": 2000,
+    "maxAgentDelayMs": 30000,
+    "provider": {
+      "timeoutMs": 3600000,
+      "maxRetries": 0,
+      "maxRetryDelayMs": 60000
+    }
+  }
+}
