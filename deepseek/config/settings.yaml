@@ -166,6 +166,35 @@ llm-pi-ai:
           contextWindow: 65536
         - id: granite-4.0-h-small-Q4_K_M
           contextWindow: 65536
+    # Independent csantiago78/llama.cpp MoE expert cache: an alternative to
+    # llama-cpp-moe-32gb for the same two GPUs, using a different fork's
+    # expert-cache implementation (see docker-compose.yml and
+    # csantiago78-llama-cpp/config/config.ini). Not yet build- or run-tested
+    # in this deployment; contextWindow/maxTokens and the Flash Next
+    # reasoning/idle-timeout handling below are carried over from
+    # llama-cpp-moe-32gb as a precaution because both services share the same
+    # host-offloaded-expert architecture, not because this fork's behaviour
+    # has been confirmed to match.
+    llama-cpp-csantiago78:
+      apiKeyEnv: LLAMA_CPP_CSANTIAGO78_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-csantiago78:8080/v1
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 98304
+          maxTokens: 12288
+          reasoning: true
+          thinkingLevelMap:
+            off: low
+            minimal: low
+            max: xhigh
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
 agent-default-model:
   provider: llama-cpp
   model: Qwen3.8-27B-UD-Q6_K_M
