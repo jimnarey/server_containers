@@ -70,21 +70,68 @@ Keep generic project instructions in `AGENTS.md` and project-specific settings
 in `.pi/settings.json`, rather than baking a one-size-fits-all prompt or an
 unreviewed third-party extension into the image.
 
-## Local llama.cpp
+## Local providers and models
 
-Pi has native llama.cpp-router support. From an interactive Pi session, run
-`/login llama.cpp`, use the in-container router URL below when prompted, then
-use `/llama` to manage the router's loaded model and `/model` to select it:
+Pi uses a repository-managed catalogue of every model currently advertised by
+each local provider: the GPU and CPU upstream llama.cpp routers, both
+GenerelSchwerz MoE routers, and Ollama. The generated catalogue uses Compose
+service names, so it works inside the Pi container without publishing another
+host port or relying on `localhost`.
 
-```text
-http://llama-cpp:8080
+Synchronise after changing a router's effective catalogue (for example, after
+regenerating and installing a llama.cpp preset). The normal form refreshes any
+running provider and retains cached catalogues for intentionally stopped ones:
+
+```sh
+./pi/sync-config.py
 ```
 
-Use `http://llama-cpp-cpu:8080` for the CPU router. Do not use `localhost`:
-inside the Pi container it identifies Pi itself, not the llama.cpp service.
+Because the large-model services are not normally safe to run together, the
+first catalogue can also be built one provider at a time. Start the provider,
+then run one of the following; later runs merge its fresh result into the same
+catalogue:
 
-Pi's provider settings and credentials are user state under `PI_HOME`; they are
-not committed to this repository.
+```sh
+./pi/sync-config.py --provider llama-cpp
+./pi/sync-config.py --provider llama-cpp-cpu
+./pi/sync-config.py --provider llama-cpp-moe-16gb
+./pi/sync-config.py --provider llama-cpp-moe-32gb
+./pi/sync-config.py --provider ollama
+```
+
+The script asks each provider's live `/v1/models` endpoint for its model IDs and
+effective context sizes. If a provider is deliberately stopped, its catalogue is
+preserved from the previous successful run; a previously unseen stopped provider
+is skipped until it can be refreshed explicitly. Use `--require-all` to reject
+cached or unavailable results, or `--dry-run` to inspect the result without
+writing it. `PI_HOME` or `--pi-home` changes the persistent Pi location. The
+`PI_*_MODELS_URL` variables at the top of the script permit manual endpoint
+overrides when this repository is deployed differently.
+
+The only managed files are:
+
+```text
+${PI_HOME}/.pi/agent/models.json
+${PI_HOME}/.pi/agent/settings.json
+```
+
+`models.json` contains an explicit OpenAI-compatible provider catalogue. A
+literal `local` API key is only Pi's availability marker for keyless local
+servers; it is not a credential or access control. `settings.json` selects the
+Qwen3.8 27B Q6 GPU model by default, allows an hour for a local request/model
+load, and derives context-aware compaction reserves for each advertised model.
+It keeps the existing long-context Qwen3.8 and Flash Next settings deliberately
+larger than the generic model defaults.
+
+Pi sessions, `auth.json`, trust decisions, installed packages, and user
+extensions remain under `PI_HOME` but are neither copied nor replaced. To set a
+different default for one project, use that project's `.pi/settings.json` or
+Pi's `/model` and save it there.
+
+The native `/login llama.cpp` and `/llama` commands remain useful for an ad-hoc
+single-router connection. They are not needed for the managed multi-provider
+catalogue and do not replace it. Do not use `localhost` for a direct provider
+inside the Pi container: it identifies Pi itself, not the llama.cpp service.
 
 ## Web search and guarded fetch
 
