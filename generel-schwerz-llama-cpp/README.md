@@ -8,8 +8,8 @@ cache in [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp)
 The image is built at the Dockerfile's pinned revision:
 
 ```text
-branch: moe-cache
-commit: b46f7f7a436f990932d3da3ec53380e2b9effc89
+branch: qwen4exp-mtp
+commit: e69a1d0be5f8ae0080593865b38b175223059199
 CUDA:   12.8.1, compiled for CUDA architecture 120
 ```
 
@@ -66,11 +66,14 @@ expert cache of 32 or 64 slots. Expert-cache size is per cached expert tensor
 on its CUDA device. Treat 64 slots as the first 32GB experiment, not a promise
 that every model will fit; reduce it if either GPU runs out of memory.
 
-They deliberately set `n-gpu-layers = 0`. The fork's expert-cache override
-still places routed MoE experts behind a CUDA cache, but this keeps ordinary
-model tensors on the host. In particular, Qwen3.8 Flash Next has a roughly
-29 GiB non-expert tensor which cannot fit on either 16 GiB card; setting
-`n-gpu-layers = all` fails before the expert cache is available.
+Most preset entries deliberately set `n-gpu-layers = 0`. The fork's
+expert-cache override still places routed MoE experts behind a CUDA cache, but
+this keeps ordinary model tensors on the host. Qwen3.8 Flash Next is the
+intentional exception: its preset uses `n-gpu-layers = all` and
+`override-tensor = per_layer_token_embd=CPU`. This places its reusable dense
+core on the selected GPU(s), while its large phrase/PLE table remains lazy,
+file-backed on the host. Its routed experts are placed by the fork's CUDA cache
+override, not by the ordinary layer offload.
 
 ## How these profiles are intended to work
 
@@ -102,9 +105,10 @@ capacity for interactive inference.
 
 **`load-mode = none`**
 
-Keep this setting for the initial MoE-cache tests. It permits the fork's
-grouped decode path. Changing to `mmap` is a different, slower experiment and
-should not be compared directly with the supplied profile.
+Keep this setting for the normal MoE-cache tests. Qwen3.8 Flash Next is the
+intentional exception: it uses `mmap` and `lazy-mode = on`, allowing its large
+phrase/PLE table to stay file-backed. Do not use the Flash Next result to judge
+the normal `load-mode = none` profiles.
 
 **`moe-expert-cache-size`**
 

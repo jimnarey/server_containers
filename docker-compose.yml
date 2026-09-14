@@ -559,7 +559,7 @@ services:
       context: /mnt/work/generel-schwerz-llama-cpp/16gb/source
       dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
       target: server
-    image: generel-schwerz-llama-cpp:moe-cache-b46f7f7
+    image: generel-schwerz-llama-cpp:qwen4exp-mtp-e69a1d0
     container_name: llama-cpp-generel-schwerz-16gb-c
     restart: unless-stopped
     gpus: all
@@ -590,7 +590,7 @@ services:
       context: /mnt/work/generel-schwerz-llama-cpp/32gb/source
       dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
       target: server
-    image: generel-schwerz-llama-cpp:moe-cache-b46f7f7
+    image: generel-schwerz-llama-cpp:qwen4exp-mtp-e69a1d0
     container_name: llama-cpp-generel-schwerz-32gb-c
     restart: unless-stopped
     gpus: all
