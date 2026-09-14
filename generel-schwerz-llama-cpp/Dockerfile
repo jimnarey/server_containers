@@ -4,8 +4,13 @@ ARG UBUNTU_VERSION=24.04
 ARG CUDA_VERSION=12.8.1
 ARG GCC_VERSION=14
 ARG CUDA_DOCKER_ARCH=120
-ARG LLAMA_FORK_BRANCH=moe-cache
-ARG LLAMA_FORK_COMMIT=b46f7f7a436f990932d3da3ec53380e2b9effc89
+# CUDA compilation is memory-hungry; keep rebuilds viable while a large model
+# has recently occupied the host page cache.
+ARG BUILD_JOBS=4
+# Flash Next needs the fork's maintained Qwen4Exp path as well as the MoE
+# cache. Keep this immutable: Docker checks out this copied source tree only.
+ARG LLAMA_FORK_BRANCH=qwen4exp-mtp
+ARG LLAMA_FORK_COMMIT=e69a1d0be5f8ae0080593865b38b175223059199
 
 ARG BASE_CUDA_DEV_CONTAINER=docker.io/nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
 ARG BASE_CUDA_RUN_CONTAINER=docker.io/nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}
@@ -14,6 +19,7 @@ FROM ${BASE_CUDA_DEV_CONTAINER} AS build
 
 ARG GCC_VERSION
 ARG CUDA_DOCKER_ARCH
+ARG BUILD_JOBS
 ARG LLAMA_FORK_BRANCH
 ARG LLAMA_FORK_COMMIT
 
@@ -44,7 +50,7 @@ RUN cmake -S . -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_DOCKER_ARCH} \
         -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined && \
-    cmake --build build --config Release --target llama-server --parallel "$(nproc)"
+    cmake --build build --config Release --target llama-server --parallel "${BUILD_JOBS}"
 
 RUN mkdir -p /app/lib && \
     find build -name '*.so*' -exec cp -P {} /app/lib \;
