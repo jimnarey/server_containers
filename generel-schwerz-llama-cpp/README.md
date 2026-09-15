@@ -75,6 +75,29 @@ core on the selected GPU(s), while its large phrase/PLE table remains lazy,
 file-backed on the host. Its routed experts are placed by the fork's CUDA cache
 override, not by the ordinary layer offload.
 
+### Verifying a config.ini change actually took effect
+
+`config.ini`'s `[*]` settings (`batch-size`, `moe-expert-cache-size`,
+`reasoning-budget`, and everything else in that section) do **not** appear in
+the spawned per-model process's command line. Checking `ps aux`, `docker
+inspect`, or the router's own `/v1/models` `status.args` field for one of
+these keys after a restart will not find it — those all report only the
+explicit CLI args the router passes when it spawns a model instance (the
+alias, ctx-size, model path, and whatever is in that model's
+`models-preset.ini` section). It is easy to read that absence as "the setting
+was never applied" — it wasn't dropped, it just isn't visible there.
+
+Each spawned instance reads `/etc/llama.cpp/config.ini` itself, directly, at
+its own startup — confirmed by `using config file: /etc/llama.cpp/config.ini`
+in `docker logs`, once per spawned instance. That line proves the file was
+read, but not that any individual key inside it parsed as intended (a typo'd
+key name would fail silently the same way). To actually confirm a change
+took effect, exercise it: watch `nvidia-smi` VRAM before/after a `moe-expert-cache-size`
+change, or send a request that would exhaust `reasoning-budget` and check the
+response actually contains the injected message. Restarting the container and
+seeing it come up healthy only proves the router started; it proves nothing
+about what the per-model instance itself picked up.
+
 ## How these profiles are intended to work
 
 This fork is most useful for sparse MoE models. At each token, an MoE model
