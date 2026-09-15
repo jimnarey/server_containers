@@ -511,7 +511,6 @@ services:
     ports:
       - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
 
-<<<<<<< HEAD
   meerk40t:
     build: ./meerk40t
     volumes:
@@ -522,7 +521,7 @@ services:
     privileged: true
     <<: *defaults
     container_name: meerk40t-c
-=======
+
   llama-cpp-cpu:
     image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_CPU_TAG:-server}
     container_name: llama-cpp-cpu-c
@@ -617,7 +616,6 @@ services:
       - --metrics
     ports:
       - "${GS_LLAMA_CPP_32GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_32GB_PORT:-11439}:8080"
->>>>>>> 79fc72d (Add llama.cpp variants)
 
   # Independent csantiago78/llama.cpp MoE expert cache (draft PR #27861 against
   # ggml-org/llama.cpp, branch moe-expert-cache), using both physical GPUs.
