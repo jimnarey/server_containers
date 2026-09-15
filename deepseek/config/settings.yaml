@@ -8,6 +8,14 @@ llm-pi-ai:
       apiKeyEnv: LLAMA_CPP_API_KEY
       api: openai-completions
       baseURL: http://llama-cpp:8080/v1
+      # 2026-09-15 reliability review: this provider never had the
+      # streamIdleTimeoutMs fix applied when it was added to the
+      # llama-cpp-moe-* providers. session_analysis.py found 19 stream-idle-
+      # timeout retries against this exact provider during the 27B model's
+      # "medium-committed" era, the same failure class the 16gb/32gb/
+      # csantiago78 fix addressed -- this was a real, evidenced gap, not a
+      # precaution. Applied here for consistency.
+      streamIdleTimeoutMs: 1800000
       models:
         - id: Qwen3-Embedding-0.6B-Q8_0
           contextWindow: 32768
@@ -46,8 +54,6 @@ llm-pi-ai:
         - id: Qwen3.8-27B-UD-Q6_K_M
           contextWindow: 163840
           maxTokens: 24576
-        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
-          contextWindow: 4096
         - id: gpt-oss-20b-F16
           contextWindow: 131072
     # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
@@ -195,9 +201,14 @@ llm-pi-ai:
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
           contextWindow: 65536
           maxTokens: 16384
+# 2026-09-15 reliability review: the deployed runtime settings.yaml had
+# already been changed to this (Flash Next is what every recent session has
+# actually used) but this source template was never updated to match, so the
+# next `sync-config.py` run would have silently reverted the default back to
+# a model/provider that isn't even running. Updated to match reality.
 agent-default-model:
-  provider: llama-cpp
-  model: Qwen3.8-27B-UD-Q6_K_M
+  provider: llama-cpp-moe-16gb
+  model: Qwen3.8-Flash-Next-UD-Q3_K_XL
 agent-presets:
   # Presets are capability/tool compositions, not model routes. Keep the
   # shipped Standard composition as the default; agent-default-model above
