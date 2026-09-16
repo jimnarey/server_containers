@@ -94,19 +94,20 @@ COPY Caddyfile /etc/Caddyfile
 
 # Preserve base-ubuntu-caddy-24's Caddy supervisor program and append DSH in
 # the same way that the other service images append their own application.
-RUN echo \
-'\n[program:deepseek]\n\
-command=/usr/local/bin/dsh web --port 3080 --no-open\n\
-directory=/workspace\n\
-environment=HOME="/home/runuser",USER="runuser",LOGNAME="runuser",DSH_HOME="/home/runuser/.dsh",SSH_CONNECTION="container 0 container 0"\n\
-autostart=true\n\
-autorestart=true\n\
-startsecs=5\n\
-stopasgroup=true\n\
-killasgroup=true\n\
-stdout_logfile=/dev/fd/1\n\
-stdout_logfile_maxbytes=0\n\
-redirect_stderr=true\n' \
->> /etc/supervisord.conf
+RUN printf '%s\n' \
+    '' \
+    '[program:deepseek]' \
+    'command=/usr/local/bin/dsh web --port 3080 --no-open --trusted-host %(ENV_DEEPSEEK_GATEWAY_HOSTNAME)s' \
+    'directory=/workspace' \
+    'environment=HOME="/home/runuser",USER="runuser",LOGNAME="runuser",DSH_HOME="/home/runuser/.dsh",SSH_CONNECTION="container 0 container 0"' \
+    'autostart=true' \
+    'autorestart=true' \
+    'startsecs=5' \
+    'stopasgroup=true' \
+    'killasgroup=true' \
+    'stdout_logfile=/dev/fd/1' \
+    'stdout_logfile_maxbytes=0' \
+    'redirect_stderr=true' \
+    >> /etc/supervisord.conf
 
 WORKDIR /workspace

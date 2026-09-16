@@ -318,6 +318,9 @@ services:
       # browser/VNC containers rather than delegating authentication upstream.
       CADDY_USER: ${CADDY_USER:-admin}
       CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
+      # DSH's built-in browser-trust fence must explicitly recognize the
+      # HTTPS hostname which Caddy publishes. This is not an auth setting.
+      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.home.arpa}
     volumes:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace

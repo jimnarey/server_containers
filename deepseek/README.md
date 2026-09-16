@@ -76,6 +76,11 @@ Internally, `dsh` retains its loopback listener. DeepSeek's in-container Caddy
 proxies directly to that loopback listener after authentication, so its
 successful Basic Auth check is part of the security boundary.
 
+The container passes `DEEPSEEK_GATEWAY_HOSTNAME` to DSH as its trusted browser
+authority. Keep it identical to the hostname in the gateway Caddyfile. This
+permits same-origin browser API requests (including workspace and session
+access) without relaxing DSH's trust fence for other hostnames.
+
 The browser is only a client of the long-running Harness host. Closing the tab
 or disconnecting the workstation does not normally stop an active turn;
 reconnect and reopen the persisted session later. A turn may still wait
