@@ -5,13 +5,35 @@
 from the ordinary `llama-cpp` service and use the experimental CUDA MoE expert
 cache in [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
-The image is built at the Dockerfile's pinned revision:
+The Dockerfile's default pinned revision (used by the 16GB service):
 
 ```text
 branch: qwen4exp-mtp
 commit: e69a1d0be5f8ae0080593865b38b175223059199
 CUDA:   12.8.1, compiled for CUDA architecture 120
 ```
+
+2026-09-16: the 32GB service overrides this default via `build.args` in
+`docker-compose.yml` and now pins a different commit:
+
+```text
+branch: codex/moe-grouped-multigpu
+commit: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
+CUDA:   12.8.1, compiled for CUDA architecture 120
+```
+
+The two services deliberately build from different commits now. `qwen4exp-mtp`'s
+MoE cache is hardcoded to CUDA device 0
+([GenerelSchwerz/llama.cpp#90](https://github.com/GenerelSchwerz/llama.cpp/issues/90))
+and cannot use a second GPU -- confirmed still true as of this pin (0 commits
+of drift on that branch). `codex/moe-grouped-multigpu` branches directly off
+the 16GB service's exact pin and adds a real, physically-validated two-GPU
+expert cache (its own `docs/moe-grouped-multigpu.md`, in the source tree,
+records design, evidence and known gaps in detail) -- not yet merged upstream
+into `qwen4exp-mtp`. See `models-preset-32gb.ini`'s header comment for the
+real constraints this pin imposes on model configuration, and
+`docker-compose.yml`'s comment on `llama-cpp-generel-schwerz-32gb` for the
+full rationale.
 
 The build context is respectively:
 
@@ -36,11 +58,16 @@ install -D -m 0644 generel-schwerz-llama-cpp/config/16gb.ini \
   /mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini
 install -D -m 0644 generel-schwerz-llama-cpp/config/32gb.ini \
   /mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini
-install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset.ini \
-  /mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset.ini
-install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset.ini \
-  /mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset.ini
+install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset-16gb.ini \
+  /mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset-16gb.ini
+install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset-32gb.ini \
+  /mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset-32gb.ini
 ```
+
+2026-09-16: these are now two genuinely different files, not one shared
+template installed twice. The two services build from different fork commits
+(see below) with different real constraints, so their catalogues differ --
+notably, Flash Next is only in the 16GB one.
 
 The config files are mounted at `/etc/llama.cpp/config.ini` and are deliberately
 outside this repository. The separate `models-preset.ini` copies are mounted at
@@ -54,15 +81,32 @@ section to the repository template, install it to each runtime location, then
 recreate the service when deliberately making another model available.
 
 The 16GB service is exposed on port 11438 and limits CUDA visibility to physical
-GPU 0. The 32GB service is on port 11439 and exposes both GPUs. Its baseline
-keeps ordinary layers on the host, while the fork uses CUDA for cached MoE
-experts; `split-mode = layer` is retained for later measured experiments that
-offload model layers. Run only one of these profiles at a time. In particular, stop ordinary
-`llama-cpp` before the 32GB profile; it is otherwise also free to allocate both
+GPU 0. The 32GB service is on port 11439 and exposes both GPUs.
+
+2026-09-16: the 32GB service's model placement is now genuinely different
+from the 16GB one, not just "the same idea across two cards." Because
+`codex/moe-grouped-multigpu`'s cache is layer-split (each GPU gets its own
+local cache for the layers assigned to it), every model there uses
+`n-gpu-layers = all` / `fit = off` / `cpu-moe = true` globally in
+`config.ini` -- whole layers, not the 16GB service's per-model mix of
+fully-host-resident (`n-gpu-layers = 0`) and dense-core-on-GPU
+(`n-gpu-layers = all`) placements. `split-mode = layer` / `tensor-split =
+1,1` are no longer an unused placeholder here; they're load-bearing.
+
+Run only one of these profiles at a time. In particular, stop ordinary
+`llama-cpp` before either profile; it is otherwise also free to allocate both
 cards.
 
-The templates start at 64K context, Q8 KV, 8 physical CPU threads, and an MoE
-expert cache of 32 or 64 slots. Expert-cache size is per cached expert tensor
+The 16GB template starts at 64K context, Q8 KV, 8 physical CPU threads, and a
+flat MoE expert cache of 48 slots (tuned specifically for Flash Next's real
+workload; see the dated comments in `16gb.ini`, not assumed correct for the
+other models sharing that service). The 32GB template also starts at 64K
+context and Q8 KV, but sets `moe-expert-cache-size` per model in
+`models-preset-32gb.ini` instead of one flat value -- expert_used_count
+varies from 4 to 10 across that catalogue, and the fork's own reference
+example scales cache size with active-expert count, not a single constant.
+None of the 32GB values have been benchmarked; they're a starting point sized
+by that same ratio, nothing more. Expert-cache size is per cached expert tensor
 on its CUDA device. Treat 64 slots as the first 32GB experiment, not a promise
 that every model will fit; reduce it if either GPU runs out of memory.
 

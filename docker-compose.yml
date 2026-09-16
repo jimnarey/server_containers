@@ -7,6 +7,26 @@ x-defaults: &defaults
 
 services:
 
+  # Shared HTTPS entry point. No application is routed through this service yet;
+  # see https-gateway/README.md before adding an upstream.
+  https-gateway:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      # Default to loopback so a missing machine-specific setting cannot
+      # accidentally publish HTTPS on every host interface.
+      - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:443:443"
+    environment:
+      HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.home.arpa}
+    volumes:
+      - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddy's internal CA and issued certificates live in this volume.
+      - https-gateway-data:/data
+      - https-gateway-config:/config
+    networks:
+      - https-gateway
+
   base-ubuntu-22:
     image: base-ubuntu-22:latest
     build: ./base-ubuntu-22
@@ -149,6 +169,17 @@ services:
       DSH_HOME: /home/runuser/.dsh
       SSH_CONNECTION: "1 1 1 1"
       UV_CACHE_DIR: /tmp/uv-cache
+      # 2026-09-16: pre-commit defaults to $HOME/.cache/pre-commit, which is
+      # outside the workspace-write sandbox boundary (HOME is the persisted
+      # /home/runuser volume, not the session workspace or a platform temp
+      # area). Every 27B session avoided this by setting PRE_COMMIT_HOME on
+      # the command line by hand (the escape hatch docs/prompts/dsh-
+      # autonomous-dev.md already documents); one Flash Next session didn't,
+      # and its pre-commit run sat blocked on a danger-full-access approval
+      # for ~8 hours. Setting it here, matching UV_CACHE_DIR above, makes the
+      # escape hatch unconditional instead of relying on the model to type it
+      # every time.
+      PRE_COMMIT_HOME: /tmp/pre-commit-home
       UV_PYTHON_INSTALL_DIR: /home/runuser/.local/share/uv/python
       UV_PYTHON_PREFERENCE: managed
     volumes:
@@ -556,6 +587,9 @@ services:
 
   # Experimental GenerelSchwerz/llama.cpp build for MoE expert caching.
   # It uses only physical GPU 0, leaving GPU 1 available to another workload.
+  # Pinned to qwen4exp-mtp (unchanged) -- this is the proven, working profile.
+  # See llama-cpp-generel-schwerz-32gb below for the newer, two-GPU pin; the
+  # two services deliberately build from different commits now.
   llama-cpp-generel-schwerz-16gb:
     build:
       context: /mnt/work/generel-schwerz-llama-cpp/16gb/source
@@ -570,7 +604,7 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset-16gb.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -587,12 +621,32 @@ services:
       - "${GS_LLAMA_CPP_16GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_PORT:-11438}:8080"
 
   # Experimental GenerelSchwerz/llama.cpp build using both physical GPUs.
+  # 2026-09-16: pinned to codex/moe-grouped-multigpu, NOT qwen4exp-mtp (that's
+  # the 16GB service's pin, unchanged). qwen4exp-mtp's MoE cache is hardcoded
+  # to CUDA device 0 (GenerelSchwerz/llama.cpp#90) and cannot use a second
+  # GPU -- confirmed still true, 0 commits of drift on that branch as of this
+  # pin. codex/moe-grouped-multigpu branches directly off our exact
+  # qwen4exp-mtp pin (e69a1d0be) and adds a real, physically-validated
+  # two-GPU expert cache (docs/moe-grouped-multigpu.md in that tree): layer-
+  # split ("Stage A... does not add tensor or expert parallelism"), tested on
+  # two distinct physical GPUs with no peer access (PHB, same no-NVLink shape
+  # as this host), and run against two models already in our own catalog
+  # (Gemma-4-26B-A4B, Ornith-1.5-35B-A3B) with coherent output and zero
+  # unexpected fallback. Not merged upstream into qwen4exp-mtp as of this pin.
+  # Real constraints this pin imposes on every model below: requires
+  # `load-mode = none` (mmap-based pinning is explicitly rejected by this
+  # branch), and decode-only benefit for now (prefill still runs the old
+  # single-device path). See models-preset-32gb.ini for the per-model
+  # fallout, in particular why Flash Next is NOT in that catalogue.
   llama-cpp-generel-schwerz-32gb:
     build:
       context: /mnt/work/generel-schwerz-llama-cpp/32gb/source
       dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
       target: server
-    image: generel-schwerz-llama-cpp:qwen4exp-mtp-e69a1d0
+      args:
+        LLAMA_FORK_BRANCH: codex/moe-grouped-multigpu
+        LLAMA_FORK_COMMIT: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
+    image: generel-schwerz-llama-cpp:codex-moe-grouped-multigpu-0ed73d1
     container_name: llama-cpp-generel-schwerz-32gb-c
     restart: unless-stopped
     gpus: all
@@ -601,7 +655,7 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset-32gb.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -619,11 +673,13 @@ services:
 
   # Independent csantiago78/llama.cpp MoE expert cache (draft PR #27861 against
   # ggml-org/llama.cpp, branch moe-expert-cache), using both physical GPUs.
-  # Alternative to llama-cpp-generel-schwerz-32gb: that fork's own expert
-  # cache is pinned to CUDA device 0 and cannot use a second GPU
-  # (GenerelSchwerz/llama.cpp#90); this is a separate implementation reported
-  # to distribute cache slots across devices under --split-mode layer. Not yet
-  # build- or run-tested in this deployment — see config/config.ini.
+  # 2026-09-16: llama-cpp-generel-schwerz-32gb no longer has the CUDA-device-0
+  # limitation this comment used to describe -- it now builds from
+  # codex/moe-grouped-multigpu, a real two-GPU expert cache (see that
+  # service's own comment). This csantiago78 branch has had zero commits
+  # since it was pinned (checked 2026-09-16) and remains untested in this
+  # deployment; it's no longer the only lead on multi-GPU MoE caching, just
+  # an unverified one that predates finding the working alternative.
   llama-cpp-csantiago78:
     build:
       context: /mnt/work/csantiago78-llama-cpp/source
@@ -878,6 +934,8 @@ services:
     container_name: webdav-c
 
 volumes:
+  https-gateway-data:
+  https-gateway-config:
   calibre-home:
   clrmamepro-home:
   clrmamepro-app:
@@ -917,6 +975,12 @@ volumes:
   webdav-apache-home:
   webdav-home:
   xfce-vpn-home:
+
+networks:
+  # Future upstream services must opt in explicitly. Caddy is not attached to
+  # the default Compose network, so it cannot reach existing services yet.
+  https-gateway:
+    internal: true
 
 
   
