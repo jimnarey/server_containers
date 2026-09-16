@@ -1,5 +1,5 @@
-# This gateway intentionally has no application upstreams yet. It exists to
-# establish the HTTPS entry point and Caddy's local certificate authority.
+# This gateway terminates LAN HTTPS and routes to explicitly opted-in services.
+# Service-level authentication stays in the service, not in this gateway.
 {
 	admin off
 }
@@ -9,5 +9,10 @@ https://{$HTTPS_GATEWAY_HOSTNAME} {
 	# installation instructions are in README.md.
 	tls internal
 
-	respond "HTTPS gateway is running. No applications are published here yet." 200
+	respond "HTTPS gateway is running." 200
+}
+
+https://{$DEEPSEEK_GATEWAY_HOSTNAME} {
+	tls internal
+	reverse_proxy deepseek:8081
 }

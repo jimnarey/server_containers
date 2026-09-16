@@ -1,6 +1,6 @@
 FROM node:24.19.0-bookworm-slim AS node-runtime
 
-FROM base-ubuntu-24:latest
+FROM base-ubuntu-caddy-24:latest
 
 ARG DEEPSEEK_VERSION=0.1.1-rc.2
 ARG PNPM_VERSION=11.24.0
@@ -48,7 +48,6 @@ RUN apt-get update && \
         python3-capstone \
         python3.12-dev \
         ripgrep \
-        socat \
         sudo \
         tmux \
         xauth \
@@ -91,6 +90,23 @@ ENV UV_CACHE_DIR=/tmp/uv-cache \
 
 COPY init_chowns.sh /usr/local/bin/init_chowns.sh
 RUN chmod 744 /usr/local/bin/init_chowns.sh
-COPY supervisord.conf /etc/supervisord.conf
+COPY Caddyfile /etc/Caddyfile
+
+# Preserve base-ubuntu-caddy-24's Caddy supervisor program and append DSH in
+# the same way that the other service images append their own application.
+RUN echo \
+'\n[program:deepseek]\n\
+command=/usr/local/bin/dsh web --port 3080 --no-open\n\
+directory=/workspace\n\
+environment=HOME="/home/runuser",USER="runuser",LOGNAME="runuser",DSH_HOME="/home/runuser/.dsh",SSH_CONNECTION="container 0 container 0"\n\
+autostart=true\n\
+autorestart=true\n\
+startsecs=5\n\
+stopasgroup=true\n\
+killasgroup=true\n\
+stdout_logfile=/dev/fd/1\n\
+stdout_logfile_maxbytes=0\n\
+redirect_stderr=true\n' \
+>> /etc/supervisord.conf
 
 WORKDIR /workspace

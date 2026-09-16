@@ -314,6 +314,10 @@ services:
       PRE_COMMIT_HOME: /tmp/pre-commit-home
       UV_PYTHON_INSTALL_DIR: /home/runuser/.local/share/uv/python
       UV_PYTHON_PREFERENCE: managed
+      # DeepSeek's in-container Caddy owns its Basic Auth, matching the
+      # browser/VNC containers rather than delegating authentication upstream.
+      CADDY_USER: ${CADDY_USER:-admin}
+      CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
     volumes:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
@@ -326,8 +330,11 @@ services:
       # Retains Standard as one capability mode while making compaction policy
       # exact-provider/model aware. This file follows DEEPSEEK_VERSION.
       - ./deepseek/agent-preset-overrides/standard/agent.cordis.yml:/usr/local/lib/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml:ro
-    ports:
-      - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
+    # The service's own Caddy listens on 8081 and stays private to the Compose
+    # gateway network. Do not publish it on a host port.
+    networks:
+      - default
+      - https-gateway
     healthcheck:
       test: ["CMD", "curl", "--silent", "--output", "/dev/null", "http://127.0.0.1:3080/"]
       interval: 30s
@@ -501,3 +508,9 @@ volumes:
   searxng-valkey-data:
   opencode-home:
   goose-home:
+
+networks:
+  # Duplicated in compose.network.yml so either group remains a valid Compose
+  # file. The service attachment above is the explicit gateway opt-in.
+  https-gateway:
+    internal: true

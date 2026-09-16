@@ -99,11 +99,18 @@ Environment-variable coverage is incomplete. Newer services generally expose the
 
 ## HTTP And Network Security
 
-The browser services currently operate over HTTP. There is not yet a shared TLS termination layer or general-purpose HTTPS gateway in front of the Compose stack. Services described as using Caddy generally use it for HTTP reverse proxying and basic authentication; that does not encrypt credentials or traffic.
+Most browser services currently operate over HTTP. The `https-gateway` Caddy
+service now terminates LAN HTTPS and routes to DeepSeek Harness; DeepSeek's own
+Caddy instance provides its Basic Auth, following the established browser/VNC
+container pattern. See [`https-gateway/README.md`](./https-gateway/README.md).
+Services are only published through the gateway when explicitly attached to
+its private Docker network.
 
-Treat LAN-published ports as trusted-network services. Use SSH port forwarding for host-loopback services, especially DeepSeek Harness, and do not expose the current endpoints directly to the internet. A central authenticated Caddy HTTPS gateway is planned, but its trust boundaries, hostnames, certificates, and per-service access policy have not yet been settled.
-
-DeepSeek is more complicated than the other HTTP applications: its privileged configuration APIs deliberately trust loopback, the application binds inside the container to loopback, and the Compose service publishes only host loopback. A supervised TCP relay bridges those two boundaries so an SSH tunnel can reach the UI. See [`deepseek/README.md`](./deepseek/README.md) before changing that binding or placing a proxy in front of it.
+Treat remaining LAN-published ports as trusted-network services and do not
+expose them directly to the internet. DeepSeek is deliberately different: its
+privileged configuration APIs trust loopback, so its relay is not published on
+a host port. The authenticated Caddy gateway is its only browser entry point.
+See [`deepseek/README.md`](./deepseek/README.md) before changing that boundary.
 
 ## Quick Start
 

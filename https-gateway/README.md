@@ -1,13 +1,15 @@
 # HTTPS gateway
 
-`https-gateway` is the dedicated Caddy HTTPS entry point for this host.  It
-currently serves only a confirmation page; **no application is proxied through
-it yet**.  Caddy uses an internal certificate authority (CA), appropriate for
-the LAN-only `home.arpa` names used by this repository.
+`https-gateway` is the dedicated Caddy HTTPS entry point for this host. It
+serves a confirmation page and the DeepSeek Harness browser interface. Caddy
+uses an internal certificate authority (CA), appropriate for the LAN-only
+`home.arpa` names used by this repository.
 
 The service is deliberately attached only to the private `https-gateway`
-network.  A future application must be added to that network and receive an
-explicit Caddy route before Caddy can reach it.
+network. DeepSeek is the only application currently added to that network and
+the only application Caddy can reach. Caddy also joins a separate ingress-only
+network so Docker can publish ports 80 and 443; no application joins that
+network.
 
 ## Configure and start
 
@@ -18,7 +20,14 @@ address.  Set the values in the host's ignored `.env` file:
 ```dotenv
 HTTPS_GATEWAY_BIND_ADDRESS=192.168.50.136
 HTTPS_GATEWAY_HOSTNAME=gateway.ai.home.arpa
+DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
 ```
+
+Create local-DNS records for both hostnames. `deepseek.ai.home.arpa` is
+protected by the DeepSeek container's own Caddy Basic Auth, using `CADDY_USER`
+and the bcrypt `CADDY_HASH` already used by the browser/VNC containers. The
+shared gateway provides only HTTPS and routing. DeepSeek is not separately
+published on a host port.
 
 `HTTPS_GATEWAY_BIND_ADDRESS` defaults to `127.0.0.1` when it is omitted.  This
 is intentional: it prevents an incomplete configuration from exposing ports
@@ -27,14 +36,14 @@ is intentional: it prevents an incomplete configuration from exposing ports
 Start Caddy:
 
 ```sh
-docker compose up -d https-gateway
-docker compose logs -f https-gateway
+docker compose up -d https-gateway deepseek
+docker compose logs -f https-gateway deepseek
 ```
 
-Caddy redirects HTTP to HTTPS.  Once the certificate is trusted as described
-below, open `https://gateway.ai.home.arpa/` (substitute your hostname).  The
-page confirms that the gateway is running; it is not an application login
-page.
+Caddy redirects HTTP to HTTPS. Once the certificate is trusted as described
+below, `https://gateway.ai.home.arpa/` confirms that the gateway is running.
+Open `https://deepseek.ai.home.arpa/` for DeepSeek and enter the Caddy Basic
+Auth credentials when prompted.
 
 ## Trust Caddy's local CA
 
@@ -91,7 +100,6 @@ any authenticated application route.
   recreation. Back it up as protected secret material.
 - The gateway has no Caddy admin API and no connection to the default Compose
   network.
-- Future routes should use subdomains (for example,
-  `deepseek.ai.home.arpa`) and their upstream service should opt into the
-  `https-gateway` network. Do not expose an application through the gateway
-  without adding suitable authentication in its Caddy route.
+- Future routes should use subdomains and their upstream service should opt
+  into the `https-gateway` network. Do not expose an application through the
+  gateway without adding suitable authentication in its Caddy route.

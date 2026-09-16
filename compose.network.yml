@@ -1,10 +1,3 @@
-x-defaults: &defaults
-  environment:
-    USERID: "1000"
-    GROUPID: "1000"
-    CADDY_USER: "admin"
-    CADDY_HASH: ${CADDY_HASH}
-
 services:
 
   https-gateway:
@@ -17,6 +10,7 @@ services:
       - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:443:443"
     environment:
       HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.home.arpa}
+      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.home.arpa}
     volumes:
       - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
       # Caddy's internal CA and issued certificates live in this volume.
@@ -24,6 +18,11 @@ services:
       - https-gateway-config:/config
     networks:
       - https-gateway
+      # Docker does not activate published host ports for this deployment when
+      # Caddy is attached only to an internal network. This network has no
+      # application upstreams; the private network below remains the only path
+      # from Caddy to DeepSeek.
+      - https-gateway-ingress
 
   expressvpn:
     build: ./expressvpn
@@ -50,3 +49,6 @@ networks:
   # the default Compose network, so it cannot reach existing services yet.
   https-gateway:
     internal: true
+  # Allows Docker to publish Caddy's host ports without giving it access to
+  # application containers. Only https-gateway joins this network.
+  https-gateway-ingress:

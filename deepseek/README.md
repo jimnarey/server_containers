@@ -28,8 +28,7 @@ Optional settings in `.env` are:
 DEEPSEEK_VERSION=0.1.1-rc.2
 DEEPSEEK_HOME=/mnt/work/deepseek
 DEEPSEEK_WORKSPACE=/mnt/work/projects
-DEEPSEEK_BIND_ADDRESS=127.0.0.1
-DEEPSEEK_PORT=9035
+DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
 ```
 
 Two integration values are still literal Compose configuration rather than `.env` settings:
@@ -40,41 +39,48 @@ Two integration values are still literal Compose configuration rather than `.env
   automatic picker selects its browser-based remote directory picker. It does
   not describe a real SSH connection or grant SSH access.
 
-These should eventually become explicit configurable settings rather than local assumptions embedded in `docker-compose.yml`.
-
-Keep `DEEPSEEK_BIND_ADDRESS` set to `127.0.0.1` while using an SSH tunnel. The web interface has control over the mounted workspace and must not be exposed directly to the LAN or internet.
+The web interface has control over the mounted workspace and must not be
+published directly on the LAN or internet. Its relay is attached only to the
+private `https-gateway` Docker network.
 
 ## Start the service
 
 ```bash
 docker compose build deepseek
-docker compose up -d deepseek
-docker compose logs -f deepseek
+docker compose up -d https-gateway deepseek
+docker compose logs -f https-gateway deepseek
 ```
 
-The startup log prints the listening URL and any startup errors. In the pinned release, a loopback launch does not add a token to that URL; the host-loopback binding is therefore the primary access boundary.
+Before starting the services, configure local DNS for
+`DEEPSEEK_GATEWAY_HOSTNAME` and trust the Caddy local CA as described in
+[`https-gateway/README.md`](../https-gateway/README.md). DeepSeek's own
+in-container Caddy obtains its username and bcrypt password hash from
+`CADDY_USER` and `CADDY_HASH`, the same variables used by the existing
+browser/VNC containers.
 
-## Access the web interface through SSH
+## Access the web interface through HTTPS
 
-From the workstation, keep this command running:
-
-```bash
-ssh -N -L 9035:127.0.0.1:9035 ai@ai-ubuntu
-```
-
-Open this URL on the workstation:
+Open the configured hostname, for example:
 
 ```text
-http://localhost:9035/
+https://deepseek.ai.home.arpa/
 ```
 
-If a future pinned release prints a URL containing `?token=...`, use that full URL for the first browser connection.
+The browser first reaches the shared gateway over HTTPS, which routes to
+DeepSeek's own Caddy instance. That in-container Caddy prompts for the Basic
+Auth credentials before it reaches DeepSeek. The service is not published on a
+host port and is reachable only from the shared gateway on the private Compose
+network.
 
-The Compose port is published on host loopback only. Internally, `dsh` retains its own loopback listener and a TCP relay makes that listener available to the published port. This leaves a network target that a future Caddy service can proxy deliberately. Caddy must add strong authentication before exposing it, because traffic through the relay reaches `dsh` from container loopback.
+Internally, `dsh` retains its loopback listener. DeepSeek's in-container Caddy
+proxies directly to that loopback listener after authentication, so its
+successful Basic Auth check is part of the security boundary.
 
-This arrangement exists because the current deployment uses HTTP while Harness reserves privileged configuration operations for loopback clients. The relay cannot distinguish a genuine local Harness client from traffic forwarded to it; host-loopback publication plus the SSH tunnel is therefore part of the security boundary, not merely a convenience. Do not change `DEEPSEEK_BIND_ADDRESS` to a LAN address as a substitute for the planned authenticated HTTPS gateway.
-
-The browser is only a client of the long-running Harness host. Closing the tab, closing the SSH tunnel, or disconnecting the workstation does not normally stop an active turn; reconnect and reopen the persisted session later. A turn may still wait indefinitely for a tool approval or user answer, and an interrupted container/model process is not guaranteed to resume the exact in-flight turn.
+The browser is only a client of the long-running Harness host. Closing the tab
+or disconnecting the workstation does not normally stop an active turn;
+reconnect and reopen the persisted session later. A turn may still wait
+indefinitely for a tool approval or user answer, and an interrupted
+container/model process is not guaranteed to resume the exact in-flight turn.
 
 ## Local web search and fetch
 
@@ -95,14 +101,16 @@ public HTTPS text retrieval and applies destination/DNS validation, redirect,
 timeout, and response-size limits. The provider cannot forward browser cookies,
 stored credentials, HTTP methods, headers, or a request body.
 
-DeepSeek waits for both `guarded-fetch` and SearXNG to become healthy before it
-starts. Their Compose service names are used internally; neither integration
-needs a host-published port.
+The optional integrations use Compose service names internally; neither needs
+a host-published port. If they are re-enabled, restore the commented
+health-based `depends_on` entries in `compose.ai.yml` so DeepSeek waits for
+them before it starts.
 
 This prevents DeepSeek's `web_fetch` tool from reaching Compose-local services
 or private-network addresses. It is not a complete egress boundary: an agent
 with shell access can still use its normal network tools, so keep the UI within
-its existing SSH-tunnel boundary and treat fetched page text as untrusted.
+its authenticated HTTPS-gateway boundary and treat fetched page text as
+untrusted.
 
 The shipped capability modes retain their own `tool-web` configuration; set
 `fetch: true` and `fetchTimeoutMs: 30000` in the relevant mode composition to

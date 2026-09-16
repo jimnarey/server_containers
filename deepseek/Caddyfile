@@ -1,0 +1,9 @@
+# DeepSeek's own Caddy instance follows the same browser/VNC-container pattern:
+# authenticate inside the service, then proxy to the loopback-only application.
+:8081 {
+    log
+    reverse_proxy 127.0.0.1:3080
+    basicauth /* {
+        {env.CADDY_USER} {env.CADDY_HASH}
+    }
+}
