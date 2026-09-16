@@ -100,11 +100,13 @@ Environment-variable coverage is incomplete. Newer services generally expose the
 ## HTTP And Network Security
 
 Most browser services currently operate over HTTP. The `https-gateway` Caddy
-service now terminates LAN HTTPS and routes to DeepSeek Harness; DeepSeek's own
-Caddy instance provides its Basic Auth, following the established browser/VNC
-container pattern. See [`https-gateway/README.md`](./https-gateway/README.md).
-Services are only published through the gateway when explicitly attached to
-its private Docker network.
+service now terminates LAN HTTPS and routes to DeepSeek Harness and
+desktop-XFCE; their own Caddy instances provide Basic Auth, following the
+established browser/VNC-container pattern. The included `lan-dns` service maps
+`*.ai.home.arpa` to the gateway address. See
+[`https-gateway/README.md`](./https-gateway/README.md) and
+[`lan-dns/README.md`](./lan-dns/README.md). Services are only published through
+the gateway when explicitly attached to its private Docker network.
 
 Treat remaining LAN-published ports as trusted-network services and do not
 expose them directly to the internet. DeepSeek is deliberately different: its

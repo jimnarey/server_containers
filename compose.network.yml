@@ -9,8 +9,9 @@ services:
       - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:80:80"
       - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:443:443"
     environment:
-      HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.home.arpa}
-      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.home.arpa}
+      HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.ai.home.arpa}
+      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}
+      DESKTOP_XFCE_GATEWAY_HOSTNAME: ${DESKTOP_XFCE_GATEWAY_HOSTNAME:-xfce.ai.home.arpa}
     volumes:
       - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
       # Caddy's internal CA and issued certificates live in this volume.
@@ -23,6 +24,24 @@ services:
       # application upstreams; the private network below remains the only path
       # from Caddy to DeepSeek.
       - https-gateway-ingress
+
+  # Local resolver for the HTTPS gateway namespace. It is intentionally not
+  # connected to application networks: DNS requests enter only through the
+  # explicit LAN port bindings below and other names go to its upstream DNS.
+  lan-dns:
+    build: ./lan-dns
+    image: lan-dns:latest
+    restart: unless-stopped
+    environment:
+      LAN_DNS_GATEWAY_ADDRESS: ${LAN_DNS_GATEWAY_ADDRESS:?LAN_DNS_GATEWAY_ADDRESS is required}
+      LAN_DNS_UPSTREAM_SERVER: ${LAN_DNS_UPSTREAM_SERVER:-192.168.50.1}
+    ports:
+      # Safe by default: publish DNS only after the server's LAN address is
+      # configured explicitly in .env.
+      - "${LAN_DNS_BIND_ADDRESS:-127.0.0.1}:53:5353/udp"
+      - "${LAN_DNS_BIND_ADDRESS:-127.0.0.1}:53:5353/tcp"
+    networks:
+      - lan-dns-ingress
 
   expressvpn:
     build: ./expressvpn
@@ -52,3 +71,6 @@ networks:
   # Allows Docker to publish Caddy's host ports without giving it access to
   # application containers. Only https-gateway joins this network.
   https-gateway-ingress:
+  # The DNS resolver needs an egress path to its configured upstream resolver,
+  # but no other service joins this network.
+  lan-dns-ingress:

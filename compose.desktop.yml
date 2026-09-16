@@ -13,8 +13,11 @@ services:
     volumes:
       - desktop-xfce-home:/home/runuser
       - /mnt:/host_volumes
-    ports:
-      - "9026:8081"
+    # Browser access is HTTPS-only through the shared gateway. The service's
+    # own Caddy on 8081 continues to perform its existing Basic Auth.
+    networks:
+      - default
+      - https-gateway
     <<: *defaults
     container_name: desktop-xfce-c
 
@@ -82,3 +85,8 @@ volumes:
   hexchat-home:
   double-commander-home:
   xfce-vpn-home:
+
+networks:
+  # Repeated in compose.network.yml so this group can also be used directly.
+  https-gateway:
+    internal: true
