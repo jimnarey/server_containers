@@ -1,0 +1,84 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  desktop-xfce:
+    build: ./desktop-xfce
+    image: desktop-xfce:latest
+    volumes:
+      - desktop-xfce-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9026:8081"
+    <<: *defaults
+    container_name: desktop-xfce-c
+
+  desktop-kde:
+    build: ./desktop-kde
+    image: desktop-kde:latest
+    volumes:
+      - kde-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9024:8081"
+    <<: *defaults
+    container_name: kde-c
+
+  vscode:
+    build:
+      context: ./vscode
+      args:
+        CODE_SERVER_VERSION: ${CODE_SERVER_VERSION:-4.132.0}
+    image: vscode:latest
+    volumes:
+      - vscode-home:/home/runuser
+      - ${VSCODE_WORKSPACE:-/mnt/work}:/workspace
+    ports:
+      - "9033:8081"
+    <<: *defaults
+    container_name: vscode-c
+
+  hexchat:
+    build: ./hexchat
+    image: hexchat:latest
+    volumes:
+      - hexchat-home:/home/runuser
+    ports:
+      - "9008:8081"
+    <<: *defaults
+    container_name: hexchat-c
+
+  double-commander:
+    build: ./double-commander
+    image: double-commander:latest
+    volumes:
+      - double-commander-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9004:8081"
+    <<: *defaults
+    container_name: double-commander-c
+
+  # dropbox-gui:
+  #   build: ./dropbox-gui
+  #   image: dropbox-gui:latest
+  #   volumes:
+  #     - dropbox-gui-home:/home/runuser
+  #     - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
+  #   ports:
+  #     - "9005:8081"
+  #   <<: *defaults
+  #   container_name: dropbox-gui-c
+
+volumes:
+  desktop-xfce-home:
+  kde-home:
+  vscode-home:
+  hexchat-home:
+  double-commander-home:
+  xfce-vpn-home:

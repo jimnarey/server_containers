@@ -1,0 +1,104 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  meganz:
+    build: ./meganz
+    image: meganz:latest
+    env_file:
+      - .env
+    volumes:
+      - meganz-home:/home/runuser
+      - ${MEGANZ_LOCAL:-/CHANGEME_MEGANZ_LOCAL_PATH}:/meganz_local
+    ports:
+      - "9017:8081"
+    container_name: meganz-c
+
+  transmission:
+    build:
+      context: ./transmission
+      args:
+        TRANSMISSION_PASSWORD: ${TRANSMISSION_PASSWORD}
+    image: transmission:latest
+    volumes:
+      - transmission-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9091:9091"
+      - "51413:51413"
+    <<: *defaults
+    container_name: transmission-c
+
+  filezilla:
+    build: ./filezilla
+    image: filezilla:latest
+    volumes:
+      - filezilla-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9006:8081"
+    <<: *defaults
+    container_name: filezilla-c
+
+  webdav-apache:
+    build:
+      context: ./webdav-apache
+      args:
+        - WEBDAV_USERNAME=${WEBDAV_USERNAME:-webdav}
+        - WEBDAV_PASSWORD=${WEBDAV_PASSWORD:-password}
+    image: webdav-apcahe:latest
+    ports:
+      - "9023:80"
+    volumes:
+      - webdav-apache-home:/home/runuser
+      - "${WEBDAV_ROOT}:/var/www/html/webdav"
+    container_name: webdav-apache-c
+
+  webdav:
+    build: ./webdav
+    image: webdav:latest
+    volumes:
+      - webdav-home:/home/runuser
+      - "${WEBDAV_ROOT}:/webdav"
+    ports:
+      - "9022:8081"
+    <<: *defaults
+    container_name: webdav-c
+
+  desktop-dropbox:
+    build: ./desktop-dropbox
+    image: desktop-dropbox:latest
+    volumes:
+      - desktop-dropbox-home:/home/runuser
+      - ${DROPBOX_FOLDER}:/home/runuser/Dropbox
+    ports:
+      - "9005:8081"
+    <<: *defaults
+    container_name: desktop-dropbox-c
+
+  calibre:
+    build: ./calibre
+    image: calibre:latest
+    volumes:
+      - calibre-home:/home/runuser
+      - ${CALIBRE_LIBRARY}:/library
+      - ${CALIBRE_SOURCE}:/source
+    ports:
+      - "9001:8081"
+      - "9002:8083"
+    <<: *defaults
+    container_name: calibre-c
+
+volumes:
+  meganz-home:
+  transmission-home:
+  filezilla-home:
+  webdav-apache-home:
+  webdav-home:
+  desktop-dropbox-home:
+  calibre-home:

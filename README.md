@@ -33,7 +33,10 @@ The repository is organised in layers:
 - `base-ubuntu-gui-*`, `base-ubuntu-xfce-*`, `base-ubuntu-kde-*`: adds desktop/UI stacks
 - `base-ubuntu-wine-*`, `base-ubuntu-kde-wine-24`: adds Wine for Windows GUI apps
 - app folders such as `calibre/`, `double-commander/`, `inkscape/`, `lightburn/`, `transmission/`, `webdav/`
-- `docker-compose.yml`: main build/run definitions
+- `docker-compose.yml`: default aggregate of the grouped Compose definitions
+- `compose.bases.yml`, `compose.ai.yml`, `compose.emulation.yml`,
+  `compose.hardware.yml`, `compose.nas.yml`, `compose.network.yml`, and
+  `compose.desktop.yml`: grouped service definitions
 - `transmission-vpn.yml`: runs `transmission` through the `expressvpn` container network
 - `Makefile`: older convenience targets for building and running individual images
 
@@ -67,9 +70,32 @@ docker run --rm -it base-ubuntu-caddy-24:latest \
   caddy hash-password --algorithm bcrypt
 ```
 
-The Compose file reads `.env`. Some older `Makefile` targets expect an `env.sh` file that can be sourced in the shell; if you use those targets, create a compatible file locally.
+The Compose files read `.env`. Some older `Makefile` targets expect an `env.sh` file that can be sourced in the shell; if you use those targets, create a compatible file locally.
 
-Environment-variable coverage is incomplete. Newer services generally expose their important paths and ports through `.env`, but a number of older services and some recently added integration mounts still contain literal host paths and addresses in `docker-compose.yml`. Moving those remaining values into `.env` is intentional future cleanup. Until then, inspect and edit both files when adapting the repository to another machine.
+The default `docker-compose.yml` includes every grouped definition, so existing
+commands continue to work. To work on a host-specific subset, pass the needed
+files explicitly; for example:
+
+```bash
+docker compose -f compose.bases.yml -f compose.ai.yml up -d deepseek
+```
+
+`sync_compose_env.py` creates or extends an environment file from only the
+variables interpolated by services in the Compose files you name. It preserves
+existing variable declarations and appends only missing ones:
+
+```bash
+python3 sync_compose_env.py --env-file .env compose.bases.yml compose.ai.yml
+```
+
+It requires PyYAML (`python3-yaml` on Debian/Ubuntu). Passing the default
+aggregate `docker-compose.yml` follows its included files automatically.
+
+If the existing environment file contains duplicate active declarations, the
+last one remains effective. Add `--keep-overwritten` to retain earlier duplicate
+lines as comments rather than remove them.
+
+Environment-variable coverage is incomplete. Newer services generally expose their important paths and ports through `.env`, but a number of older services and some recently added integration mounts still contain literal host paths and addresses in the Compose files. Moving those remaining values into `.env` is intentional future cleanup. Until then, inspect and edit the relevant files when adapting the repository to another machine.
 
 ## HTTP And Network Security
 

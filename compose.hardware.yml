@@ -1,0 +1,112 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  lasergrbl-install:
+    build: ./lasergrbl-install
+    image: lasergrbl-install:latest
+    volumes:
+      - lasergrbl-home:/home/runuser
+    ports:
+      - "9015:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-install-c
+
+  lightburn-win:
+    build: ./lightburn-win
+    image: lightburn-win:latest
+    volumes:
+      - lightburn-win-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9014:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-win-c
+
+  lasergrbl:
+    build: ./lasergrbl
+    image: lasergrbl:latest
+    volumes:
+      - lasergrbl-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9016:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lasergrbl-c
+
+  lightburn:
+    build: ./lightburn
+    image: lightburn:latest
+    volumes:
+      - lightburn-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9012:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-c
+
+  inkscape:
+    build: ./inkscape
+    image: inkscape:latest
+    volumes:
+      - inkscape-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9009:8081"
+    <<: *defaults
+    container_name: inkscape-c
+
+  lightburn-win-install:
+    build: ./lightburn-win-install
+    image: lightburn-win-install:latest
+    volumes:
+      - lightburn-win-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9013:8081"
+    privileged: true
+    <<: *defaults
+    container_name: lightburn-win-install-c
+
+  meerk40t:
+    build: ./meerk40t
+    volumes:
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+      - meerk40t-home:/home/runuser
+    ports:
+      - "9025:8081"
+    privileged: true
+    <<: *defaults
+    container_name: meerk40t-c
+
+  octoprint:
+    build: ./octoprint
+    image: octoprint:latest
+    volumes:
+      - octoprint-app:/octoprint
+      - octoprint-home:/home-runuser
+      - /dev:/dev
+    ports:
+      - "9019:80"
+    environment:
+      ENABLE_MJPG_STREAMER: "true"
+    privileged: true
+    container_name: octoprint-c
+
+volumes:
+  lasergrbl-home:
+  lightburn-win-home:
+  lightburn-home:
+  inkscape-home:
+  meerk40t-home:
+  octoprint-app:
+  octoprint-home:

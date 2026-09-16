@@ -1,0 +1,124 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  simple-arcade-multifilter:
+    build: ./simple-arcade-multifilter
+    image: simple-arcade-multifilter:latest
+    volumes:
+      - simple-arcade-multifilter-home:/home/runuser
+      - simple-arcade-multifilter-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9021:8081"
+    <<: *defaults
+    container_name: simple-arcade-multifilter-c
+
+  gdmenu-cm:
+    build: ./gdmenu-cm
+    image: gdmenu-cm:latest
+    volumes:
+      - gdmenu-cm-home:/home/runuser
+      - build-gdmenu-cm-app:/app
+      - /mnt:/host_volumes
+      # The following variable was populed in the Makefile using this line at the top:
+      # EXT_VOLUMES_MAPPING := $(shell ./get_ext_volumes_map.sh nas runuser)
+      # - ${EXT_VOLUMES_MAPPING}
+    ports:
+      - "9007:8081"
+    <<: *defaults
+    container_name: gdmenu-cm-c
+
+  jrom-manager:
+    build: ./jrom-manager
+    image: jrom-manager:latest
+    volumes:
+      - jrom-manager-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9011:8081"
+    <<: *defaults
+    container_name: jrom-manager-c
+
+  exodos:
+    build: ./exodos
+    image: exodos:latest
+    volumes:
+      - exodos-home:/home/runuser
+      - /mnt:/host_volumes
+    ports:
+      - "9027:8081"
+    privileged: true
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    <<: *defaults
+    container_name: exodos-c
+
+  laserweb:
+    build: ./laserweb
+    image: laserweb:latest
+    volumes:
+      - laserweb-home:/home/runuser
+      - ${LASER_CUTTING_ROOT}:/lasercutting
+    ports:
+      - "9010:8081"
+    privileged: true
+    <<: *defaults
+    container_name: laserweb-c
+
+  clrmamepro:
+    build: ./clrmamepro
+    image: clrmamepro:latest
+    volumes:
+      - clrmamepro-home:/home/runuser
+      - clrmamepro-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9003:8081"
+    <<: *defaults
+    container_name: clrmamepro-c
+
+  nkit:
+    build: ./nkit
+    image: nkit:latest
+    volumes:
+      - nkit-home:/home/runuser
+      - nkit-app:/app
+      - /mnt:/host_mnt
+      - /media:/host_media
+    ports:
+      - "9018:8081"
+    <<: *defaults
+    container_name: nkit-c
+
+  retroarch-web:
+    build: ./retroarch-web
+    image: retroarch-web:latest
+    volumes:
+      - retroarch-web-home:/home/runuser
+    ports:
+      - "9020:8081"
+    <<: *defaults
+    container_name: retroarch-web-c
+
+volumes:
+  simple-arcade-multifilter-home:
+  simple-arcade-multifilter-app:
+  gdmenu-cm-home:
+  build-gdmenu-cm-app:
+  jrom-manager-home:
+  exodos-home:
+  laserweb-home:
+  clrmamepro-home:
+  clrmamepro-app:
+  nkit-home:
+  nkit-app:
+  retroarch-web-home:

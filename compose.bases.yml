@@ -1,0 +1,63 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  base-ubuntu-22:
+    image: base-ubuntu-22:latest
+    build: ./base-ubuntu-22
+    profiles: ["base"]
+
+  base-ubuntu-24:
+    image: base-ubuntu-24:latest
+    build: ./base-ubuntu-24
+    profiles: ["base"]
+
+  base-ubuntu-caddy-22:
+    image: base-ubuntu-caddy-22:latest
+    build: ./base-ubuntu-caddy-22
+    profiles: ["base"]
+
+  base-ubuntu-caddy-24:
+    image: base-ubuntu-caddy-24:latest
+    build: ./base-ubuntu-caddy-24
+    profiles: ["base"]
+
+  base-ubuntu-gui-22:
+    image: base-ubuntu-gui-22:latest
+    build: ./base-ubuntu-gui-22
+    profiles: ["base"]
+
+  base-ubuntu-gui-24:
+    image: base-ubuntu-gui-24:latest
+    build: ./base-ubuntu-gui-24
+    profiles: ["base"]
+
+  base-ubuntu-kde-24:
+    image: base-ubuntu-kde-24:latest
+    build: ./base-ubuntu-kde-24
+    profiles: ["base"]
+
+  base-ubuntu-kde-wine-24:
+    image: base-ubuntu-kde-wine-24:latest
+    build: ./base-ubuntu-kde-wine-24
+    profiles: ["base"]
+
+  base-ubuntu-wine-24:
+    image: base-ubuntu-wine-24:latest
+    build: ./base-ubuntu-wine-24
+    profiles: ["base"]
+
+  base-ubuntu-xfce-22:
+    image: base-ubuntu-xfce-22:latest
+    build: ./base-ubuntu-xfce-22
+    profiles: ["base"]
+
+  base-ubuntu-xfce-24:
+    image: base-ubuntu-xfce-24:latest
+    build: ./base-ubuntu-xfce-24
+    profiles: ["base"]

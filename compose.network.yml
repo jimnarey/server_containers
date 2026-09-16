@@ -1,0 +1,52 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  https-gateway:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      # Default to loopback so a missing machine-specific setting cannot
+      # accidentally publish HTTPS on every host interface.
+      - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:443:443"
+    environment:
+      HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.home.arpa}
+    volumes:
+      - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddy's internal CA and issued certificates live in this volume.
+      - https-gateway-data:/data
+      - https-gateway-config:/config
+    networks:
+      - https-gateway
+
+  expressvpn:
+    build: ./expressvpn
+    image: expressvpn:latest
+    container_name: expressvpn-c
+    cap_add:
+      - NET_ADMIN
+    devices: 
+      - /dev/net/tun
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - 9092:9091
+
+volumes:
+  https-gateway-data:
+  https-gateway-config:
+
+networks:
+  # Future upstream services must opt in explicitly. Caddy is not attached to
+  # the default Compose network, so it cannot reach existing services yet.
+  https-gateway:
+    internal: true

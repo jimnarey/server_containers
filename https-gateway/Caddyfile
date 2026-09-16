@@ -1,0 +1,13 @@
+# This gateway intentionally has no application upstreams yet. It exists to
+# establish the HTTPS entry point and Caddy's local certificate authority.
+{
+	admin off
+}
+
+https://{$HTTPS_GATEWAY_HOSTNAME} {
+	# Use Caddy's local CA for a LAN-only name. Clients must trust its root;
+	# installation instructions are in README.md.
+	tls internal
+
+	respond "HTTPS gateway is running. No applications are published here yet." 200
+}

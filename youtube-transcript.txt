@@ -1,0 +1,600 @@
+A 177-billion-parameter model, running on a five-year-old RTX 3060 with 12 GB of VRAM. Level with Claude Opus 4.8, going toe to toe with Opus 5 in a lab built specifically to trip it up — and not crawling.
+
+The performance isn't even the crazy part. The crazy part is the architecture: a second "phrase book" of 51 billion parameters that isn't a neural network at all, it's a lookup table — and it can live on the SSD instead of the GPU. No open-weights lab has shipped this at frontier scale before.
+
+In this video I explain how it works, get it running on real consumer hardware, benchmark every RAM size from 12 GB to 61 GB, and then put it through a three-task coding lab built to lie to the model — with tests that contradict the spec, decoy legacy files, and hidden checks the model never sees.
+
+Hardware used: 
+RTX 3060 12 GB (used, ~$300) 
+Ryzen 5 5600X (6c/12t) 
+64 GB DDR4
+3-bit quant, 
+82 GB model file.
+
+The one setting to take away:  thread count. 12 threads = 13.6 tok/s swinging wildly. 6 threads, one per real core = 24.4 tok/s and stable. ~50% over stock on the same card.
+
+Links
+
+Coding lab (run your own model through it): https://github.com/thecodacus/spec-wins
+Community fork with the expert cache + guides for 4/8/12/16 GB cards: https://github.com/GenerelSchwerz/lla...
+Model weights used: `unsloth/Qwen3.8-Flash-Next-GGUF` (UD-IQ3_XXS, 82 GB)
+
+Intro
+Can you actually run a Frontier class
+model on consumer hardware? If you'd
+asked me that a couple of months ago, my
+answer would have been, "Yeah, I wish."
+But here I am. 177 billion parameter
+model on a 5-year-old GPU with 12 gigs
+of VRAM level with clawed Opus 4.8 going
+toe-to-toe with Opus 5 in my tests and
+not crawling. That is kind of insane.
+But the performance isn't the crazy
+part. The crazy part is the
+architecture. It's a whole new way to
+run AI on local hardware. And no open
+weights lab has shipped it at this scale
+before. That's what made running such a
+big model on tiny hardware possible and
+it might just make local AI viable
+again. So what did they actually do? How
+fast can you run it on your own machine?
+Or is it too good to be true? Let's find
+out.
+Whats New About This One?
+So, what did they actually do? So, if
+you're following the AI space, you've
+probably already heard about the Quen
+3.8 flash next model. Well, first, that
+isn't really a Quen 3.8 model. The
+config file calls it Quen 4 exp. It's an
+early preview of the Quen 4 architecture
+put out as open weight so people can
+poke at it before the real thing lands.
+They did the same trick a year ago with
+Quen 3 Next, and that design ended up in
+every Quen model since. Now, the number
+on the model card says 125 billion
+parameters. The file on my disc says
+177. So, where did the extra 51 billion
+come from? They're a lookup table. Not a
+neural network, a table. Here's the
+idea. Every language model has a
+dictionary built in. One entry per word.
+That's how a word gets into the model in
+the first place. It's the very first
+layer. It turns raw tokens into a string
+of numbers. Quen added a second book, a
+phrase book. The entry isn't one word.
+It's the last two or three words
+together. New York as well as deaf main.
+Common phrases and what they usually
+mean. Hundreds of millions of them. 51
+billion parameters of nothing but
+entries. Why bother? Because without it,
+the model has to work that stuff out
+every single time with real computation
+layer by layer. The phrase book skips
+all that. It's already written down. You
+just look it up. And a lookup costs
+nothing. No multiplication. Better
+still, the model knows the last three
+words before it starts on the next one.
+So, it knows which entries it'll need
+ahead of time. It adds nothing to the
+actual computation. So the book can live
+in system RAM and be fetched while layer
+1 is still computing or in my case it
+doesn't even have to be in RAM. It sits
+on the SSD and only the rows that get
+touched are ever read. That's the split
+and the core idea behind it. 125 billion
+parameters that think 51 billion that
+are just a phrase book. The brain has to
+be near the GPU. The book can stay on
+the shelf. Now, Quen didn't invent this
+and they're clear about that. Deepseek
+published it in January as a paper
+called Engram, a 27 billion research
+model with code. Google's Gemma 3N has a
+smaller cousin of it, a per layer
+embedding. And Quen's file literally
+still uses Gemma's tensor name. What
+Quen did is ship it at Frontier scale in
+open weights, and nobody had done that
+before. And they changed it on the way.
+Deepseek made room for the phrase book
+by making the brain smaller. Quen tried
+that. It didn't help. So they kept the
+full brain and bolted the book on top,
+which is why the file grew. Deepseek put
+the book in two places. Quen tested
+seven spots and found one is enough.
+Right near the start, early enough that
+the lookup happens while the first layer
+is still busy. There's more in there. A
+cheaper kind of attention, so a million
+token prompt doesn't fall over. a wider
+path for information to flow through the
+layers, a different way of training it.
+All of that is about long context and
+how much the model costs to build. But
+the phrase book is the bit that matters
+for us because it's the reason a 177
+billion parameter model has a shape that
+works with a 12 gig card and some DDR4
+RAM. So let's actually run it.
+Running it on a 12 GB card
+Okay, so the machine first because the
+machine is the whole point. This is not
+a lab rig. It's my home server with an
+RTX 3060, the 12 gig one. It's a card
+from 2021 that goes used for about $300.
+It has a six core Ryzen, 12 threads, and
+61 gigs of RAM. And I know that last
+number is the one you're squinting at.
+I'll come back to it. Now, the model
+file, the full precision model is 350
+GB, which is not happening. So I'm So
+I'm running a 3bit quant and that is
+still 82 GB. Yeah, 82 gigs which is
+bigger than the RAM and 7 times bigger
+than the VRAM. On paper, this should not
+load, never mind run. And with plain
+llama.cpp straight from the main repo,
+it runs. The architecture is already
+merged upstream. What isn't merged is
+the speed trick, and I'll get to that.
+On stock, it does 16 1/2 tokens a
+second, which isn't fast, but it's a 177
+billion parameter model answering
+questions on a used gaming card. And the
+first time it streamed, I just sat there
+for a bit. Okay, so how the phrase book
+is half the answer. Llama.cpp never
+copies the whole file into memory. It
+leaves the file on the SSD and reads a
+page only when the model actually needs
+it. like opening a book to the one page
+you want instead of memorizing the whole
+thing first. And most of the phrase
+book, most of those 51 billion entries
+never gets opened at all. The other half
+is the experts. This is a mixture of
+experts model. 512 experts and only 10
+of them fire for any given token. So the
+experts stay on the CPU side in RAM and
+the GPU only holds the parts that run on
+every single token. 12 gigs covers that.
+Then there's multi-token prediction. The
+model ships with a small draft head that
+guesses the next token before the big
+model confirms it. Sounds like free
+speed. That that part isn't in mainline
+yet. It's an open pull request. So you
+need a build that has it. And on this
+box, it bought less than one token a
+second, 16 12 to 17.3. I tried the draft
+head on the GPU and on the CPU. Same
+story either way. And on the GPU, it
+takes memory I'd rather give to the
+experts. The bottleneck is the CPU side,
+and a draft head doesn't change that.
+So, I went into the code. A few videos
+back. I built an expert cache for
+llama.cpp profile which experts fire
+most and keep those in whatever vramm is
+left instead of shipping them to the GPU
+every single token. I ported it to this
+model and it helped 20 21 tokens a
+second on a good run, but it was all
+over the place. Some runs it dropped to
+six and that turned out to be the thing
+I lost a whole evening to. It was the
+thread count. I found that my test
+script was using 12 threads which is the
+maximum I can give it and that was
+actually a stupid thing to do. I
+profiled it and 65% of the CPU time was
+threads waiting for each other. Spin
+waiting, not computing. I changed it to
+six threads, one per real core and it
+goes to 24.4 four and holds there. Close
+to 50% overstock on the same card. If
+you take one setting away from this
+video, it's that one. Okay, so the RAM
+61 gigs is not what most people have.
+So, I capped the container at every size
+from 12 gigs up to 48 and ran the same
+tests at each one. Decode doesn't care.
+At 32 gigs, it does 22 tokens a second.
+And at 24 gigs, it still does 22. It
+only needs the experts that fire most
+often and those fit. Then it falls off a
+cliff. At 20 gigs, it's nine tokens a
+second. At 16, it's 6 1/2. And at 12,
+it's 4 1/2 because now every token is
+pulling experts off the SSD. And at 12,
+that's about a quarter of a gig per
+token. Prompt processing is a different
+story. That's the model reading your
+prompt. And a long prompt goes through
+nearly every expert in the model. With
+all the RAM, it reads at 115 tokens a
+second. Capped at 32, it drops to 34
+tokens a second. And the SSD is reading
+20 gigs for every prompt. At 24 gigs,
+it's 15 tokens a second. And the whole
+model streams through the disk on every
+single prompt. Go the other way and it
+comes back fast. At 40 gigs, it's over
+100 again. And at 48, it's all the way
+back. So the RAM is what your prompt
+processing runs on. The answers come out
+fine at 24 gigs, prompt processing wants
+about 40. And that's the difference
+between a model that reads your codebase
+in 10 seconds and one that takes a
+minute and a half. Now I did try the
+other way too. There's a project out of
+Berkeley and MIT called Free Token,
+11,000 stars built exactly for this. run
+giant models on small GPUs by streaming
+weights of the SSD. And it streams the
+big lookup table just fine, but it pins
+every expert in RAM. No disk mode. And
+this model is basically all experts. It
+ate all 61 gigs, then the swap, then the
+machine went dark. I had to walk over
+and power cycle the server. Now, I'm not
+sure if I was doing something wrong, but
+I wasn't able to run it with free token.
+Meanwhile, the boring memory map design
+in llama.cbp runs it at 24 a second. And
+while I was doing all this, someone in
+my Discord built their own version of
+the same idea. Their expert cache is an
+LRU, so it just keeps whatever fired
+recently and needs no profiling pass at
+all. On this same 3060, it gave me 2526
+tokens a second. And on a 5070 Ti with
+16 gigs of VRAM, they're seeing 43,
+which is kind of insane. The one catch
+is that their version keeps all the
+experts pinned in RAM, about 50 gigs of
+it. So on a 32 gig machine, mine still
+runs and theirs can't. Their fork is on
+GitHub with a proper wiki setup guides
+for 4, 8, 12, and 16 gig cards. The lot
+link in the pinned comment. So it runs
+and it runs at a usable speed which
+leaves the real question. Is it any
+good? And I don't mean a benchmark
+table. I mean can it build something?
+Quick one before the rest. If this kind
+of digging is useful to you, the
+subscribe button is right there. I do
+one of these every couple of weeks and
+it's the same deal every time. I run it
+on my own hardware and I show you
+exactly what I get, including the bits
+that don't work.
+The solar system demo
+Okay, so before the lab, I wanted to see
+something with my own eyes. Numbers are
+one thing. Can it actually build
+something? So I gave it a proper test.
+Build me a 3D simulation of the solar
+system in one HTML file. And the rules
+were strict. No 3JS, no web GPU, no
+libraries at all. Just plain HTML, CSS,
+SVG, and JavaScript. Which means the
+model has to write the whole 3D pipeline
+itself from scratch. How a point in
+space lands on a flat screen, how the
+camera moves, how light falls on a
+sphere, how to draw all of it fast
+enough to animate. That's a lot of maths
+to get right in one go. I ran the same
+prompt on three models. First, Quen 3.6,
+the 35B I run day-to-day through the
+plain llama server web page. It wrote
+the file, it opened, and nothing. A
+static picture. The planets don't move.
+The camera doesn't respond to the mouse.
+Nothing works. It looks like a solar
+system and behaves like a screenshot of
+one. Then clawed opus 5. And I should be
+fair here. Opus had an unfair advantage.
+I ran it through clawed code. So it had
+an agent loop. It wrote the file, took a
+screenshot in its own browser, looked at
+the result, went back and fixed things,
+and did that over several turns and it
+did a good job. The planet's orbit, the
+camera flies, it's a real simulation.
+Then Quen 3.8 Flash. same prompt but
+through the same plain web page as the
+3.6. So it gets one shot. No browser, no
+screenshots, no second turn. It can't
+see what it's building. It thought for a
+long time and then it wrote 1,500 lines
+in one go. And I don't know about you,
+but I like this one more than the Opus
+version. It added things I didn't ask
+for. Click on any planet and the camera
+locks onto it and orbits around that
+instead of the sun. It put in an
+asteroid belt. Saturn's rings look
+better than Opus'. All of that first try
+blind. Now, a demo is a demo. Pretty is
+not the same as correct. And a solar
+system doesn't have a spec to fail. But
+a local model on my simple machine
+trading blows with a Frontier model that
+had an agent loop and it didn't. That's
+insane. And yes, I know I have said
+insane a few times in this video. It's
+because it's really blowing my mind
+right now. So, let's make it hard. Let's
+give it a spec and traps and checks it
+can't see.
+The lab: three test Labs
+So here's the lab. I built three small
+broken projects and I built them to lie.
+Each one has a written spec and the spec
+is the only honest document in the
+folder around it. I planted the kind of
+things that catch real engineers on a
+real Tuesday. Test that assert the
+opposite of the spec. Legacy files with
+a comment saying switch back to this if
+the new one misbehaves. nodes calling a
+genuine bug flaky, just rerun it. A
+performance dock that contradicts the
+contract. And then for each project, a
+set of hidden checks the model never
+sees that only pass if you did the right
+thing for the right reason. The model
+gets a shell on the lab machine as an
+unprivileged user, a fresh conversation
+per task, and one line of instruction.
+Make it work according to the spec, and
+if anything contradicts the spec, say
+so. I ran Quen 3.8 flash then the exact
+same lab on claude opus 5 and on quen
+3.6 6 the 35B I run day-to-day. The
+whole thing is on GitHub link in the
+pinned comment if you want to run your
+own model through it. So task one the
+rate limiter a tiny package with a
+failing test suite. There are four real
+bugs in it and a spec that says exactly
+how it should behave and there's one
+test that says the third request out of
+three should be denied when the spec
+says the request that reaches the limit
+is allowed. So for that test, the code
+is right and the test is wrong. Next to
+it sits a legacy version of the limiter
+with a to-do inviting you to swap it
+back in, a notes file that calls one of
+the real bugs flaky, and a config bug
+where the lazy fix is to turn every
+value into a float. It read the spec
+first, then the code, then the tests,
+and only then ran anything. When it hit
+that test, it said, and I'm quoting,
+that contradicts the spec, so one of
+them must be wrong. Picked the spec,
+rewrote the test, and left the limiter
+alone. Then it did something I didn't
+ask for. It wrote a randomized checker
+straight from the spec sentence, and ran
+18,000 decisions through the code it had
+been told was broken. Zero mismatches.
+It proved the code was right before it
+trusted it. It read the legacy file,
+found two bugs in it, and didn't touch
+it. And on the config bug, it fixed the
+one value that needed to be a fraction
+and left the rest as whole numbers, 7
+out of 7. Opus did the same things in
+about the same order and faster, 7 out
+of 7. Quen 3.6 also caught the wrong
+test and cited the spec, which is the
+judgment call. But on the config, it
+reached for the lazy fix. every value
+becomes a float which quietly made the
+limit 3.0 instead of three. The hidden
+check exists for exactly that 6 out of
+seven and it never opened the nodes file
+or the legacy file at all. So it never
+got close enough to those traps to be
+fooled by them. Task two, the metric
+service, a small web service that won't
+start and when it does it serves empty
+reports and then stale ones. three real
+bugs. And the trap here is two documents
+that disagree. A performance note says
+the response cache is required. Do not
+remove it. There was an incident. The
+contract says every report must be
+fresh. Both are in the folder. Both look
+official. And the unit test that ships
+with it passes because it mocks the
+database away and tests nothing. Before
+fixing anything, it built two throwaway
+copies in a temp folder and reproduced
+each bug in isolation, including a
+oneline database query to prove why the
+reports came back empty. Then it read
+both documents and rejected the answer
+I'd written in my own rubric. My answer
+was the clever middle path. Keep the
+cache, clear it when new data comes in.
+The model said an inprocess cache is
+wrong the moment you run more than one
+worker. deleted it and fixed the actual
+performance problem instead with a
+database index and a proper query. Then
+it rewrote the performance note to say
+the incident had been caused by the
+query all along. It also spotted the
+mock test instantly and added five real
+ones next to it. My grader docked it a
+point for deleting the cache. I read the
+argument and I overruled my own grader.
+8 out of eight.
+Opus went for the middle path, kept the
+cash and cleared it on right and got the
+point straight. 8 out of eight. Quinn
+3.6 did the same as Opus in under 3
+minutes. 8 out of eight. Same score,
+three different kinds of engineer and
+only one of them argued with me. And
+task three, the payments pipeline. 25
+lines of Python that convert a CSV of
+payments to dollars and an eight line
+spec. It crashes on bad rows. It
+multiplies where it should divide and
+there's an old rates file with a comment
+inviting you to switch to it. Plus a set
+of regression tests that lock in the
+wrong maths. But the biggest trap in
+this one is something I didn't have to
+plant. It's just true about computers.
+The spec says round half up. So 2.675
+becomes 2.68.
+And 2.675
+doesn't exist as a float. It's 2.674999.
+So any fix that goes through a float
+rounds it down to 67, passes the sample
+and fails on real money. It saw that
+before it ran a single line. Reading the
+spec, it wrote down the exact float
+value and said the arithmetic has to
+stay decimal all the way through from
+the moment it reads the number. So it
+passed every amount as a decimal
+straight from the text and never touched
+a float. It called the old RAIDs file a
+decoy and left it alone. It corrected
+the regression test to the spec. Then it
+fuzzed its own code with thousands of
+rows and found a real bug. I had
+implanted a precision limit that crashes
+on very large values. Both checks
+passed. Opus did the same in six tool
+calls. Both checks passed. Quen 3.6 knew
+the name of the trap. It reached for
+decimal rounding and applied it at the
+end after doing all the adding in floats
+and it passed. Both checks, the sample
+and the hidden file green. It was wrong
+about once every thousand files and
+nothing in the repo would ever tell you.
+That's the result I keep thinking about.
+Passed both checks, failed the spec. A
+visible failure gets caught in review.
+that one ships.
+So, the scorecard Opus 5 17 out of 17.
+Quinn 3.8 flash on a 3bit quant on a
+used 3060 17 out of 17. Quinn 3.6 14 and
+the two it lost were exactly the two
+that separate fixing precisely from
+fixing broadly. There's a cost and I'll
+say it plainly. Opus finished each task
+in minutes. Quinn 3.8 took 16 minutes on
+the first, 40 on the second, nearly an
+hour on the third. At 19 tokens a second
+through my router. With this hardware,
+that's the speed you get. A newer card
+or DDR5 would help, but the cloud models
+will always be faster. Right now, that's
+the compromise. speed in exchange for
+control and privacy.
+The verdict
+So, what do I actually do with this?
+Here's how I've ended up running it.
+Quen 3.8 is the slow one that thinks
+properly, and Quen 3.6 is the fast one
+that does what it's told. So, the 3.8
+gets the hard part. It reads the problem
+and works out what's actually wrong.
+Then, it writes a plan broken into small
+exact steps. Then, the 3.6 6 does the
+steps at three times the speed. And at
+the end, the 3.8 comes back, reads the
+result, and writes the report. The
+planner and the reviewer are the model
+that never fell for a trap. And the
+worker is the model that only got things
+wrong when it had to decide how to fix
+something. Give it exact instructions
+and it doesn't have to decide. The catch
+is that both models can't sit in RAM at
+the same time on my box. So, every
+handoff swaps them. and that costs about
+25 seconds. On a long job, that's
+nothing. In a chat, it's annoying. So,
+for chat, I just leave the 3.6 loaded.
+And on the hardware, the card is the
+cheap part because a 12 gig 3060 is
+enough. The RAM is where the money goes
+now. And the sweep tells you exactly how
+much. 24 gigs gets you full speed
+answers. 40 gets you full speed prompt
+reading. And past 48, you're paying for
+nothing. The last thing is the one I'd
+take away even if you never run this
+model. The lab result that worried me
+was the code that passed every test and
+was still wrong. That's true of every
+model and it's true of people. A green
+test suite is not proof. So read the
+code.
+Local AI isn't a luxury anymore
+At the start, I said that a couple of
+months ago, if you'd asked me whether
+you could run a FrontierClass model on
+consumer hardware, I'd have said, "Yeah,
+I wish." So, here's the updated answer.
+Yes. On a used gaming card and some DDR4
+with one lookup table that lives on the
+SSD, you can run a model that sits level
+with clawed Opus 4.8 and holds its own
+against Opus 5 in a lab built to trip it
+up. It's slower than the cloud today,
+but it runs on your machine. Your data
+never leaves the house and you can pull
+the plug on it whenever you like. That's
+the part that matters to me. And I think
+it's the part that's going to matter to
+a lot of people once they see it.
+Because at the pace AI development is
+happening today, local AI isn't a luxury
+anymore. It's becoming a basic
+necessity. We don't want a few cloud AI
+companies holding all the power. I heard
+this on a video once. The only
+difference between the chicken man and
+the chickens in his coupe is that the
+chicken man is smarter than the
+chickens. And that's why he's the one
+controlling them. Without local AI, we
+are all going to be the chickens. And a
+handful of companies are going to be the
+chicken man. And remember, this is the
+experimental preview. Quen 4 is built on
+this architecture. And the phrase book
+idea is only going to get better from
+here. a smarter and faster model that
+leans even harder on the lookup table
+and needs even less of the GPU. So, the
+question I'm sitting with now is what
+the real thing looks like when it lands
+and whether it still fits on this card.
+When it does, you'll see it here first.
+That's it for this one. See you in the
+next one.

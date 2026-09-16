@@ -1,0 +1,503 @@
+x-defaults: &defaults
+  environment:
+    USERID: "1000"
+    GROUPID: "1000"
+    CADDY_USER: "admin"
+    CADDY_HASH: ${CADDY_HASH}
+
+services:
+
+  ollama:
+    image: ollama/ollama:${OLLAMA_TAG:-latest}
+    volumes:
+      - ollama-home:/root/.ollama
+      - /mnt/data/models/ollama:/root/.ollama/models
+      - /mnt/data/models/gguf:/models/gguf:ro
+      - /mnt/work/ollama-nvidia-cache:/root/.nv
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-65536}
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_FLASH_ATTENTION: 1
+      OLLAMA_KV_CACHE_TYPE: q8_0
+      OLLAMA_KEEP_ALIVE: "-1"
+    ports:
+      - "192.168.50.136:11434:11434"
+    restart: unless-stopped
+    container_name: ollama-c
+    gpus: all
+
+  ollama-cpu:
+    image: ollama/ollama:latest
+    container_name: ollama-cpu-c
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      CUDA_VISIBLE_DEVICES: "-1"
+      OLLAMA_CONTEXT_LENGTH: "32768"
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: "q8_0"
+    ports:
+      - "192.168.50.136:11435:11434"
+    restart: unless-stopped
+    volumes:
+      - ollama-cpu-home:/root/.ollama
+      - /mnt/data/models/ollama:/root/.ollama/models:ro
+
+  searxng:
+    image: docker.io/searxng/searxng:${SEARXNG_TAG:-latest}
+    container_name: searxng-c
+    restart: unless-stopped
+    depends_on:
+      - searxng-valkey
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-CHANGEME_SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://${SEARXNG_BIND_ADDRESS:-192.168.50.136}:${SEARXNG_PORT:-9036}/
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-cache:/var/cache/searxng
+    ports:
+      - "${SEARXNG_BIND_ADDRESS:-192.168.50.136}:${SEARXNG_PORT:-9036}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  searxng-valkey:
+    image: docker.io/valkey/valkey:9-alpine
+    container_name: searxng-valkey-c
+    command: valkey-server --save 30 1 --loglevel warning
+    restart: unless-stopped
+    volumes:
+      - searxng-valkey-data:/data
+
+  llama-cpp:
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-cuda13}
+    container_name: llama-cpp-c
+    restart: unless-stopped
+    gpus: all
+    volumes:
+      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_CONFIG:-/mnt/work/llama-cpp/models-preset.ini}:/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /models-preset.ini
+      - --reasoning-format
+      - deepseek
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --parallel
+      - ${LLAMA_CPP_PARALLEL:-1}
+      - --n-gpu-layers
+      - all
+      - --flash-attn
+      - on
+      - --fit
+      - on
+      - --fit-target
+      - ${LLAMA_CPP_FIT_TARGET:-1024}
+      - --no-webui
+      - --metrics
+    ports:
+      - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
+
+  llama-cpp-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_CPU_TAG:-server}
+    container_name: llama-cpp-cpu-c
+    restart: unless-stopped
+    volumes:
+      - ${LLAMA_CPP_CPU_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_CPU_CONFIG:-/mnt/work/llama-cpp-cpu/models-preset.ini}:/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /models-preset.ini
+      - --reasoning-format
+      - deepseek
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --parallel
+      - ${LLAMA_CPP_CPU_PARALLEL:-1}
+      - --n-gpu-layers
+      - "0"
+      - --fit
+      - on
+      - --fit-target
+      - ${LLAMA_CPP_CPU_FIT_TARGET:-1024}
+      - --no-webui
+      - --metrics
+    ports:
+      - "${LLAMA_CPP_CPU_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_CPU_PORT:-11437}:8080"
+
+  # Experimental GenerelSchwerz/llama.cpp build for MoE expert caching.
+  # It uses only physical GPU 0, leaving GPU 1 available to another workload.
+  # Pinned to qwen4exp-mtp (unchanged) -- this is the proven, working profile.
+  # See llama-cpp-generel-schwerz-32gb below for the newer, two-GPU pin; the
+  # two services deliberately build from different commits now.
+
+  opencode:
+    build:
+      context: ./opencode
+      args:
+        OPENCODE_VERSION: ${OPENCODE_VERSION:-1.18.9}
+    image: opencode:latest
+    container_name: opencode-c
+    restart: unless-stopped
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      OPENCODE_SERVER_USERNAME: ${OPENCODE_SERVER_USERNAME:-opencode}
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD:-CHANGEME_OPENCODE_PASSWORD}
+    volumes:
+      - opencode-home:/home/runuser
+      - ${OPENCODE_WORKSPACE:-/mnt/work/projects}:/workspace
+    ports:
+      - "192.168.50.136:9032:4096"
+    stdin_open: true
+    tty: true
+
+  openhands:
+    build: ./openhands
+    image: openhands-agent-canvas:1.7.0
+    container_name: openhands-c
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY:-CHANGEME_OPENHANDS_API_KEY}"
+      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:-CHANGEME_OPENHANDS_SECRET_KEY}"
+      GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
+    volumes:
+      - /mnt/work/openhands:/home/openhands/.openhands
+      - /mnt/work/projects:/projects
+    ports:
+      - "192.168.50.136:9030:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  llama-cpp-generel-schwerz-16gb:
+    build:
+      context: /mnt/work/generel-schwerz-llama-cpp/16gb/source
+      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      target: server
+    image: generel-schwerz-llama-cpp:qwen4exp-mtp-e69a1d0
+    container_name: llama-cpp-generel-schwerz-16gb-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset-16gb.ini}:/etc/llama.cpp/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${GS_LLAMA_CPP_16GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_PORT:-11438}:8080"
+
+  # Experimental GenerelSchwerz/llama.cpp build using both physical GPUs.
+  # 2026-09-16: pinned to codex/moe-grouped-multigpu, NOT qwen4exp-mtp (that's
+  # the 16GB service's pin, unchanged). qwen4exp-mtp's MoE cache is hardcoded
+  # to CUDA device 0 (GenerelSchwerz/llama.cpp#90) and cannot use a second
+  # GPU -- confirmed still true, 0 commits of drift on that branch as of this
+  # pin. codex/moe-grouped-multigpu branches directly off our exact
+  # qwen4exp-mtp pin (e69a1d0be) and adds a real, physically-validated
+  # two-GPU expert cache (docs/moe-grouped-multigpu.md in that tree): layer-
+  # split ("Stage A... does not add tensor or expert parallelism"), tested on
+  # two distinct physical GPUs with no peer access (PHB, same no-NVLink shape
+  # as this host), and run against two models already in our own catalog
+  # (Gemma-4-26B-A4B, Ornith-1.5-35B-A3B) with coherent output and zero
+  # unexpected fallback. Not merged upstream into qwen4exp-mtp as of this pin.
+  # Real constraints this pin imposes on every model below: requires
+  # `load-mode = none` (mmap-based pinning is explicitly rejected by this
+  # branch), and decode-only benefit for now (prefill still runs the old
+  # single-device path). See models-preset-32gb.ini for the per-model
+  # fallout, in particular why Flash Next is NOT in that catalogue.
+
+  llama-cpp-generel-schwerz-32gb:
+    build:
+      context: /mnt/work/generel-schwerz-llama-cpp/32gb/source
+      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      target: server
+      args:
+        LLAMA_FORK_BRANCH: codex/moe-grouped-multigpu
+        LLAMA_FORK_COMMIT: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
+    image: generel-schwerz-llama-cpp:codex-moe-grouped-multigpu-0ed73d1
+    container_name: llama-cpp-generel-schwerz-32gb-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset-32gb.ini}:/etc/llama.cpp/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${GS_LLAMA_CPP_32GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_32GB_PORT:-11439}:8080"
+
+  # Independent csantiago78/llama.cpp MoE expert cache (draft PR #27861 against
+  # ggml-org/llama.cpp, branch moe-expert-cache), using both physical GPUs.
+  # 2026-09-16: llama-cpp-generel-schwerz-32gb no longer has the CUDA-device-0
+  # limitation this comment used to describe -- it now builds from
+  # codex/moe-grouped-multigpu, a real two-GPU expert cache (see that
+  # service's own comment). This csantiago78 branch has had zero commits
+  # since it was pinned (checked 2026-09-16) and remains untested in this
+  # deployment; it's no longer the only lead on multi-GPU MoE caching, just
+  # an unverified one that predates finding the working alternative.
+
+  deepseek:
+    build:
+      context: ./deepseek
+      args:
+        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.1.1-rc.2}
+    image: deepseek-harness:latest
+    container_name: deepseek-c
+    restart: unless-stopped
+    # depends_on:
+    #   guarded-fetch:
+    #     condition: service_healthy
+    #   searxng:
+    #     condition: service_healthy
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      HOME: /home/runuser
+      USER: runuser
+      LOGNAME: runuser
+      DSH_HOME: /home/runuser/.dsh
+      SSH_CONNECTION: "1 1 1 1"
+      UV_CACHE_DIR: /tmp/uv-cache
+      # 2026-09-16: pre-commit defaults to $HOME/.cache/pre-commit, which is
+      # outside the workspace-write sandbox boundary (HOME is the persisted
+      # /home/runuser volume, not the session workspace or a platform temp
+      # area). Every 27B session avoided this by setting PRE_COMMIT_HOME on
+      # the command line by hand (the escape hatch docs/prompts/dsh-
+      # autonomous-dev.md already documents); one Flash Next session didn't,
+      # and its pre-commit run sat blocked on a danger-full-access approval
+      # for ~8 hours. Setting it here, matching UV_CACHE_DIR above, makes the
+      # escape hatch unconditional instead of relying on the model to type it
+      # every time.
+      PRE_COMMIT_HOME: /tmp/pre-commit-home
+      UV_PYTHON_INSTALL_DIR: /home/runuser/.local/share/uv/python
+      UV_PYTHON_PREFERENCE: managed
+    volumes:
+      - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
+      - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
+      # These overlays select local SearXNG search and the guarded fetch
+      # provider without replacing persisted models, credentials, sessions, or
+      # agent presets under DEEPSEEK_HOME. They are configuration, not state.
+      - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml:ro
+      - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml:ro
+      # Retains Standard as one capability mode while making compaction policy
+      # exact-provider/model aware. This file follows DEEPSEEK_VERSION.
+      - ./deepseek/agent-preset-overrides/standard/agent.cordis.yml:/usr/local/lib/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml:ro
+    ports:
+      - "${DEEPSEEK_BIND_ADDRESS:-127.0.0.1}:${DEEPSEEK_PORT:-9035}:3081"
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--output", "/dev/null", "http://127.0.0.1:3080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stdin_open: true
+    tty: true
+
+  comfyui:
+    build:
+      context: ./comfy-ui
+      args:
+        COMFYUI_VERSION: ${COMFYUI_VERSION:-v0.29.2}
+        TORCH_VERSION: ${COMFYUI_TORCH_VERSION:-2.11.0}
+        TORCHVISION_VERSION: ${COMFYUI_TORCHVISION_VERSION:-0.26.0}
+        TORCHAUDIO_VERSION: ${COMFYUI_TORCHAUDIO_VERSION:-2.11.0}
+        PYTORCH_INDEX_URL: ${COMFYUI_PYTORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+    image: comfyui:latest
+    container_name: comfyui-c
+    restart: unless-stopped
+    init: true
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      CADDY_USER: ${CADDY_USER:-admin}
+      CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
+      COMFYUI_EXTRA_ARGS: ${COMFYUI_EXTRA_ARGS:-}
+      HF_HUB_CACHE: /models/huggingface
+      HF_TOKEN: ${COMFYUI_HF_TOKEN:-}
+    volumes:
+      - ${COMFYUI_MODELS:-/mnt/data/models/comfyui}:/models
+      - ${COMFYUI_INPUT:-/mnt/data/generation/input}:/data/input
+      - ${COMFYUI_OUTPUT:-/mnt/data/generation/output}:/data/output
+      - ${COMFYUI_USER:-/mnt/work/comfyui/user}:/data/user
+      - ${COMFYUI_CUSTOM_NODES:-/mnt/work/comfyui/custom_nodes}:/opt/ComfyUI/custom_nodes
+    ports:
+      - "${COMFYUI_BIND_ADDRESS:-192.168.50.136}:${COMFYUI_PORT:-9034}:8081"
+    gpus: all
+    shm_size: "2gb"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/system_stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  goose:
+    build:
+      context: ./goose
+      args:
+        GOOSE_VERSION: ${GOOSE_VERSION:-1.45.0}
+    image: goose:latest
+    volumes:
+      - goose-home:/home/runuser
+      - ${GOOSE_WORKSPACE:-/mnt}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
+    ports:
+      - "9031:8081"
+    stdin_open: true
+    tty: true
+    <<: *defaults
+    container_name: goose-c
+
+  guarded-fetch:
+    build:
+      context: ./guarded-fetch
+      args:
+        GUARDED_FETCH_VERSION: ${GUARDED_FETCH_VERSION:-0.1.4}
+    image: guarded-fetch:latest
+    container_name: guarded-fetch-c
+    restart: unless-stopped
+    init: true
+    environment:
+      GUARDED_FETCH_PORT: "8080"
+      GUARDED_FETCH_TIMEOUT_MS: ${GUARDED_FETCH_TIMEOUT_MS:-15000}
+      GUARDED_FETCH_MAX_REDIRECTS: ${GUARDED_FETCH_MAX_REDIRECTS:-5}
+      GUARDED_FETCH_MAX_RESPONSE_BYTES: ${GUARDED_FETCH_MAX_RESPONSE_BYTES:-1048576}
+      GUARDED_FETCH_MAX_BODY_CHARS: ${GUARDED_FETCH_MAX_BODY_CHARS:-100000}
+      # Leave empty to permit public hosts. A comma-separated allowlist narrows
+      # the gateway without disabling guarded-fetch's IP-range checks.
+      GUARDED_FETCH_ALLOWED_HOSTS: ${GUARDED_FETCH_ALLOWED_HOSTS:-}
+    expose:
+      - "8080"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  llama-cpp-csantiago78:
+    build:
+      context: /mnt/work/csantiago78-llama-cpp/source
+      dockerfile: /home/ai/server_containers/csantiago78-llama-cpp/Dockerfile
+      target: server
+    image: csantiago78-llama-cpp:moe-expert-cache-bccbacd
+    container_name: llama-cpp-csantiago78-c
+    restart: unless-stopped
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/csantiago78-llama-cpp/config/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/csantiago78-llama-cpp/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${CSANTIAGO78_LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${CSANTIAGO78_LLAMA_CPP_PORT:-11440}:8080"
+
+  pi:
+    build:
+      context: ./pi
+      args:
+        PI_VERSION: ${PI_VERSION:-0.85.1}
+    image: pi-coding-agent:latest
+    container_name: pi-c
+    restart: unless-stopped
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      HOME: /home/runuser
+      USER: runuser
+      LOGNAME: runuser
+      PI_CODING_AGENT_DIR: /home/runuser/.pi/agent
+      PI_SKIP_VERSION_CHECK: "1"
+      PI_TELEMETRY: "0"
+      # Temporarily disable Pi's local web_search and guarded web_fetch tools.
+      # Set to 1 in .env when they should be loaded again.
+      PI_WEB_EXTENSIONS_ENABLED: ${PI_WEB_EXTENSIONS_ENABLED:-0}
+      GUARDED_FETCH_URL: http://guarded-fetch:8080/v1/fetch
+      SEARXNG_URL: http://searxng:8080
+    # depends_on:
+    #   guarded-fetch:
+    #     condition: service_healthy
+    #   searxng:
+    #     condition: service_healthy
+    volumes:
+      - ${PI_HOME:-/mnt/work/pi}:/home/runuser
+      - ${PI_WORKSPACE:-/mnt/work/projects}:/workspace
+      - /container-ssh:/home/runuser/.ssh:ro
+    stdin_open: true
+    tty: true
+
+  # A Compose-local, read-only HTTPS text-fetch gateway for Pi's web_fetch
+  # extension and other explicit callers.
+  # It is deliberately not published on the host: callers use
+  # http://guarded-fetch:8080/v1/fetch from the default Compose network.
+
+volumes:
+  ollama-home:
+  ollama-cpu-home:
+  searxng-cache:
+  searxng-valkey-data:
+  opencode-home:
+  goose-home:
