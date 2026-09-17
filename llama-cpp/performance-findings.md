@@ -371,6 +371,81 @@ wall, not produce a useful CPU-speed number.
   generalize to the other models -- Ornith's relative CPU/GPU gap is
   unmeasured (no clean GPU-only number exists for it yet).
 
+## Single-GPU-pinned variants and Nemotron dual-GPU context (2026-09-17)
+
+`split-mode=none` + `main-gpu=1` is the real mechanism for pinning a model
+to exactly one specific GPU on the plain `llama-cpp` service, which exposes
+both cards (`gpus: all`) -- without it, an un-pinned entry's default
+split-mode spreads the model across every visible GPU regardless of whether
+that's obvious from the section name. Goal was running a model on GPU 1
+alongside the 16GB schwerz service occupying GPU 0.
+
+- **gpt-oss-20b-F16, pinned to GPU 1, ctx-size=131072: works.** Real load +
+  request confirmed. GPU 0 stayed idle (149 MiB), GPU 1 used 14,444 MiB of
+  16,311 MiB -- comfortable headroom. Deployed as `gpt-oss-20b-F16-1gpu`.
+- **Qwen3.8-27B-UD-Q4_K_M, pinned to GPU 1: does not fit on one 16 GiB card
+  at any usable context.** Tried ctx-size=131072 first: CUDA OOM allocating
+  the KV buffer (`cudaMalloc failed: out of memory` allocating 4352 MiB on
+  device 1, "failed to allocate buffer for kv cache"). Reduced to
+  ctx-size=32768 on the theory that the KV buffer itself was the problem --
+  same failure class recurred, just smaller (OOM allocating only 1088 MiB
+  this time). A ~1 GiB KV buffer failing to allocate means the dense weights
+  alone are consuming at least ~15.2 GiB of the 16,311 MiB card before any
+  context is allocated at all -- this is a hard capacity ceiling, not a
+  context-size tuning problem. Q4_K_M is the smallest of the three 27B
+  quants on this host; Q5_K_M and Q6_K_M are larger still, so no quant of
+  this model family fits solo on one 16 GiB card here. Removed the failed
+  `-1gpu` entry from the preset rather than leave a config that can never
+  load; the three existing dual-GPU (`split-mode=tensor`) entries remain the
+  only way to run this model family on this host.
+- **NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0, both GPUs, ctx-size=262144:
+  works, tested.** GPU 0: 10,495/16,311 MiB. GPU 1: 13,538/16,311 MiB --
+  GPU 1's ~2.7 GiB headroom is the binding constraint on pushing this
+  further; not tested beyond this figure. Uses the model's own published MTP
+  sidecar for speculative decode (`spec-draft-model`/`spec-type=draft-mtp`).
+
+## `models-preset.ini` split into GPU and CPU templates (2026-09-17)
+
+The GPU (`llama-cpp`) and CPU (`llama-cpp-cpu`) services had shared one
+"sparse override" source file for the GPU router, with the CPU router's
+deployed preset generated from it ad hoc and never subsequently kept in
+sync -- confirmed stale (still had `split-mode=tensor` on the 27B Qwen
+entries, meaningless with no CUDA devices passed through, and predated the
+reasoning-budget fix). Split into two real, independently tracked repo
+sources, mirroring the schwerz 16GB/32GB split pattern from earlier this
+project:
+
+- `llama-cpp/models-preset-gpu.ini` -- GPU service, unchanged in shape from
+  before except for removing the failed Qwen `-1gpu` entry above.
+- `llama-cpp/models-preset-cpu.ini` -- new. Strips every GPU-only directive
+  (`split-mode`, `main-gpu`, `n-gpu-layers=auto` partial offload) and adds a
+  CPU-specific Nemotron entry (see below). `llama-cpp-cpu` was not actually
+  running on this host at the time of this change (absent from `docker
+  compose ps -a`), so the new deployed preset is untested against a real
+  load -- verify before relying on it.
+  (2026-09-17, later same day: both source files were moved to live together
+  under `llama-cpp/`, mirroring `generel-schwerz-llama-cpp/config`'s
+  `models-preset-16gb.ini`/`models-preset-32gb.ini` pair, rather than
+  splitting across two directories.)
+
+CPU-specific Nemotron entry, deliberately different from the GPU one, not a
+copy of it:
+
+- No MTP speculative-decode sidecar. The draft model gives a GPU with spare
+  compute a second forward pass essentially for free; on CPU that pass has
+  real cost, and there's no measurement yet of its acceptance rate for this
+  hybrid SSM/attention architecture (`nemotron_h_moe`) under CPU threading.
+  Starts without it; revisit as a follow-up experiment once the base config
+  is confirmed working.
+- `ctx-size = 131072` is a reasoned starting point, **not yet tested** (the
+  service wasn't running to test against). Reasoning: the weight file is
+  only ~18 GiB (`du -h` confirmed) against ~55 GiB free RAM at the time
+  (`free -h`), and most of this architecture's layers are Mamba/SSM with
+  fixed-size state rather than growing KV cache, so it should scale with
+  context more cheaply than a comparable dense transformer. Native context
+  is 1,048,576 -- raise incrementally from 131072 once verified, don't jump
+  straight to max on an untested config.
+
 ## Currently untested / no data exists
 
 - **The grouped-multigpu cache's real decode benefit** -- no clean number

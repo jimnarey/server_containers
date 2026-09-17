@@ -32,19 +32,19 @@ LLAMA_CPP_CPU_PARALLEL=1
 LLAMA_CPP_CPU_FIT_TARGET=1024
 ```
 
-`llama-cpp/models-preset.ini` is a sparse override source, not a complete catalogue. It contains only models with an intentional setting different from `[*]`; each such section retains its `model = /models/...` path so the generator can preserve its friendly ID. Generate an independent complete runtime preset for each service before first start, and repeat this after downloading models or changing overrides:
+`llama-cpp/models-preset-gpu.ini` and `llama-cpp/models-preset-cpu.ini` are sparse override sources, not complete catalogues -- one per service, tracked independently side by side (same pattern as `generel-schwerz-llama-cpp/config`'s `models-preset-16gb.ini`/`models-preset-32gb.ini` pair). Each contains only models with an intentional setting different from its own `[*]`; each such section retains its `model = /models/...` path so the generator can preserve its friendly ID. GPU-only directives (`split-mode`, `main-gpu`, `n-gpu-layers=auto` partial offload) belong only in the GPU source. Generate each service's complete runtime preset before first start, and repeat after downloading models or changing overrides:
 
 ```sh
 ./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/models-preset.ini \
+  --preset llama-cpp/models-preset-gpu.ini \
   --force /mnt/work/llama-cpp
 
 ./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/models-preset.ini \
+  --preset llama-cpp/models-preset-cpu.ini \
   --force /mnt/work/llama-cpp-cpu
 ```
 
-The GPU service mounts only `/mnt/work/llama-cpp/models-preset.ini`; the CPU service mounts only `/mnt/work/llama-cpp-cpu/models-preset.ini`. Editing either therefore cannot modify the checkout or affect the other service. Set `ctx-size` per model in the sparse source; the context is shared by the configured number of server slots, so `*_PARALLEL=1` gives the sole slot the full configured context. KV-cache allocation occurs when a model is loaded and materially increases memory use.
+The GPU service mounts only `/mnt/work/llama-cpp/models-preset.ini`; the CPU service mounts only `/mnt/work/llama-cpp-cpu/models-preset.ini`. Editing either deployed file therefore cannot modify the checkout or affect the other service. Set `ctx-size` per model in the sparse source; the context is shared by the configured number of server slots, so `*_PARALLEL=1` gives the sole slot the full configured context. KV-cache allocation occurs when a model is loaded and materially increases memory use.
 
 Both services mount the whole shared library at `/models`, but deliberately omit `--models-dir`. This prevents an automatically discovered directory name from becoming a second, unconfigured model ID. The generated runtime files contain one explicit entry for every discovered model. Add a source section only when a new model requires a non-default setting, then regenerate both runtime files.
 
