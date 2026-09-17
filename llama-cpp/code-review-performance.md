@@ -1,18 +1,23 @@
 # Code-review performance: model comparison (2026-09-17)
 
-Seven DSH sessions on `--workspace-amiga-ui--`, run back-to-back today
-between 10:56 and 14:31 UTC, each asked a model to review branch
-`feat/host-asl-directory-requester` (the GLM-4.7-Flash-implemented ASL
-directory picker, already merged to `development`). An eighth, currently
-running session was excluded. All seven ran through the plain `llama-cpp`
-GPU router (port 11436) -- one or two GPUs depending on the model, not the
-CPU or MoE-cache services. Source: `session_analysis.py` against an isolated
-copy of just these seven `session.jsonl.zstd` files, plus direct
-reconstruction of each session's final review text from the raw log.
+Thirteen DSH sessions on `--workspace-amiga-ui--` across two batches, all
+asking a model to review branch `feat/host-asl-directory-requester` (the
+GLM-4.7-Flash-implemented ASL directory picker, already merged to
+`development`). Source for both: `session_analysis.py` against an isolated
+copy of the relevant `session.jsonl.zstd` files, plus direct reconstruction
+of each session's final review text from the raw log.
 
-Three models were tested: `Qwen3.8-27B-UD-Q6_K_M` (dual-GPU, tensor-split,
-one attempt), `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0` (dual-GPU, three
-attempts), `gpt-oss-20b-F16-1gpu` (single GPU, three attempts).
+**Batch 1** (seven sessions, 10:56-14:31 UTC): `Qwen3.8-27B-UD-Q6_K_M`
+(dual-GPU, tensor-split, one attempt), `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`
+(dual-GPU, three attempts), `gpt-oss-20b-F16-1gpu` (single GPU, three
+attempts) -- all via the plain `llama-cpp` GPU router (port 11436). An
+eighth, then-still-running session was excluded at the time.
+
+**Batch 2** (six sessions, found by checking for logs added since batch 1):
+that eighth session plus five more -- `Qwen3.8-Flash-Next-UD-Q3_K_XL` (three
+attempts) and `Qwen3-Coder-Next-Q4_K_M` (two attempts) via the 16GB MoE-cache
+service (`llama-cpp-moe-16gb`, port 11438), plus one more
+`Qwen3.8-27B-UD-Q6_K_M` attempt. See "Batch 2" below.
 
 ## Ground truth
 
@@ -43,6 +48,50 @@ real defects in the branch:
 The session log's own claims ("7/7 tests", "343 tests OK", "all pre-commit
 checks pass", "the observed real round trip") are each individually false or
 unsupported, per the same review.
+
+**Ground truth, revised (2026-09-17, later the same day):** a second batch of
+six sessions (see below) found five *more* real, independently-verified
+defects that the original ground-truth review above missed entirely. The two
+best sessions in that batch (`da20d417`, `7750fa81`, both
+`Qwen3.8-Flash-Next-UD-Q3_K_XL`) are now the most complete review of this
+branch of any session in either batch:
+
+- **F6 -- `_alloc_emulated_cstring` misuses the vamos allocator API.** It
+  treats `alloc.alloc_memory(...)`'s return value as a raw address
+  (`mem.w8(addr + i, ...)`), but the real `amitools.vamos` allocator returns
+  a `Memory`/`MemBlock` object, not an int -- `Memory + int` raises
+  `TypeError`. Masked entirely by the test suite's fake allocator, which
+  returns a `SimpleNamespace(addr=addr)` instead of matching the real API.
+- **F7 -- `FreeAslRequest` always raises on a real, non-NULL requester.** It
+  calls `alloc.free_memory(requester, label=...)`; the real signature is
+  `free_memory(self, mem)` (one positional `Memory` object, no `label`
+  kwarg) -- `TypeError` before anything is freed. iTidy calls
+  `FreeAslRequest(freq)` on every path, so the release path is dead on real
+  vamos. Same masking cause as F6: the test's `_FakeAlloc` accepts a
+  signature the real allocator does not have.
+- **F8 -- `QFileDialog.DontShowHiddenFiles` does not exist on the installed
+  Qt binding.** `7750fa81` verified this live against the actually-installed
+  PySide6 (`AttributeError: type object 'PySide6.QtWidgets.QFileDialog' has
+  no attribute 'DontShowHiddenFiles'`) -- the directory-only branch crashes
+  before showing a dialog at all. A `# type: ignore[attr-defined]` on that
+  exact line is what suppressed the one automated check (pyright) that would
+  have caught it.
+- **F9 -- the documented headless guarantee is unreachable and raises the
+  wrong error.** The code's `projection is None` guard is dead: the real
+  launcher always installs a `NullHostWindowProjection()`, which has no
+  `show_file_dialog` at all -- a real headless probe gets `AttributeError`,
+  not the documented `UnsupportedFeatureError`. The one test asserting this
+  boundary manufactures a `host_projection=None` state the runtime never
+  produces.
+- **F10 -- a copyrighted binary asset was committed via a tracked symlink.**
+  `amiga_apps/itidy1classic/build/iTidy.lha` is a tracked symlink to the real
+  166,980-byte LHA archive, added solely so the vacuous smoke test's
+  hard-coded path would resolve -- against this repo's own
+  assets-and-copyright policy.
+
+F6-F7 were also independently reached (though never written up) by the
+`dd01b4f8` session before it was disrupted -- see below. No session in
+either batch found F8, F9, or F10 except `7750fa81`.
 
 ## Per-session results
 
@@ -110,16 +159,94 @@ tool call) on a review-only task -- consistent with its output reading more
 like a task-completion summary than a line-by-line review, and plausibly
 part of why it's the shallowest of the three Nemotron attempts.
 
-## Recommendation
+## Batch 2 (2026-09-17, later the same day)
 
-For a review meant to actually gate a merge decision, none of the three
-faster sessions here would have caught the branch's worst bug or reached the
-correct verdict -- only the ~3.2-hour Qwen3.8-27B-UD-Q6_K_M pass did, and it
-did so by verifying claims against external ground truth (the NDK headers,
-the compiled binary, and live test re-runs) rather than reading the Python
-source in isolation. Nemotron and gpt-oss-20b-F16-1gpu are fast enough for a
-same-minute first-pass triage and did surface some real, correctly-described
-issues (notably F2, independently, in their best runs), but their verdicts
-should be treated as a second opinion to sanity-check, not a gate, until
-something closes the gap between "found a real bug" and "still says the
-branch is merge-ready anyway."
+Six more sessions on the same branch, found while reviewing DSH logs added
+since batch 1 -- two more models this time: `Qwen3.8-Flash-Next-UD-Q3_K_XL`
+(three attempts, via `llama-cpp-moe-16gb`, the 16GB MoE-cache service on
+physical GPU 1) and `Qwen3-Coder-Next-Q4_K_M` (two attempts, same service),
+plus a repeat `Qwen3.8-27B-UD-Q6_K_M` attempt. Two of the six were disrupted
+mid-session by a real operational fault, not a model or config problem --
+see below.
+
+| Session | Model | Wall-clock | Model compute | Decode | Turns | Final text | Caught | Final verdict |
+|---|---|---|---|---|---|---|---|---|
+| `da20d417` | Flash Next | 208.7 min | 4100 s (33%) | 10.8 tok/s | 51 | 12.9K chars | F1 F2 F3 F4 F5 F6 F7 (7 of 10) | **Correct, thorough** -- reproduced F1 live, re-ran the suite |
+| `7750fa81` | Flash Next | 204.7 min | 5074 s (41%) | 10.4 tok/s | 59 | 25.0K chars | F1-F9 (9 of 10) | **Correct, most thorough review in either batch** |
+| `dd01b4f8` | Flash Next | 296.2 min | 3728 s (21%) | 9.9 tok/s | 51 | *disrupted* | F6, F7 (independently, unwritten) | **No review delivered** -- cut off by operational fault |
+| `776e8b65` | Qwen3.8-27B-UD-Q6_K_M | 82.1 min* | 0 s | -- | 0 | 0 chars | none | **No review delivered** -- never got a single response |
+| `904eb22e` | Qwen3-Coder-Next-Q4_K_M | 9.5 min | 534 s (94%) | 10.5 tok/s | 47 | 2.1K chars | none of F1/F2 | **Incorrect** -- false "no session summary" claim, no fatal bugs found |
+| `e845f1c7` | Qwen3-Coder-Next-Q4_K_M | 27.5 min | 393 s (24%) | 3.3 tok/s | 23 | *disrupted* | none (mid-investigation) | **No review delivered** -- cut off by the same operational fault |
+
+\* `776e8b65`'s 82.1 minutes is almost entirely retry backoff wait, not
+compute -- see below.
+
+### The two disruptions were a real operational fault, not "the service restarting" in the abstract
+
+Two distinct incidents, root-caused from the raw logs, not guessed:
+
+1. **`776e8b65` (~19:01 UTC): the plain `llama-cpp` service was down or
+   unreachable at the moment this session's very first request went out.**
+   Five consecutive retries, all `{"message": "Connection error.", "code":
+   "TRANSPORT"}`, exponential backoff from 470ms to 7.4s, then the turn gave
+   up with zero model output. Nothing about this session's content is
+   salvageable -- it never started.
+2. **`dd01b4f8` and `e845f1c7` (~22:37 UTC): a genuinely orphaned GPU
+   process, not a clean restart.** Investigating this while adding new
+   presets to the plain GPU service (see below) turned up a `Qwen3-Coder-Next-Q4_K_M`
+   `llama-server` subprocess under the 16GB schwerz container, still running
+   **28 minutes** after `e845f1c7` (the session that had loaded it) had
+   already ended, still holding 7.5 GiB of GPU 1. The schwerz router failed
+   to reap this subprocess on a model switch or crash, and it sat there
+   blocking anything else that needed that GPU until an unrelated container
+   restart cleared it. `dd01b4f8` and `e845f1c7`'s final requests both went
+   unanswered at this same timestamp, consistent with the router being
+   wedged behind the stuck subprocess rather than a clean restart. This is a
+   real, currently-unaddressed reliability gap in the schwerz deployment:
+   nothing here detects or kills a hung model subprocess, and a hung one can
+   silently block every future request to that service (and, as it turned
+   out, VRAM-adjacent services on the same physical GPU too).
+
+`dd01b4f8` is the one genuinely worth calling "still useful" despite
+delivering no review: its last few turns (reasoning content, not final
+text) show it had independently reached the same F6/F7 allocator-misuse
+findings that `da20d417` and `7750fa81` later confirmed, and its own
+reasoning states "Evidence gathering is complete. I now have everything
+needed to write the final review" moments before the cutoff -- a third,
+independent corroboration of those two bugs, just never written down.
+
+### Flash Next reverses the batch-1 "speed vs. quality" conclusion
+
+Batch 1 concluded that faster models synthesized worse verdicts. Flash
+Next's two complete batch-2 runs overturn that as a general claim about this
+model: `7750fa81` is the single best review across both batches -- 9 of 10
+known real defects, including three (F8, F9, F10) no other session found in
+either batch, one of them (F8) verified live against the actually-installed
+Qt binding rather than inferred from reading source. `da20d417` independently
+reached 7 of 10. Both ran at roughly 10 tok/s decode and took 200+ minutes of
+wall-clock -- not fast in absolute terms, but using a fraction of the compute
+`Qwen3.8-27B-UD-Q6_K_M`'s batch-1 run used (4100-5074 s of real model time vs.
+3494 s -- comparable, actually, despite Flash Next being the MoE-cache
+service's host-offloaded architecture). The real batch-1 finding that still
+holds is about *consistency*, not raw capability: Flash Next's third attempt
+(`dd01b4f8`) delivered nothing due to an external fault, and Qwen3-Coder-Next's
+two attempts landed at "nothing" and "wrong, with a fabricated claim" --
+model choice alone does not guarantee a repeatable outcome; something about
+either the task framing or session length still needs to reliably reach a
+finished, correct write-up rather than stopping mid-investigation.
+
+## Recommendation (revised)
+
+`Qwen3.8-Flash-Next-UD-Q3_K_XL`, given a long enough run to actually finish
+(200+ minutes here), has now produced the two best reviews of this branch
+across both batches -- better than the original `Qwen3.8-27B-UD-Q6_K_M`
+ground-truth run, in real, independently-verified defect count. It should be
+the first choice for a review meant to gate a merge, not `Qwen3.8-27B-UD-Q6_K_M`,
+provided the session is allowed to run to completion rather than being cut
+short. `Qwen3-Coder-Next-Q4_K_M` performed poorly in both its attempts
+(matching its "below average for the current field" independent benchmark
+standing noted elsewhere in this repo) and isn't a good fit for this task.
+Nemotron and gpt-oss-20b-F16-1gpu (batch 1) remain reasonable for a fast
+first-pass triage but not a gate. Separately: the orphaned-subprocess fault
+found here is a real reliability gap worth fixing in the schwerz deployment
+before relying on it for anything long-running and unattended.

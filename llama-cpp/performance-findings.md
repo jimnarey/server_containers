@@ -373,16 +373,32 @@ wall, not produce a useful CPU-speed number.
 
 ## Single-GPU-pinned variants and Nemotron dual-GPU context (2026-09-17)
 
-`split-mode=none` + `main-gpu=1` is the real mechanism for pinning a model
+`split-mode=none` + `main-gpu=N` is the real mechanism for pinning a model
 to exactly one specific GPU on the plain `llama-cpp` service, which exposes
 both cards (`gpus: all`) -- without it, an un-pinned entry's default
 split-mode spreads the model across every visible GPU regardless of whether
-that's obvious from the section name. Goal was running a model on GPU 1
-alongside the 16GB schwerz service occupying GPU 0.
+that's obvious from the section name. Goal was running a model alongside
+the 16GB schwerz service without VRAM contention.
 
-- **gpt-oss-20b-F16, pinned to GPU 1, ctx-size=131072: works.** Real load +
-  request confirmed. GPU 0 stayed idle (149 MiB), GPU 1 used 14,444 MiB of
-  16,311 MiB -- comfortable headroom. Deployed as `gpt-oss-20b-F16-1gpu`.
+- **gpt-oss-20b-F16, pinned to GPU 1, ctx-size=131072: works** (as tested
+  that day). Real load + request confirmed. GPU 0 stayed idle (149 MiB),
+  GPU 1 used 14,444 MiB of 16,311 MiB -- comfortable headroom at the time.
+  Deployed as `gpt-oss-20b-F16-1gpu`.
+  **2026-09-17, corrected later the same day: the pin target was wrong.**
+  This test (and every other "-1gpu"/single-GPU entry added afterward) was
+  pinned to GPU 1 on the assumption that the 16GB schwerz service occupies
+  GPU 0 -- that's only the compose file's *default* for
+  `GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES`; this deployment's untracked
+  `.env` actually overrides it to `1`. The test above happened not to
+  observe any contention only because schwerz had no model resident at that
+  moment -- real contention surfaced later when an orphaned schwerz
+  subprocess (a stuck Qwen3-Coder-Next instance from a disrupted session)
+  sat on GPU 1 for 28 minutes after its own session ended and blocked
+  unrelated GPU-1-pinned loads from this service. All single-GPU pins
+  (`gpt-oss-20b-F16-1gpu` and the four MoE entries below) were moved to GPU
+  0 -- verify the *running container's own environment*
+  (`docker exec <container> env`) before pinning anything "to avoid" a
+  service again, not the compose file's default.
 - **Qwen3.8-27B-UD-Q4_K_M, pinned to GPU 1: does not fit on one 16 GiB card
   at any usable context.** Tried ctx-size=131072 first: CUDA OOM allocating
   the KV buffer (`cudaMalloc failed: out of memory` allocating 4352 MiB on
@@ -419,8 +435,26 @@ executes), summed across each session:
   tok/s** across three sessions (average of the per-session ratios,
   ~80 tok/s) -- confirms the MTP speculative-decode sidecar and the cheap
   hybrid-SSM architecture both pay off in practice, not just in theory.
-- `gpt-oss-20b-F16-1gpu` (single GPU, pinned to GPU 1): **52.5-60.8 tok/s**
+- `gpt-oss-20b-F16-1gpu` (single GPU, pinned to GPU 0): **52.5-60.8 tok/s**
   across three sessions.
+
+**2026-09-17, later the same day, batch 2:** two more routes, measured the
+same way, via the 16GB MoE-cache service (`llama-cpp-moe-16gb`, physical
+GPU 1 -- see the correction below):
+
+- `Qwen3.8-Flash-Next-UD-Q3_K_XL` (MoE-cache, single GPU): **9.9-10.8 tok/s**
+  across three sessions -- consistent and slow-but-steady, matching this
+  service's host-offloaded-expert architecture rather than a GPU-resident
+  dense model's speed. Despite the low tok/s, this model produced the best
+  code reviews of any session in either batch (see
+  `code-review-performance.md`) when given a long enough run to finish --
+  raw decode speed and review quality are unrelated findings here.
+- `Qwen3-Coder-Next-Q4_K_M` (MoE-cache, single GPU): **3.3-10.5 tok/s**
+  across two sessions -- the 3.3 tok/s outlier (`e845f1c7`) coincides with
+  the same session later found to have left an orphaned subprocess running
+  on this service (see below), so may reflect early symptoms of whatever
+  caused that hang rather than steady-state throughput; not conclusive from
+  one data point.
 
 Nemotron decoding 2-4x faster than Qwen3.8-27B-UD-Q6_K_M here is the
 clearest real evidence yet that its dual-GPU config (above) is worth using
@@ -480,6 +514,46 @@ copy of it:
   context more cheaply than a comparable dense transformer. Native context
   is 1,048,576 -- raise incrementally from 131072 once verified, don't jump
   straight to max on an untested config.
+
+## Real reliability gap: orphaned GPU subprocess on the 16GB schwerz service (2026-09-17)
+
+Found while reviewing DSH logs and re-confirmed while debugging unrelated
+failed loads on the plain GPU service: a `Qwen3-Coder-Next-Q4_K_M`
+`llama-server` subprocess under the `llama-cpp-generel-schwerz-16gb-c`
+container was still running and holding 7.5 GiB of VRAM **28 minutes**
+after the DSH session that had loaded it (`e845f1c7`) had already ended.
+Its own session's final request, and a concurrent `Qwen3.8-Flash-Next`
+session's final request (`dd01b4f8`), both went unanswered at the same
+timestamp -- consistent with the router being wedged behind this stuck
+subprocess rather than a clean restart, contrary to the working assumption
+mid-session that "the llama service was restarted". The subprocess was
+confirmed via `nvidia-smi`'s process list (`ps` showed 27:58 elapsed) and
+cleared only by restarting the whole `llama-cpp-generel-schwerz-16gb`
+container -- nothing in this deployment currently detects or kills a hung
+per-model subprocess on its own. This blocked unrelated loads on the same
+physical GPU too (see the GPU-pin correction below), not just this
+service's own requests. Not yet root-caused *why* the subprocess hung in
+the first place -- worth investigating if it recurs, since a fix would need
+either a router-level health check/reaper or a request-level timeout that
+kills and restarts the stuck instance.
+
+## Correction: the 16GB schwerz service's real GPU pin (2026-09-17)
+
+Every "GPU 0 occupied by schwerz" assumption in this repo -- including the
+`gpt-oss-20b-F16-1gpu` pin above and every single-GPU-pinned entry added
+after it -- was based on the compose file's *default* for
+`GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES` (`0`), never checked against the
+actually-running container. This deployment's untracked `.env` overrides it
+to `1`: the 16GB schwerz service really runs on **physical GPU 1**,
+confirmed via `docker exec llama-cpp-generel-schwerz-16gb-c env`. The
+earlier `gpt-oss-20b-F16-1gpu` test didn't reveal this because schwerz had
+no model resident at that moment -- real contention only surfaced once both
+services had a model loaded at the same time (compounded by the orphaned
+subprocess above). All single-GPU-pinned entries in `llama-cpp/config/llama-cpp/models-preset.ini`
+were moved from `main-gpu=1` to `main-gpu=0` and re-verified with a real
+load. Lesson for next time: check the *running container's* environment,
+not the compose file's default, before pinning anything "to avoid"
+contention with another service.
 
 ## Currently untested / no data exists
 
