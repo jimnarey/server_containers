@@ -61,20 +61,24 @@ container:
 ```sh
 docker compose cp \
   https-gateway:/data/caddy/pki/authorities/local/root.crt \
-  ./caddy-local-root.crt
+  ./caddy-HOST-local-root.crt
 ```
 
 Keep the resulting file private enough to avoid accidental replacement, but it
 is the public CA certificate: the sensitive CA private key remains in the
 named Docker volume and must never be copied or shared.
 
-Install `caddy-local-root.crt` on each client:
+Replace `HOST` with the gateway host, for example `ai` or `nas`. Install every
+gateway's distinct root certificate on each client that uses it. Do not replace
+one gateway's file with another under the same filename.
 
 ### Debian/Ubuntu Linux
 
 ```sh
-sudo install -m 0644 caddy-local-root.crt /usr/local/share/ca-certificates/caddy-local-root.crt
-sudo update-ca-certificates
+ca_file=caddy-nas-local-root.crt
+sudo install -m 0644 "$ca_file" \
+  "/usr/local/share/ca-certificates/$(basename "$ca_file")"
+sudo update-ca-certificates --fresh
 ```
 
 Restart the browser.  Firefox on Linux may use its own certificate store; if
@@ -87,28 +91,32 @@ Current Chrome and Chromium releases use an NSS shared certificate database in
 addition to the system CA bundle. If Chrome still reports
 `net::ERR_CERT_AUTHORITY_INVALID` after the Debian/Ubuntu installation above,
 import the same root certificate into that database as the normal desktop user
-(not with `sudo`). Close every Chrome window first, then run:
+(not with `sudo`). Close every Chrome window first, then define and use this
+helper. It accepts any `.crt` file and an optional unique name; use a different
+name for each gateway CA.
 
 ```sh
 sudo apt install libnss3-tools
 
-if [ -d "$HOME/.pki/nssdb" ]; then
-  nss_db="$HOME/.pki/nssdb"
-else
-  nss_db="$HOME/.local/share/pki/nssdb"
-fi
+trust_chrome_ca() {
+  ca_file=${1:?usage: trust_chrome_ca /path/to/root.crt [certificate-name]}
+  ca_name=${2:-"$(basename "${ca_file%.crt}")"}
+  if [ -d "$HOME/.pki/nssdb" ]; then
+    nss_db="$HOME/.pki/nssdb"
+  else
+    nss_db="$HOME/.local/share/pki/nssdb"
+  fi
+  mkdir -p "$nss_db"
+  if [ ! -f "$nss_db/cert9.db" ]; then
+    certutil -d "sql:$nss_db" -N --empty-password
+  fi
+  certutil -d "sql:$nss_db" -D -n "$ca_name" 2>/dev/null || true
+  certutil -d "sql:$nss_db" -A -n "$ca_name" -t "C,," -i "$ca_file"
+  certutil -d "sql:$nss_db" -L -n "$ca_name"
+}
 
-mkdir -p "$nss_db"
-if [ ! -f "$nss_db/cert9.db" ]; then
-  certutil -d "sql:$nss_db" -N --empty-password
-fi
-
-certutil -d "sql:$nss_db" -D -n "Caddy Local CA" 2>/dev/null || true
-certutil -d "sql:$nss_db" -A \
-  -n "Caddy Local CA" \
-  -t "C,," \
-  -i /usr/local/share/ca-certificates/caddy-local-root.crt
-certutil -d "sql:$nss_db" -L -n "Caddy Local CA"
+trust_chrome_ca /usr/local/share/ca-certificates/caddy-nas-local-root.crt \
+  "Caddy NAS Local CA"
 ```
 
 `C,,` trusts this root CA for TLS server certificates. Chrome/Chromium 146 and
@@ -121,13 +129,13 @@ on the client; the repository is not required there.
 
 ```sh
 sudo security add-trusted-cert -d -r trustRoot \
-  -k /Library/Keychains/System.keychain caddy-local-root.crt
+  -k /Library/Keychains/System.keychain caddy-nas-local-root.crt
 ```
 
 ### Windows (Administrator PowerShell)
 
 ```powershell
-certutil -addstore -f Root .\caddy-local-root.crt
+certutil -addstore -f Root .\caddy-nas-local-root.crt
 ```
 
 Verify that the browser shows a normal trusted HTTPS connection before adding
