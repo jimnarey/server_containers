@@ -5,7 +5,8 @@
 from the ordinary `llama-cpp` service and use the experimental CUDA MoE expert
 cache in [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
-The Dockerfile's default pinned revision (used by the 16GB service):
+The shared `llama-cpp/Dockerfile` receives this pin from the 16GB service's
+Compose build arguments:
 
 ```text
 branch: qwen4exp-mtp
@@ -13,8 +14,7 @@ commit: e69a1d0be5f8ae0080593865b38b175223059199
 CUDA:   12.8.1, compiled for CUDA architecture 120
 ```
 
-2026-09-16: the 32GB service overrides this default via `build.args` in
-`docker-compose.yml` and now pins a different commit:
+The 32GB service has separate `build.args` and pins a different commit:
 
 ```text
 branch: codex/moe-grouped-multigpu
@@ -35,33 +35,29 @@ real constraints this pin imposes on model configuration, and
 `docker-compose.yml`'s comment on `llama-cpp-generel-schwerz-32gb` for the
 full rationale.
 
-The build context is respectively:
-
-```text
-/mnt/work/generel-schwerz-llama-cpp/16gb/source
-/mnt/work/generel-schwerz-llama-cpp/32gb/source
-```
-
-Docker copies the selected context into the build and detaches that copy at the
-pinned commit. It never checks out or otherwise mutates either host source
-tree. Both host checkouts must contain the pinned commit (the supplied
-checkouts do). To use another fork revision, edit the `LLAMA_FORK_BRANCH` and
-`LLAMA_FORK_COMMIT` arguments at the top of `Dockerfile`, then ensure that
-commit exists in both local source checkouts.
+Docker maintains one neutral `GenerelSchwerz/llama.cpp` clone in its build
+cache at `/mnt/work/llama-cpp/sources/generel-schwerz-llama-cpp`. Each service
+then copies it to a service-suffixed sibling, fetches and verifies its own pin,
+and builds that copy. The path is within the build image, not the host. To use
+another revision, edit that service's `LLAMA_BRANCH` and `LLAMA_COMMIT` in
+`compose.ai.yml`.
 
 ## Runtime configuration
 
 Create the separate runtime configurations before first start:
 
 ```sh
-install -D -m 0644 generel-schwerz-llama-cpp/config/16gb.ini \
-  /mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini
-install -D -m 0644 generel-schwerz-llama-cpp/config/32gb.ini \
-  /mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini
-install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset-16gb.ini \
-  /mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset-16gb.ini
-install -D -m 0644 generel-schwerz-llama-cpp/config/models-preset-32gb.ini \
-  /mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset-32gb.ini
+install -D -m 0644 llama-cpp/config/llama-cpp-generel-schwerz-16gb/config.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini
+install -D -m 0644 llama-cpp/config/llama-cpp-generel-schwerz-32gb/config.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-32gb/config.ini
+
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-16gb
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-32gb
 ```
 
 2026-09-16: these are now two genuinely different files, not one shared

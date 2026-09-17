@@ -452,18 +452,16 @@ reasoning-budget fix). Split into two real, independently tracked repo
 sources, mirroring the schwerz 16GB/32GB split pattern from earlier this
 project:
 
-- `llama-cpp/models-preset-gpu.ini` -- GPU service, unchanged in shape from
+- `llama-cpp/config/llama-cpp/models-preset.ini` -- GPU service, unchanged in shape from
   before except for removing the failed Qwen `-1gpu` entry above.
-- `llama-cpp/models-preset-cpu.ini` -- new. Strips every GPU-only directive
+- `llama-cpp/config/llama-cpp-cpu/models-preset.ini` -- new. Strips every GPU-only directive
   (`split-mode`, `main-gpu`, `n-gpu-layers=auto` partial offload) and adds a
   CPU-specific Nemotron entry (see below). `llama-cpp-cpu` was not actually
   running on this host at the time of this change (absent from `docker
   compose ps -a`), so the new deployed preset is untested against a real
   load -- verify before relying on it.
-  (2026-09-17, later same day: both source files were moved to live together
-  under `llama-cpp/`, mirroring `generel-schwerz-llama-cpp/config`'s
-  `models-preset-16gb.ini`/`models-preset-32gb.ini` pair, rather than
-  splitting across two directories.)
+  (They now live under `llama-cpp/config/<service>/`, alongside every other
+  service's template.)
 
 CPU-specific Nemotron entry, deliberately different from the GPU one, not a
 copy of it:

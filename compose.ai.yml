@@ -76,13 +76,23 @@ services:
       - searxng-valkey-data:/data
 
   llama-cpp:
-    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-cuda13}
+    build:
+      context: ./llama-cpp
+      target: server
+      args:
+        LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp.git
+        LLAMA_SOURCE_NAME: ggml-org-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp
+        LLAMA_BRANCH: master
+        LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
+        LLAMA_CUDA: "ON"
+    image: llama-cpp:upstream-eafe15a5-cuda
     container_name: llama-cpp-c
     restart: unless-stopped
     gpus: all
     volumes:
       - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_CONFIG:-/mnt/work/llama-cpp/models-preset.ini}:/models-preset.ini:ro
+      - ${LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp/models-preset.ini}:/models-preset.ini:ro
     command:
       - --models-preset
       - /models-preset.ini
@@ -111,12 +121,22 @@ services:
       - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
 
   llama-cpp-cpu:
-    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_CPU_TAG:-server}
+    build:
+      context: ./llama-cpp
+      target: server
+      args:
+        LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp.git
+        LLAMA_SOURCE_NAME: ggml-org-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-cpu
+        LLAMA_BRANCH: master
+        LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
+        LLAMA_CUDA: "OFF"
+    image: llama-cpp:upstream-eafe15a5-cpu
     container_name: llama-cpp-cpu-c
     restart: unless-stopped
     volumes:
       - ${LLAMA_CPP_CPU_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_CPU_CONFIG:-/mnt/work/llama-cpp-cpu/models-preset.ini}:/models-preset.ini:ro
+      - ${LLAMA_CPP_CPU_CONFIG:-/mnt/work/llama/llama-cpp-cpu/models-preset.ini}:/models-preset.ini:ro
     command:
       - --models-preset
       - /models-preset.ini
@@ -189,10 +209,16 @@ services:
 
   llama-cpp-generel-schwerz-16gb:
     build:
-      context: /mnt/work/generel-schwerz-llama-cpp/16gb/source
-      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      context: ./llama-cpp
       target: server
-    image: generel-schwerz-llama-cpp:qwen4exp-mtp-e69a1d0
+      args:
+        LLAMA_REPOSITORY: https://github.com/GenerelSchwerz/llama.cpp.git
+        LLAMA_SOURCE_NAME: generel-schwerz-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-generel-schwerz-16gb
+        LLAMA_BRANCH: qwen4exp-mtp
+        LLAMA_COMMIT: e69a1d0be5f8ae0080593865b38b175223059199
+        LLAMA_CUDA: "ON"
+    image: llama-cpp:generel-schwerz-qwen4exp-mtp-e69a1d0
     container_name: llama-cpp-generel-schwerz-16gb-c
     restart: unless-stopped
     gpus: all
@@ -200,8 +226,8 @@ services:
       CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/16gb/config/models-preset-16gb.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -238,13 +264,16 @@ services:
 
   llama-cpp-generel-schwerz-32gb:
     build:
-      context: /mnt/work/generel-schwerz-llama-cpp/32gb/source
-      dockerfile: /home/ai/server_containers/generel-schwerz-llama-cpp/Dockerfile
+      context: ./llama-cpp
       target: server
       args:
-        LLAMA_FORK_BRANCH: codex/moe-grouped-multigpu
-        LLAMA_FORK_COMMIT: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
-    image: generel-schwerz-llama-cpp:codex-moe-grouped-multigpu-0ed73d1
+        LLAMA_REPOSITORY: https://github.com/GenerelSchwerz/llama.cpp.git
+        LLAMA_SOURCE_NAME: generel-schwerz-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-generel-schwerz-32gb
+        LLAMA_BRANCH: codex/moe-grouped-multigpu
+        LLAMA_COMMIT: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
+        LLAMA_CUDA: "ON"
+    image: llama-cpp:generel-schwerz-codex-moe-grouped-multigpu-0ed73d1
     container_name: llama-cpp-generel-schwerz-32gb-c
     restart: unless-stopped
     gpus: all
@@ -252,8 +281,8 @@ services:
       CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/generel-schwerz-llama-cpp/32gb/config/models-preset-32gb.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -437,10 +466,16 @@ services:
 
   llama-cpp-csantiago78:
     build:
-      context: /mnt/work/csantiago78-llama-cpp/source
-      dockerfile: /home/ai/server_containers/csantiago78-llama-cpp/Dockerfile
+      context: ./llama-cpp
       target: server
-    image: csantiago78-llama-cpp:moe-expert-cache-bccbacd
+      args:
+        LLAMA_REPOSITORY: https://github.com/csantiago78/llama.cpp.git
+        LLAMA_SOURCE_NAME: csantiago78-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-csantiago78
+        LLAMA_BRANCH: moe-expert-cache
+        LLAMA_COMMIT: bccbacdb8945680f1cfc7e6bffd1e59014705750
+        LLAMA_CUDA: "ON"
+    image: llama-cpp:csantiago78-moe-expert-cache-bccbacd
     container_name: llama-cpp-csantiago78-c
     restart: unless-stopped
     gpus: all
@@ -448,8 +483,8 @@ services:
       CUDA_VISIBLE_DEVICES: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/csantiago78-llama-cpp/config/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/csantiago78-llama-cpp/config/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/llama/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Generate a complete llama.cpp models-preset.ini from a partial override file.
+"""Generate or validate a llama.cpp models-preset.ini override file.
 
 The ordinary llama-cpp router intentionally has no --models-dir argument, so
 its /v1/models endpoint only contains models which are already in its preset.
 This tool starts a disposable router with --models-dir /models, asks that
 router for its generated IDs and resolved model paths, then removes it.  It
 never changes the running llama-cpp service or the model library.
+
+With --preset-only it instead validates only the /models paths explicitly
+listed in the template and writes that template unchanged.  This is useful for
+fork-specific services whose model catalogues must remain deliberately small.
 """
 
 from __future__ import annotations
@@ -341,6 +345,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="replace an existing target models-preset.ini",
     )
+    parser.add_argument(
+        "--preset-only",
+        action="store_true",
+        help="validate explicit template paths only; do not discover or add models",
+    )
     return parser.parse_args()
 
 
@@ -355,15 +364,23 @@ def main() -> int:
     overrides = args.preset.read_text(encoding="utf-8")
     _, _, _, _, preset_paths = parse_preset(overrides)
     validate_preset_paths(preset_paths)
-    models = discover_models()
-    rendered, missing = render_preset(overrides, models)
+    if args.preset_only:
+        rendered = overrides.rstrip() + "\n"
+        models: list[Model] | None = None
+        missing: list[Model] = []
+    else:
+        models = discover_models()
+        rendered, missing = render_preset(overrides, models)
 
     args.target_dir.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
     temporary.write_text(rendered, encoding="utf-8")
     temporary.replace(destination)
     print(f"Wrote {destination}")
-    print(f"Discovered {len(models)} models; added defaults for {len(missing)} models.")
+    if models is None:
+        print("Validated explicit template paths; did not discover or add model entries.")
+    else:
+        print(f"Discovered {len(models)} models; added defaults for {len(missing)} models.")
     return 0
 
 

@@ -1,107 +1,72 @@
-# llama.cpp
+# llama.cpp services
 
-These services run the official `llama-server` image in router mode. They do not select a model at container startup. Instead, they advertise only the explicit entries in their mounted `models-preset.ini` files and load the model named in each request.
+All five llama.cpp services use the single `llama-cpp/Dockerfile`. Their build definitions in `compose.ai.yml` name a repository, branch, commit, and service name. The source stage maintains one neutral clone for each of the three repositories at `LLAMA_SOURCES=/mnt/work/llama-cpp/sources`; the build stage copies that clone to a sibling directory whose suffix is the service name, checks out the requested commit, and builds that copy. The workspace is inside Docker build layers, so it is cacheable but does not modify the host.
 
-Only one model may be loaded at once. Switching models therefore unloads the least-recently-used model before loading the requested one, preventing multiple large models from competing for GPU or system memory.
+| Service | Repository | Commit |
+| --- | --- | --- |
+| `llama-cpp` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
+| `llama-cpp-cpu` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
+| `llama-cpp-generel-schwerz-16gb` | `GenerelSchwerz/llama.cpp` | `e69a1d0be5f8ae0080593865b38b175223059199` |
+| `llama-cpp-generel-schwerz-32gb` | `GenerelSchwerz/llama.cpp` | `0ed73d1c9e26587cc41b73f77e9e058a0da55368` |
+| `llama-cpp-csantiago78` | `csantiago78/llama.cpp` | `bccbacdb8945680f1cfc7e6bffd1e59014705750` |
 
-`llama-cpp` uses CUDA 13 and the available GPUs. `llama-cpp-cpu` uses the CPU-only image, explicitly offloads zero layers, and is independent of the GPU service. It is exposed at `192.168.50.136:11437` by default (the GPU service remains on port 11436).
+Docker therefore caches three neutral source clones and makes five isolated, pinned source copies during builds. The branch is descriptive provenance; the build fetches and verifies the immutable commit directly, so a deleted branch cannot break it. Changing a pin belongs in the service's `build.args`, not in a checkout on the host.
 
-## Configuration
+## Runtime configuration
 
-The default model directory is the shared GGUF library:
+Every host-side llama.cpp setting is below `/mnt/work/llama`:
 
 ```text
-/mnt/data/models/gguf
+/mnt/work/llama/
+  llama-cpp/models-preset.ini
+  llama-cpp-cpu/models-preset.ini
+  llama-cpp-generel-schwerz-16gb/{config.ini,models-preset.ini}
+  llama-cpp-generel-schwerz-32gb/{config.ini,models-preset.ini}
+  llama-cpp-csantiago78/{config.ini,models-preset.ini}
 ```
 
-Override it in `.env` when serving a different directory:
+Tracked templates live in matching `llama-cpp/config/<service>/` directories. Compose mounts the `/mnt/work/llama` copies read-only, so runtime changes never alter the checkout.
 
-```dotenv
-LLAMA_CPP_MODELS=/absolute/path/to/gguf/models
-LLAMA_CPP_CONFIG=/mnt/work/llama-cpp/models-preset.ini
-LLAMA_CPP_BIND_ADDRESS=192.168.50.136
-LLAMA_CPP_PORT=11436
-LLAMA_CPP_PARALLEL=1
-LLAMA_CPP_FIT_TARGET=1024
-
-LLAMA_CPP_CPU_MODELS=/absolute/path/to/gguf/models
-LLAMA_CPP_CPU_CONFIG=/mnt/work/llama-cpp-cpu/models-preset.ini
-LLAMA_CPP_CPU_BIND_ADDRESS=192.168.50.136
-LLAMA_CPP_CPU_PORT=11437
-LLAMA_CPP_CPU_PARALLEL=1
-LLAMA_CPP_CPU_FIT_TARGET=1024
-```
-
-`llama-cpp/models-preset-gpu.ini` and `llama-cpp/models-preset-cpu.ini` are sparse override sources, not complete catalogues -- one per service, tracked independently side by side (same pattern as `generel-schwerz-llama-cpp/config`'s `models-preset-16gb.ini`/`models-preset-32gb.ini` pair). Each contains only models with an intentional setting different from its own `[*]`; each such section retains its `model = /models/...` path so the generator can preserve its friendly ID. GPU-only directives (`split-mode`, `main-gpu`, `n-gpu-layers=auto` partial offload) belong only in the GPU source. Generate each service's complete runtime preset before first start, and repeat after downloading models or changing overrides:
+The ordinary GPU service uses the full-catalogue workflow: it validates every explicit template path, discovers the model library, and adds missing models with the `[*]` defaults.
 
 ```sh
 ./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/models-preset-gpu.ini \
-  --force /mnt/work/llama-cpp
-
-./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/models-preset-cpu.ini \
-  --force /mnt/work/llama-cpp-cpu
+  --preset llama-cpp/config/llama-cpp/models-preset.ini \
+  --force /mnt/work/llama/llama-cpp
 ```
 
-The GPU service mounts only `/mnt/work/llama-cpp/models-preset.ini`; the CPU service mounts only `/mnt/work/llama-cpp-cpu/models-preset.ini`. Editing either deployed file therefore cannot modify the checkout or affect the other service. Set `ctx-size` per model in the sparse source; the context is shared by the configured number of server slots, so `*_PARALLEL=1` gives the sole slot the full configured context. KV-cache allocation occurs when a model is loaded and materially increases memory use.
-
-Both services mount the whole shared library at `/models`, but deliberately omit `--models-dir`. This prevents an automatically discovered directory name from becoming a second, unconfigured model ID. The generated runtime files contain one explicit entry for every discovered model. Add a source section only when a new model requires a non-default setting, then regenerate both runtime files.
-
-The mounted directory is read-only. Download and manage GGUF files on the host rather than from this container.
-
-## Generate a complete preset from sparse overrides
-
-[`generate-models-preset.py`](generate-models-preset.py) is for maintaining a runtime preset whose input file contains only a `[*]` default section and the models needing exceptions. `MODEL_ROOT` near the top of the script defaults to `/mnt/data/models/gguf`; `LLAMA_CPP_MODEL_ROOT` can override it for one run.
-
-Before starting discovery, the script validates every explicit `/models/...` path in an override block, including speculative-decoding sidecars and all siblings of a sharded GGUF. It stops with a grouped error naming the preset and missing file(s), without modifying a target file. It then starts a temporary, loopback-only `llama-cpp` router with `--models-dir /models`, reads its generated IDs and resolved paths from `/v1/models`, then removes that router. It does not restart or modify the normal service. It preserves the override file verbatim and writes `models-preset.ini` to the positional target directory, adding a basic entry for every discovered model that is not already named or referenced by path.
+The other four services are deliberately preset-only. This validates the paths named in their own template but neither scans the model library nor adds models to their catalogue:
 
 ```sh
-./llama-cpp/generate-models-preset.py \
-  --preset /path/to/models-preset-overrides.ini \
-  /mnt/work/llama-cpp
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-cpu/models-preset.ini \
+  /mnt/work/llama/llama-cpp-cpu
+
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-16gb
+
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini \
+  /mnt/work/llama/llama-cpp-generel-schwerz-32gb
+
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-csantiago78/models-preset.ini \
+  /mnt/work/llama/llama-cpp-csantiago78
 ```
 
-The command refuses to overwrite an existing runtime preset. Review the generated file and pass `--force` only when replacing it deliberately.
+Copy each fork's `config.ini` template to the equivalent `/mnt/work/llama` directory before starting it. The repository templates are mounted only through these generated/copied host paths.
 
-## Start and inspect
+## Build and run
 
 ```sh
-docker compose up -d llama-cpp llama-cpp-cpu
-docker compose logs -f llama-cpp
-docker compose logs -f llama-cpp-cpu
+docker compose -f compose.ai.yml build llama-cpp
+docker compose -f compose.ai.yml up -d llama-cpp
+docker compose -f compose.ai.yml logs -f llama-cpp
 ```
 
-List the models and use the returned `id` exactly as shown:
+`llama-cpp` is exposed at `192.168.50.136:11436`; the CPU service uses 11437. The fork services use 11438–11440. Inside Compose, DeepSeek and Pi use `http://llama-cpp:8080/v1`.
 
-```sh
-curl http://192.168.50.136:11436/v1/models
-curl http://192.168.50.136:11437/v1/models
-```
+The shared GGUF library defaults to `/mnt/data/models/gguf` and is mounted read-only at `/models`. Download and manage models on the host.
 
-Send a request that selects a model dynamically:
-
-```sh
-curl http://192.168.50.136:11436/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "MODEL_ID_FROM_V1_MODELS",
-    "messages": [
-      {"role": "user", "content": "Reply with OK"}
-    ]
-  }'
-```
-
-The first request after a model switch includes its loading delay. Subsequent requests use the resident model. Do not keep a large Ollama model resident while loading a large GPU llama.cpp model, because both services share the same GPUs.
-
-DeepSeek Harness and Pi should use this in-container API URL:
-
-```text
-http://llama-cpp:8080/v1
-```
-
-The CPU equivalent is:
-
-```text
-http://llama-cpp-cpu:8080/v1
-```
+See [GenerelSchwerz build notes](generel-schwerz-README.md) for the two MoE profiles' runtime constraints.

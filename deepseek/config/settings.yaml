@@ -65,7 +65,7 @@ llm-pi-ai:
         # 2026-09-17: single-GPU-pinned sibling of the entry above (pinned to
         # GPU 1, split-mode=none), for running alongside the 16GB schwerz
         # service occupying GPU 0 -- same use case as GLM-4.7-Flash below.
-        # contextWindow is the tested value (see models-preset-gpu.ini and
+        # contextWindow is the tested value (see the llama-cpp GPU template and
         # performance-findings.md: GPU0 idle, GPU1 14444/16311 MiB).
         - id: gpt-oss-20b-F16-1gpu
           contextWindow: 131072
@@ -115,7 +115,7 @@ llm-pi-ai:
           contextWindow: 65536
           maxTokens: 4096
     # The one-GPU MoE-cache router has a deliberately explicit catalogue.
-    # Its friendly IDs are defined by generel-schwerz-llama-cpp, not directory
+    # Its friendly IDs are defined by its service preset, not directory
     # names under /models. 2026-09-17: this service is a last resort for
     # MoE models too large for a plain 32 GiB dual-GPU split -- its preset
     # was trimmed to just those models (see models-preset-16gb.ini), so this
@@ -194,7 +194,7 @@ llm-pi-ai:
     # Independent csantiago78/llama.cpp MoE expert cache: an alternative to
     # llama-cpp-moe-32gb for the same two GPUs, using a different fork's
     # expert-cache implementation (see docker-compose.yml and
-    # csantiago78-llama-cpp/config/config.ini). Not yet build- or run-tested
+    # llama-cpp/config/llama-cpp-csantiago78/config.ini). Not yet build- or run-tested
     # in this deployment; contextWindow/maxTokens and the Flash Next
     # reasoning/idle-timeout handling below are carried over from
     # llama-cpp-moe-32gb as a precaution because both services share the same
