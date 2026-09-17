@@ -1,49 +1,63 @@
 # LAN DNS
 
-`lan-dns` is a small dnsmasq resolver for the home-server namespace. It maps
-`ai.home.arpa` and every name below it to the HTTPS gateway address, while
-forwarding all other DNS queries to the configured upstream resolver.
+`lan-dns` is a small dnsmasq resolver for the home-server namespaces. It
+forwards ordinary DNS queries to the router and maps every service name below
+each server domain to that server's HTTPS gateway:
 
-## Configure the router and service
+```text
+*.ai.home.arpa       -> 192.168.50.136  (AI gateway)
+*.nas.home.arpa      -> 192.168.50.214  (NAS gateway and planned DNS host)
+*.hardware.home.arpa -> 192.168.50.146  (shed-inspiron gateway)
+```
 
-Give the AI server a fixed LAN address, then set the following values in the
-ignored `.env` file:
+For example, `deepseek.ai.home.arpa` reaches the AI gateway and
+`xfce.nas.home.arpa` reaches the NAS gateway. DNS chooses the server; that
+server's Caddy gateway chooses the individual service. No per-service DNS
+records are necessary.
+
+## Configure the resolver
+
+Give all three hosts fixed LAN addresses. The intended permanent deployment is
+on `nas-mini`; set the following values in that host's ignored `.env` file:
 
 ```dotenv
-LAN_DNS_BIND_ADDRESS=192.168.50.136
-LAN_DNS_GATEWAY_ADDRESS=192.168.50.136
+LAN_DNS_BIND_ADDRESS=192.168.50.214
+LAN_DNS_AI_GATEWAY_ADDRESS=192.168.50.136
+LAN_DNS_NAS_GATEWAY_ADDRESS=192.168.50.214
+LAN_DNS_HARDWARE_GATEWAY_ADDRESS=192.168.50.146
 LAN_DNS_UPSTREAM_SERVER=192.168.50.1
 ```
 
-`LAN_DNS_BIND_ADDRESS` is where Docker publishes TCP and UDP port 53.
-`LAN_DNS_GATEWAY_ADDRESS` is the address returned for all `ai.home.arpa`
-names. `LAN_DNS_UPSTREAM_SERVER` is normally the router, which resolves names
-outside this local domain.
+`LAN_DNS_BIND_ADDRESS` is only the address on which Docker publishes TCP and
+UDP port 53; change it when moving the resolver between hosts. The three
+`*_GATEWAY_ADDRESS` values are the destinations returned for their respective
+wildcard namespace and remain the same regardless of the resolver's host.
 
-In the router's **LAN / DHCP Server** settings, set **DNS Server 1** to the AI
-server's fixed IP (`192.168.50.136` in this example). This distributes the
-resolver to all DHCP clients. The DNS field on the AI server's individual
-static-IP reservation affects only that one client and is not sufficient.
-
-Start the resolver:
+Start it on the NAS with the network Compose file:
 
 ```sh
-docker compose up -d lan-dns
+docker compose -f compose.network.yml up -d lan-dns
 ```
 
-Renew the DHCP lease or reconnect clients after changing the router setting.
-Verify from a client:
+Then set the router's **LAN / DHCP Server → DNS Server 1** to
+`192.168.50.214`. Renew DHCP leases or reconnect clients afterwards. Do this
+only once the NAS resolver is running, otherwise clients will lose name
+resolution.
+
+Verify from a LAN client:
 
 ```sh
-nslookup deepseek.ai.home.arpa 192.168.50.136
-nslookup xfce.ai.home.arpa 192.168.50.136
+nslookup deepseek.ai.home.arpa 192.168.50.214
+nslookup xfce.nas.home.arpa 192.168.50.214
+nslookup any-service.hardware.home.arpa 192.168.50.214
 ```
 
-Both should return `LAN_DNS_GATEWAY_ADDRESS`. The same wildcard-style domain
-mapping covers future gateway routes without adding a DNS record per service.
+They should return `192.168.50.136`, `192.168.50.214`, and
+`192.168.50.146`, respectively.
 
 ## Availability
 
-Clients using this resolver cannot resolve ordinary names while the AI server
-is down. Run the same resolver configuration on a second always-on machine if
-DNS availability during AI-server maintenance matters.
+One shared resolver is a DNS dependency for the LAN. If its NAS host is down,
+clients configured to use it cannot resolve ordinary names either. For higher
+availability, run a second resolver with the same three zone rules and publish
+both addresses through DHCP.

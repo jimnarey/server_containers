@@ -33,7 +33,9 @@ services:
     image: lan-dns:latest
     restart: unless-stopped
     environment:
-      LAN_DNS_GATEWAY_ADDRESS: ${LAN_DNS_GATEWAY_ADDRESS:?LAN_DNS_GATEWAY_ADDRESS is required}
+      LAN_DNS_AI_GATEWAY_ADDRESS: ${LAN_DNS_AI_GATEWAY_ADDRESS:?LAN_DNS_AI_GATEWAY_ADDRESS is required}
+      LAN_DNS_NAS_GATEWAY_ADDRESS: ${LAN_DNS_NAS_GATEWAY_ADDRESS:?LAN_DNS_NAS_GATEWAY_ADDRESS is required}
+      LAN_DNS_HARDWARE_GATEWAY_ADDRESS: ${LAN_DNS_HARDWARE_GATEWAY_ADDRESS:?LAN_DNS_HARDWARE_GATEWAY_ADDRESS is required}
       LAN_DNS_UPSTREAM_SERVER: ${LAN_DNS_UPSTREAM_SERVER:-192.168.50.1}
     ports:
       # Safe by default: publish DNS only after the server's LAN address is

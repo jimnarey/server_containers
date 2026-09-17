@@ -103,7 +103,8 @@ Most browser services currently operate over HTTP. The `https-gateway` Caddy
 service now terminates LAN HTTPS and routes to DeepSeek Harness and
 desktop-XFCE; their own Caddy instances provide Basic Auth, following the
 established browser/VNC-container pattern. The included `lan-dns` service maps
-`*.ai.home.arpa` to the gateway address. See
+the `ai`, `nas`, and `hardware` wildcard namespaces to their respective
+gateway addresses. See
 [`https-gateway/README.md`](./https-gateway/README.md) and
 [`lan-dns/README.md`](./lan-dns/README.md). Services are only published through
 the gateway when explicitly attached to its private Docker network.
