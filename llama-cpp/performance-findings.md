@@ -404,6 +404,43 @@ alongside the 16GB schwerz service occupying GPU 0.
   further; not tested beyond this figure. Uses the model's own published MTP
   sidecar for speculative decode (`spec-draft-model`/`spec-type=draft-mtp`).
 
+## Real decode speed under an agentic DSH workload (2026-09-17)
+
+Seven DSH code-review sessions (see `code-review-performance.md` in this
+same directory for the full comparison) give real, measured decode tok/s for
+three of this service's routes under genuine agentic tool-calling load, not
+a synthetic benchmark prompt -- tok/s = total output tokens / model-only
+compute time (step/start to the model's last output chunk before any tool
+executes), summed across each session:
+
+- `Qwen3.8-27B-UD-Q6_K_M` (dual-GPU, tensor-split): **22.5 tok/s**, 78,725
+  output tokens over 3494 s of real model compute (one 191.9-minute session).
+- `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0` (dual-GPU): **42.2-101.2
+  tok/s** across three sessions (average of the per-session ratios,
+  ~80 tok/s) -- confirms the MTP speculative-decode sidecar and the cheap
+  hybrid-SSM architecture both pay off in practice, not just in theory.
+- `gpt-oss-20b-F16-1gpu` (single GPU, pinned to GPU 1): **52.5-60.8 tok/s**
+  across three sessions.
+
+Nemotron decoding 2-4x faster than Qwen3.8-27B-UD-Q6_K_M here is the
+clearest real evidence yet that its dual-GPU config (above) is worth using
+for throughput-sensitive work -- but see `code-review-performance.md`:
+decode speed did not correlate with review quality in this same batch of
+sessions, so this is a throughput finding only, not a capability one.
+
+One of the three Nemotron sessions (`339a2bed`, 13:03 UTC) also caught a
+real DSH config bug in the act: at that time, `settings.yaml` still had the
+stale `contextWindow: 65536` for this model (the dual-GPU ctx-size above is
+actually 262144) and no `modelPolicies` compaction override, so DSH began
+`compaction/prune`-ing the session after just 8 turns / 66 s of model time
+-- pruning against roughly a quarter of the model's real window. The session
+produced almost no output as a direct result. Both gaps were fixed the same
+day (`settings.yaml` contextWindow corrected, a Q6_K_M/GLM-style
+`modelPolicies` entry added to `agent.cordis.yml`) before this note was
+written; a retest under the corrected config would be needed to know
+whether Nemotron's compaction behaviour is otherwise sound at this window
+size, since no session here exercised the fixed config.
+
 ## `models-preset.ini` split into GPU and CPU templates (2026-09-17)
 
 The GPU (`llama-cpp`) and CPU (`llama-cpp-cpu`) services had shared one
