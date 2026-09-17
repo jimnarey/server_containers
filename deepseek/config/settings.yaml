@@ -56,6 +56,30 @@ llm-pi-ai:
           maxTokens: 24576
         - id: gpt-oss-20b-F16
           contextWindow: 131072
+        # 2026-09-17: added for amiga-ui coding-agent use. Runs split-mode=layer
+        # across both GPUs (NOT tensor -- confirmed via a real failed load that
+        # this stock build's tensor-split doesn't support the deepseek2
+        # architecture GLM-4.7-Flash uses; see models-preset.ini's comment).
+        # contextWindow is the model's own native max (202752), confirmed by a
+        # real load + request with real headroom to spare (~3.2-3.9 GiB free
+        # per card), not assumed.
+        #
+        # No reasoning/thinkingLevelMap block here, deliberately, and for a
+        # different reason than Qwen3.8-27B-UD-Q6_K_M above (which also has
+        # none): direct A/B testing showed this model's reasoning_effort
+        # parameter has NO observable effect at all -- "none"/"low"/"high"
+        # requests produced statistically identical reasoning length
+        # (3681/3715/3715 chars on the same debugging prompt). Q6_K_M omits
+        # this block because its server-side default is correctly honoured;
+        # GLM-4.7-Flash omits it because the parameter appears to be a no-op
+        # regardless of source, so wiring DSH to send it would accomplish
+        # nothing. The real safeguard against runaway reasoning for this model
+        # is the hard `reasoning-budget = 8000` cap in models-preset.ini, not
+        # a reasoning-effort level -- treat that budget as load-bearing here,
+        # not just consistency with other models.
+        - id: GLM-4.7-Flash-Q4_K_M
+          contextWindow: 202752
+          maxTokens: 24576
     # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
     # decode rates in prior testing. Their router presets intentionally use 8K.
     llama-cpp-cpu:

@@ -40,8 +40,8 @@ the model didn't touch it.
 | gpt-oss-120b | 32GB schwerz (grouped-multigpu) | 3.8 GiB | 4.0 GiB | 60/60 GiB (swap-maxed) | some (swap I/O) | 2.20 tok/s⁴ | 2.36-3.01 tok/s⁴ |
 | GLM-4.5-Air | 32GB schwerz (grouped-multigpu) | 10.1 GiB | 10.1 GiB | 60/60 GiB (swap-maxed) | some (swap I/O), 0% GPU compute | 1.68 tok/s⁴ | 1.01-1.39 tok/s⁴ |
 | Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
-| Qwen3.8-27B-UD-Q4_K_M | plain llama-cpp (dense, tensor-split) | 10.6 GiB (98% util) | 10.6 GiB (97% util) | baseline only | idle | 56.78 tok/s | 40.50-40.66 tok/s |
-| Qwen3.8-27B-UD-Q6_K_M | plain llama-cpp (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | n/a⁶ | n/a⁶ |
+| Qwen3.8-27B-UD-Q4_K_M | plain llama-cpp (dense, tensor-split) | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
+| Qwen3.8-27B-UD-Q6_K_M | plain llama-cpp (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s⁶ | 30.16-31.05 tok/s |
 | gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
 | Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
 | Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
@@ -70,16 +70,33 @@ attends over the whole resident context, so a deeper cache costs more per
 generated token); 18.38 tok/s (14.61 cold) is decode after only ~130-260
 tokens, from this session's six-model run. Both are real; neither is "the"
 number without saying which context depth it's at.
-⁶ No controlled tok/s benchmark exists for this specific quant -- the only
-performance data on record for it is the `session_analysis.py`-derived
-real-session step duration, before/after `split-mode=tensor` went live (see
-the "Plain `llama-cpp` service" section below: model-only step median
-24.6s->18.0s, mean 91.5s->45.1s). That figure also confounds
-`reasoning-effort=low` going live in the same window, so it isn't a clean
-tensor-split-only number either. VRAM figures here are real (confirmed
-during the reasoning-effort A/B verification), the performance columns are
-not filled in because no comparable tok/s measurement was taken for Q6_K_M
-specifically -- Q4_K_M above is the one with a real benchmark-style figure.
+⁶ 2026-09-17: added a real small-prompt (119-token) benchmark for Q6_K_M,
+matching the Q4_K_M treatment -- cold prefill 184.80 tok/s, decode
+30.16 tok/s; warm decode 31.05 tok/s. Notably faster prefill than Q4_K_M's
+56.78 tok/s despite being the larger quant -- not yet explained, worth
+comparing against the 43K-token stress test once run (see below) rather
+than assumed to be quant-size-inversely-correlated from one data point.
+Cold run showed a striking asymmetry worth flagging: GPU 1 sat at 0% util
+while GPU 0 ran the 119-token prefill at 98% -- by the warm run both cards
+were at 97-98%. Plausibly the small prompt finished before the snapshot
+caught GPU 1 doing its share, not necessarily a real placement problem, but
+unconfirmed either way. The session-derived step-duration figure previously
+here (model-only step median 24.6s->18.0s, mean 91.5s->45.1s,
+`split-mode=tensor` before/after) is still the only *real-session* data
+point and remains in the "Plain `llama-cpp` service" section below -- it
+also confounds `reasoning-effort=low` going live in the same window, so
+it's a different kind of evidence from the clean benchmark figures here,
+not a contradiction of them.
+⁷ Re-run 2026-09-17 to replace the dated/accidental 2026-09-14 test (see the
+"Plain `llama-cpp` service" section below) with a properly current figure --
+cold prefill 68.13 tok/s, decode 39.11 tok/s, warm decode 40.62 tok/s. Closely
+corroborates the 09-14 numbers (56.78 prefill, 40.50-40.66 decode) rather
+than contradicting them: same VRAM footprint (10555/10640 MiB, 97-98% both
+cards), decode essentially identical, prefill within normal run-to-run
+variance. Nothing material changed for this quant's dense dual-GPU
+performance between the two dates. Table figures above are the 09-17
+re-run; the original 09-14 numbers are kept in the detailed section below
+as corroborating evidence, not superseded/wrong.
 
 ## GPU-resident, single card, no host offload
 
@@ -190,12 +207,28 @@ all-or-nothing.
 | Qwen3.8-27B-UD-Q6_K_M | real-session model-only step, mean | 91.5s | 45.1s |
 
 A direct benchmark-style figure exists for the Q4_K_M variant (not Q6_K_M
-above), taken after tensor-split: cold prefill 56.78 tok/s, decode
-40.50 tok/s; warm decode 40.66 tok/s. Both GPUs at 97-98% util, ~10.6 GiB
-VRAM each -- confirms real dual-GPU compute engagement, not just balanced
-memory placement. Small prompt (20 tokens) -- a genuine prefill-throughput
-figure for this quant would need the same large-prompt treatment the 16GB
-service's Flash Next tuning got.
+above), now measured twice:
+
+| Date | Prefill (cold) | Decode (cold) | Decode (warm) | GPU 1 | GPU 2 |
+|---|---|---|---|---|---|
+| 2026-09-14 | 56.78 tok/s | 40.50 tok/s | 40.66 tok/s | 10.6 GiB, 98% | 10.6 GiB, 97% |
+| 2026-09-17 | 68.13 tok/s | 39.11 tok/s | 40.62 tok/s | 10.6 GiB, 97-98% | 10.6 GiB, 97% |
+
+The 09-14 run was, by the user's own account, an accident -- they intended
+to test Q6_K_M and ran Q4_K_M instead, run directly against the API rather
+than through DSH, and caught only because the `nvidia-smi` banner's
+timestamp didn't match this session's timeline. Rather than discard it, it
+was re-run properly on the 17th to check whether anything had changed in
+between -- it hadn't: both dates agree closely (decode essentially
+identical, prefill within normal run-to-run variance, identical VRAM
+footprint), so the accidental run is kept as corroborating evidence, not
+superseded. Both confirm real dual-GPU compute engagement (97-98% util both
+cards), not just balanced memory placement, and confirm `split-mode=tensor`
+was already active in the deployed config by the 14th -- separate from
+when a DSH session first exercised it (the 16th; those are different
+claims). Small prompt (20 tokens) in both runs -- a genuine
+prefill-throughput figure for this quant would still need the same
+large-prompt treatment the 16GB service's Flash Next tuning got.
 
 Not a benchmark-harness number -- derived from `session_analysis.py` against
 two real completed DSH sessions (before/after the config change), so it's

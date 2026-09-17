@@ -91,14 +91,33 @@
 
 # ── goals ───────────────────────────────────────────────────────────────────
 
-# Only the model-facing tool. The goal SERVICE, its session driver, and the
-# `/goal` command stay on the host plane: the Gateway serves the goal domain as
-# Remote endpoints whose receiver comes from a generated descriptor, so it
-# resolves `goals` on the host and an entry-local realm here would hide it. The
-# registry is keyed by session anyway, so one host instance serves every
-# session. What a preset chooses is whether its agent can call the goal tool.
+# The goal SERVICE and the `/goal` command stay on the host plane: the Gateway
+# serves the goal domain as Remote endpoints whose receiver comes from a
+# generated descriptor, so it resolves `goals` on the host and an entry-local
+# realm here would hide it. The registry is keyed by session anyway, so one
+# host instance serves every session. What a preset chooses is whether its
+# agent can call the goal tool.
 - id: tool-goal
   name: '@deepseek-ai/dsh-tool-goal'
+
+# 2026-09-17: added after confirming, empirically, that goals were NOT being
+# driven to continuation on their own. A prior menu-strip session called
+# create_goal, then went idle after a routine compaction produced only a
+# one-line acknowledgement (no tool call) -- the turn ended and nothing
+# resumed it; the human had to type "Please continue the work." manually.
+# The old comment here (removed) claimed the round driver "stays on the host
+# plane" alongside the goal service, but nothing in this deployment's config
+# tree ever composed @deepseek-ai/dsh-goal-round-driver anywhere -- checked
+# the shipped default preset, this override, and every host profile
+# cordis.yml/cordis.patch.yml, all before this line was added. Whatever that
+# comment meant, the observed behaviour was "does not auto-continue," so
+# composing it explicitly here rather than trusting the claim. Per its own
+# README: "At whole-agent idle, durable goal phase and revision are
+# authoritative. An active, armed goal with capacity reserves its next
+# round" -- this is the actual mechanism that should have caught the
+# menu-strip stall and didn't, because it was never loaded.
+- id: goal-round-driver
+  name: '@deepseek-ai/dsh-goal-round-driver'
 
 # ── plan mode ───────────────────────────────────────────────────────────────
 
@@ -155,6 +174,27 @@
           # retaining an absolute 16K recent working set.
           - provider: llama-cpp
             model: Qwen3.8-27B-UD-Q6_K_M
+            thresholdRatio: 0.75
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
+          # 2026-09-17: GLM-4.7-Flash, added for amiga-ui coding-agent use.
+          # Same values as Q6_K_M above, deliberately -- its 202,752-token
+          # window is larger, but reasoning_effort has no observable effect on
+          # this model (confirmed by direct A/B test: "none"/"low"/"high" all
+          # produced statistically identical reasoning length) so there's no
+          # "low reasoning" mode to lean on for keeping turns compact the way
+          # there is for the Qwen models. Treating it at least as
+          # conservatively as Q6_K_M, rather than scaling thresholdRatio up
+          # proportionally to the larger window, is the cautious choice until
+          # real compaction behaviour is observed for this model specifically.
+          # Without this entry it would silently fall back to the plugin's
+          # own defaults (maxTokens 8192, retainRatio 0.16, compactionRetries
+          # 1) -- see the llama-cpp-csantiago78 comment below for what that
+          # gap looks like in practice.
+          - provider: llama-cpp
+            model: GLM-4.7-Flash-Q4_K_M
             thresholdRatio: 0.75
             retainTokens: 16384
             maxTokens: 12288
