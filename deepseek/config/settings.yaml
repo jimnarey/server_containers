@@ -116,7 +116,11 @@ llm-pi-ai:
           maxTokens: 4096
     # The one-GPU MoE-cache router has a deliberately explicit catalogue.
     # Its friendly IDs are defined by generel-schwerz-llama-cpp, not directory
-    # names under /models.
+    # names under /models. 2026-09-17: this service is a last resort for
+    # MoE models too large for a plain 32 GiB dual-GPU split -- its preset
+    # was trimmed to just those models (see models-preset-16gb.ini), so this
+    # list is trimmed to match. GLM-4.5-Air/gpt-oss-120b/Llama-4-Scout were
+    # already declared on the router but had never been added here.
     llama-cpp-moe-16gb:
       apiKeyEnv: LLAMA_CPP_MOE_16GB_API_KEY
       api: openai-completions
@@ -154,68 +158,38 @@ llm-pi-ai:
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
           contextWindow: 65536
           maxTokens: 16384
-        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+        - id: GLM-4.5-Air-UD-Q4_K_XL
           contextWindow: 65536
-        - id: Qwen3.5-35B-A3B-Q4_K_M
+        - id: gpt-oss-120b-Q4_K_M
           contextWindow: 65536
-        - id: Qwen3.5-35B-A3B-UD-Q6_K_XL
+        - id: Llama-4-Scout-17B-16E-Instruct-Q4_K_M
           contextWindow: 65536
-        - id: Qwen3.6-35B-A3B-Q4_K_M
-          contextWindow: 65536
-        - id: GLM-4.7-Flash-Q4_K_M
-          contextWindow: 65536
-        - id: Laguna-XS-2.1-Q4_K_M
-          contextWindow: 65536
-        - id: Ornith-1.5-35B-Q4_K_M
-          contextWindow: 65536
-        - id: granite-4.0-h-small-Q4_K_M
-          contextWindow: 65536
-    # The two-GPU service exposes the same explicit MoE catalogue. It stays
-    # separate so choosing it is an intentional decision to occupy both cards.
+    # The two-GPU service exposes the same explicit MoE catalogue, minus
+    # Flash Next -- that service's own preset deliberately excludes it (its
+    # PLE table needs mmap, which the codex/moe-grouped-multigpu pin here
+    # does not support; see models-preset-32gb.ini). It stays separate from
+    # the 16GB service so choosing it is an intentional decision to occupy
+    # both cards. 2026-09-17: trimmed to match models-preset-32gb.ini for the
+    # same reason as llama-cpp-moe-16gb above; the dangling Flash Next entry
+    # that was listed here despite never being declared on this router (a
+    # pre-existing gap, unrelated to today's trim) is also removed.
     llama-cpp-moe-32gb:
       apiKeyEnv: LLAMA_CPP_MOE_32GB_API_KEY
       api: openai-completions
       baseURL: http://llama-cpp-generel-schwerz-32gb:8080/v1
-      # See the matching comment under llama-cpp-moe-16gb: the default
-      # streamIdleTimeoutMs (300000ms) is too short for Flash Next's compaction
-      # calls on this shared architecture.
       streamIdleTimeoutMs: 1800000
       models:
-        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
-          contextWindow: 98304
-          maxTokens: 12288
-          # See the matching comment under llama-cpp-moe-16gb: this model
-          # defaults to reasoning_effort "xhigh" unless a request sets it,
-          # which was observed to exhaust the output budget on reasoning
-          # alone. `off` is pi-ai's no-preference fallback, so this makes
-          # "low" the effective default; `minimal`/`max` are clamped to
-          # values the model's chat template actually accepts.
-          reasoning: true
-          thinkingLevelMap:
-            off: low
-            minimal: low
-            max: xhigh
         - id: Qwen3-Coder-Next-Q4_K_M
           contextWindow: 65536
           maxTokens: 16384
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
           contextWindow: 65536
           maxTokens: 16384
-        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+        - id: GLM-4.5-Air-UD-Q4_K_XL
           contextWindow: 65536
-        - id: Qwen3.5-35B-A3B-Q4_K_M
+        - id: gpt-oss-120b-Q4_K_M
           contextWindow: 65536
-        - id: Qwen3.5-35B-A3B-UD-Q6_K_XL
-          contextWindow: 65536
-        - id: Qwen3.6-35B-A3B-Q4_K_M
-          contextWindow: 65536
-        - id: GLM-4.7-Flash-Q4_K_M
-          contextWindow: 65536
-        - id: Laguna-XS-2.1-Q4_K_M
-          contextWindow: 65536
-        - id: Ornith-1.5-35B-Q4_K_M
-          contextWindow: 65536
-        - id: granite-4.0-h-small-Q4_K_M
+        - id: Llama-4-Scout-17B-16E-Instruct-Q4_K_M
           contextWindow: 65536
     # Independent csantiago78/llama.cpp MoE expert cache: an alternative to
     # llama-cpp-moe-32gb for the same two GPUs, using a different fork's
