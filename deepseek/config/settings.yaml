@@ -43,8 +43,14 @@ llm-pi-ai:
           contextWindow: 8192
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
           contextWindow: 8192
+        # 2026-09-17: contextWindow corrected from 65536 (stale, predates the
+        # model even being tested) to 262144, the real dual-GPU ctx-size
+        # confirmed by a real load + request (GPU0 10495/16311 MiB, GPU1
+        # 13538/16311 MiB -- see performance-findings.md). The stale 65536
+        # value would have made DSH compact at roughly a quarter of the
+        # window this model actually has.
         - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
-          contextWindow: 65536
+          contextWindow: 262144
         - id: DeepSeek-R1-Distill-Llama-70B-Q4_K_M
           contextWindow: 65536
         - id: Qwen3.8-27B-UD-Q4_K_M
@@ -55,6 +61,13 @@ llm-pi-ai:
           contextWindow: 163840
           maxTokens: 24576
         - id: gpt-oss-20b-F16
+          contextWindow: 131072
+        # 2026-09-17: single-GPU-pinned sibling of the entry above (pinned to
+        # GPU 1, split-mode=none), for running alongside the 16GB schwerz
+        # service occupying GPU 0 -- same use case as GLM-4.7-Flash below.
+        # contextWindow is the tested value (see models-preset-gpu.ini and
+        # performance-findings.md: GPU0 idle, GPU1 14444/16311 MiB).
+        - id: gpt-oss-20b-F16-1gpu
           contextWindow: 131072
         # 2026-09-17: added for amiga-ui coding-agent use. Runs split-mode=layer
         # across both GPUs (NOT tensor -- confirmed via a real failed load that
@@ -86,6 +99,14 @@ llm-pi-ai:
       apiKeyEnv: LLAMA_CPP_CPU_API_KEY
       api: openai-completions
       baseURL: http://llama-cpp-cpu:8080/v1
+      # 2026-09-17: same fix already applied to llama-cpp/llama-cpp-moe-*/
+      # csantiago78 for consistency -- this provider is CPU-only (~6.1x
+      # slower decode than GPU-resident, measured on gpt-oss-20b, plus a real
+      # cold-load first-touch mmap penalty on larger models; see
+      # performance-findings.md), so the default 300000ms is, if anything,
+      # more likely to be too short here than on the GPU providers where the
+      # original gap was found.
+      streamIdleTimeoutMs: 1800000
       models:
         - id: Qwen3-Coder-Next-Q4_K_M
           contextWindow: 65536

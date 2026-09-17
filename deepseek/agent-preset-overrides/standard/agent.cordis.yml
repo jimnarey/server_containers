@@ -200,6 +200,25 @@
             maxTokens: 12288
             compactionRetries: 2
             maxOverflowRetries: 2
+          # 2026-09-17: Nemotron 3.5 Lightning, dual-GPU, added following the
+          # same review-panel/coding-agent broker work as GLM-4.7-Flash above.
+          # Its 262,144-token window is the largest of any llama-cpp route
+          # here, but the same reasoning applies as GLM's comment: no real
+          # compaction behaviour has been observed for this model yet, so
+          # treating it at least as conservatively as Q6_K_M/GLM -- not
+          # scaling thresholdRatio up proportionally to the bigger window --
+          # is the cautious default until it is. Without this entry it would
+          # silently fall back to the plugin's own defaults (maxTokens 8192,
+          # retainRatio 0.16, compactionRetries 1), which on a window this
+          # size is an even larger undertested gap than the ones this same
+          # section already fixed for Flash Next and llama-cpp-csantiago78.
+          - provider: llama-cpp
+            model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
+            thresholdRatio: 0.75
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
           # Flash Next has a smaller tested 98,304-token route, so begin at
           # 80% rather than applying the Qwen threshold proportionally. The
           # unchanged 16K tail leaves room for an agent turn and summary.
