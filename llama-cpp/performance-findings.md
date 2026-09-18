@@ -1393,184 +1393,115 @@ benchmark figures for the dual-GPU config are also not yet captured (see
 the main table's footnote ¹²) -- this pass only confirmed load + a real
 response, not throughput.
 
-## Higher quants downloaded and curated (2026-09-18)
+## Higher quants downloaded, curated, and real-load-tested (2026-09-18)
 
-Eight real downloads this session, reviewed against the running host
-budget and added to `llama-cpp-32gb` (all eight) and `llama-cpp-16gb`
-(the three that fit solo on one card): `Devstral-Small-2-24B-Instruct-
-2512-Q5_K_M`/`-Q6_K`, `Devstral-Small-2505-Q5_K_M`/`-Q6_K` (32GB only --
-both exceed one 16,311 MiB card), `qwen2.5-coder-7b-instruct-q8_0`,
-`qwen2.5-coder-14b-instruct-q5_k_m`/`-q6_k` (both services -- all three
-fit solo), and `Qwen3.6-27B-Q6_K` (32GB only, new model -- the dense
-sibling of the existing `Qwen3.6-35B-A3B` MoE entry, exceeds one card).
-All eleven new entries are real-load-*untested* -- ctx-size/fit
-projections are documented per-entry in each preset's own comments, none
-verified yet. `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` was reviewed too
-but excluded from this batch: it predates today's downloads (already on
-disk, already curated on both services in an earlier pass this session).
+Eight real downloads this session, added to `llama-cpp-32gb` (all eight)
+and `llama-cpp-16gb` (the three that fit solo on one card), then
+real-load-tested via `run-remaining-tests.sh` the same day -- **all
+eleven new entries loaded and answered correctly**, no failures, no
+ctx-size surprises. Real figures now in the summary table above and
+footnotes ¹⁴-¹⁷. `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` predates today's
+downloads (already on disk, already curated in an earlier pass) but was
+tested in the same run -- see the real single-GPU failure documented in
+footnote ¹⁹, a genuinely surprising result.
 
-## Test plan: remaining gaps, by service (2026-09-18)
+## Test plan results (2026-09-18): 26 tests run via `run-remaining-tests.sh`
 
-Every gap below is a real, identified hole in coverage, not a hypothetical
--- cross-checked against every curated preset's actual contents and the
-summary table above. Ordered within each service roughly by priority.
-32GB-schwerz-specific tests are intentionally excluded from this pass at
-the user's request (not deprioritized in general -- just out of scope for
-this particular pass).
+23 succeeded, 3 failed (all three cleanly -- no RAM/swap pressure, no
+VRAM OOM, just an immediate "failed to load"). Real per-item outcomes:
 
-### `llama-cpp-gpu-0` / `llama-cpp-gpu-1` (16GB service)
+### `llama-cpp-gpu-0` / `llama-cpp-gpu-1` (16GB service) -- 10/10 attempted, 9 succeeded
 
-1. **The four new `n-cpu-moe` expert-offload entries** --
-   `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload` (17.60 GiB,
-   52 layers, 128 experts/6 active, `n-cpu-moe=19`),
-   `Laguna-XS-2.1-Q4_K_M-Expert-Offload` (18.88 GiB, 40 layers, 256/8,
-   `n-cpu-moe=16`), `North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload` (17.88
-   GiB, 49 layers, 128/8, `n-cpu-moe=18`), `granite-4.0-h-small-Q4_K_M-
-   Expert-Offload` (18.14 GiB, 40 layers, 72/10, `n-cpu-moe=15`). Real GGUF
-   metadata, computed `n-cpu-moe` values, **zero real-load tests** -- the
-   ~11.5 GiB GPU-resident target these were computed from was itself only
-   reached after a first guess (~13.25 GiB) failed a real CUDA OOM for the
-   *existing* four-model cluster, so these four carry the same real risk of
-   needing a second pass.
-2. **`gpt-oss-20b-F16` on the *current* single-GPU architecture** -- the
-   only single-card number on record for this model is from the pre-
-   refactor "standalone, 1 GPU pinned" deployment shape, not
-   `llama-cpp-gpu-0`/`gpu-1` as they exist now. Cheap to fill (model
-   already proven working elsewhere); mainly useful for a clean
-   apples-to-apples row.
-3. **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`** -- added 2026-09-18, real
-   MoE (`deepseek2`, 27 layers, 64 experts/6 active), 9.65 GiB, fits fully
-   GPU-resident with real headroom, no offload needed. `ctx-size=65536`,
-   never real-load-tested. Half of the layer-split MoE-bandwidth test --
-   see "Outstanding questions about MoE performance" below.
+- ~~The four new `n-cpu-moe` expert-offload entries~~ -- **all four
+  succeeded on the first attempt**, computed `n-cpu-moe` values (19/16/18/
+  15) all correct without a second pass. See footnote ²⁰.
+- ~~`gpt-oss-20b-F16` on the current single-GPU architecture~~ -- **done**,
+  94.34-94.39 tok/s, see footnote ¹⁴.
+- **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` -- FAILED**, real and
+  reproducible (see footnote ¹⁹). Root cause not yet confirmed -- needs a
+  live reproduction with container logs once the `parameterise-llama`
+  compose refactor's new invocation is settled.
+- ~~`qwen2.5-coder-7b-instruct-q8_0`, `qwen2.5-coder-14b-instruct-q5_k_m`/
+  `-q6_k`~~ -- **all three succeeded**, see footnote ¹⁶.
+- ~~`Qwen3.6-35B-A3B-Q4_K_M` anomaly repeat~~ -- **resolved**, confirmed a
+  one-off slow load, see footnote ¹³.
 
-### `llama-cpp-all-gpus` (32GB service)
+### `llama-cpp-all-gpus` (32GB service) -- 16/16 attempted, 14 succeeded
 
-4. **`Llama-3.3-70B-Instruct-Q3_K_M`** and **`Qwen2.5-72B-Instruct-Q3_K_S`**
-   -- curated, `n-gpu-layers=auto` partial CPU offload, never once
-   real-load-tested on this service, in this document's entire history.
-   (`DeepSeek-R1-Distill-Llama-70B-Q4_K_M`, the third model in this same
-   dense-70B-class group, was removed and its weight file deleted
-   2026-09-18 at the user's request -- redundant with these two, never
-   tested either, and with no real use case in this collection once that
-   was pointed out. These two remaining entries carry the same open risk
-   it did; treat them with the same live `free -h`/`swapon --show`
-   monitoring discipline established by the CPU-service near-miss.)
-5. **Devstral, real cold/warm benchmark** -- both quants are
-   load-confirmed working (`split-mode=tensor`, `ctx-size=131072`,
-   12.8-12.9 GiB/card) but only from a short smoke test. No real
-   decode/prefill throughput number exists yet.
-6. **`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`, clean benchmark** --
-   real data already exists (42.2-101.2 tok/s decode across three genuine
-   DSH agentic sessions, using its MTP speculative-decode sidecar), but
-   it's session-derived, not the standardized 256-token five-topic
-   benchmark this table otherwise uses, and was never added as a summary
-   table row. Either add the existing session data as a labeled row, or
-   run the standard benchmark for a directly comparable number.
-7. **`GLM-4.7-Flash-Q4_K_M`, same gap** -- real load + request confirmed
-   with real headroom (~3.2-3.9 GiB free/card), never in the summary
-   table, no cold/warm decode figure on record.
-8. **`gpt-oss-120b` / `GLM-4.5-Air` / `Llama-4-Scout-17B-16E` -- never
-   tried on this service at all.** Only ever tested on the schwerz forks
-   (gpt-oss-120b: real success on 16GB-schwerz, real swap-thrashing
-   failure on 32GB-schwerz; GLM-4.5-Air and Llama-4-Scout: real CUDA OOM
-   on 16GB-schwerz, GLM-4.5-Air also failed on 32GB-schwerz). Given the
-   mmap/lazy-mode correction above -- this is stock behavior here too,
-   not schwerz-exclusive -- there's real reason to try gpt-oss-120b here
-   via `--n-cpu-moe` (real GGUF metadata already in hand: 36 layers, 128
-   experts/4 active, 58.44 GiB). GLM-4.5-Air and Llama-4-Scout are
-   higher-risk: both failed on schwerz for reasons that looked
-   architectural (wide attention leaving too little VRAM margin for
-   compute buffers), which may not be specific to schwerz's `moe-cache`
-   -- worth trying, but expect a real chance of the same failure mode.
-   Llama-4-Scout is a real outlier worth separate note: only **1** active
-   expert per token (16 experts total) -- confirmed via GGUF metadata --
-   the sparsest architecture in this entire collection, so per-token
-   compute should be cheap even fully offloaded, a genuinely different
-   risk profile from its raw size alone.
-9. **`Qwen3.8-Flash-Next-UD-Q3_K_XL` on the plain 32GB service** -- never
-   tried here at all. Its exclusion from the *schwerz* 32GB catalogue was
-   reasoned specifically around that branch's `load-mode=none`
-   requirement; the plain `llama-cpp-all-gpus` service defaults to
-   mmap-enabled (see the correction above), so the reasoning that
-   excluded it there doesn't automatically apply here. Real open question,
-   not previously considered.
-10. **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`** -- added 2026-09-18, real
-    MoE, `deepseek2` architecture (does not support `split-mode=tensor` on
-    this build, same restriction as GLM-4.7-Flash -- `split-mode=layer`
-    set explicitly), `ctx-size=65536` (deliberately matched to the
-    `llama-cpp-16gb` entry, not this model's 163840 native max, so the
-    two are a clean comparison, not confounded by different contexts).
-    Never real-load-tested. The other half of the layer-split MoE-
-    bandwidth test -- see below.
+- **`Llama-3.3-70B-Instruct-Q3_K_M` and `Qwen2.5-72B-Instruct-Q3_K_S` --
+  BOTH FAILED**, real and reproducible (see footnote ²³). Clean failures,
+  not a RAM near-miss like the CPU-service DeepSeek-70B incident -- looks
+  like an `n-gpu-layers=auto`/`--fit` auto-sizing problem specific to
+  these two, not proof the models can't run here. Root cause not yet
+  confirmed -- same live-reproduction blocker as the DeepSeek-Coder-V2-Lite
+  failure above.
+- ~~Devstral, real cold/warm benchmark~~ -- **done for all six entries**
+  (both quants x three quant levels), see footnote ¹⁷.
+- ~~`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`, clean benchmark~~ --
+  **done**, 166.62-167.64 tok/s, see footnote ²¹.
+- ~~`GLM-4.7-Flash-Q4_K_M`, same gap~~ -- **done**, 103.98-104.16 tok/s,
+  see footnote ²².
+- ~~`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`~~ -- **succeeded** here
+  (unlike its single-GPU failure above), 51.20-52.35 tok/s, see footnote
+  ¹⁹.
+- ~~`Qwen3.8-27B-UD-Q6_K_M` anomaly repeat~~ -- **resolved**, confirmed a
+  small-prompt timing artifact, both cards at 98% this time.
+- ~~`qwen2.5-coder-7b-instruct-q8_0`/`14b-q5_k_m`/`14b-q6_k` dual-GPU~~ --
+  **all three succeeded**, real ~1.65-1.71x speedup over single-GPU, see
+  footnote ¹⁶.
+- ~~`Qwen3.6-27B-Q6_K`~~ -- **succeeded**, ctx-size projection landed
+  within ~50 MiB of the real measurement, see footnote ¹⁵.
+- **`gpt-oss-120b` / `GLM-4.5-Air` / `Llama-4-Scout-17B-16E`** -- still not
+  curated on this service, excluded from this test run for that reason
+  (testing via raw discovery wouldn't exercise `--n-cpu-moe` at all). Real
+  GGUF metadata already in hand (`gpt-oss-120b`: 36 layers/128 experts/4
+  active/58.44 GiB; `GLM-4.5-Air`: 47 layers/128/8/63.07 GiB;
+  `Llama-4-Scout`: 48 layers/16/**1**/60.87 GiB) -- adding curated
+  `n-cpu-moe` entries is the real remaining prerequisite, not a test gap.
+- **`Qwen3.8-Flash-Next-UD-Q3_K_XL` on the plain 32GB service** -- same
+  situation, not curated, not tested this round.
 
-### `llama-cpp-cpu`
+### `llama-cpp-cpu` -- 2/2 attempted, both succeeded (but dramatically slow)
 
-11. **Devstral, both quants** -- curated (`ctx-size=65536`), zero load
-    tests on this service. Dense, not MoE, so this is plain CPU inference
-    -- expect something in the same ballpark as `gpt-oss-20b-F16`'s
-    CPU-only figure (10.42-10.43 tok/s) adjusted for Devstral's larger
-    size, but that's a prediction, not a measurement.
+- ~~Devstral, both quants~~ -- **done**, real result far worse than
+  predicted: 2.69-2.76 tok/s decode, not the "10.42-10.43 tok/s adjusted
+  for size" this document predicted before testing. See footnote ¹⁸ for
+  the real architectural reason (dense vs. MoE sparsity) and the practical
+  conclusion: **CPU is not viable for these models in agentic use**,
+  despite technically working.
 
-### `llama-cpp-generel-schwerz-32gb`
+### `llama-cpp-generel-schwerz-32gb` -- out of scope this pass
 
-12. **The grouped-multigpu cache's real decode benefit** -- still no clean
-    number; every run so far was memory-bound, not compute-bound (see
-    "32GB schwerz service ... failed batch" above). `Ornith-1.5-35B-A3B`
-    is the priority retest if this service is revisited at all: the one
-    model with a real external reference point (the fork's own validation
-    reported 39.6 tok/s equal-split on different hardware -- not directly
-    comparable, but a real number to check against). `--experimental-logs
-    --verbosity 4` should be enabled first so the fork's own
-    `moe-grouped-owner`/`moe-grouped-plan` telemetry can confirm genuine
-    cross-GPU dispatch, rather than inferring it from `nvidia-smi`
-    snapshots the way Coder-Next's unexplained 59%-vs-12% asymmetry was
-    noticed but never explained.
+- **The grouped-multigpu cache's real decode benefit** -- still no clean
+  number; still the same real path to resolution (`--experimental-logs
+  --verbosity 4`, `Ornith-1.5-35B-A3B` as the priority retest) whenever
+  this service is revisited. Intentionally excluded from today's run at
+  the user's request, not resolved.
 
-### Outstanding questions about MoE performance
+### Outstanding questions about MoE performance -- one resolved, two open, one reframed
 
-Three real, distinct open questions -- not one. Worth separating clearly
-because they have different answers, and one of them turns out to already
-be *partly* answered by data already in this document, not actually open.
-
-13. **Does dual-GPU placement help a *fully GPU-resident* MoE model the
-    way it helps dense models? -- Partly answered already, correcting an
-    earlier overstatement in this document.** `gpt-oss-20b-F16` is real
-    MoE (confirmed via GGUF metadata: 32 experts/4 active), and its
-    existing single-GPU (63.76 tok/s) vs. forced dual-GPU tensor-split
-    (141.38-142.33 tok/s) numbers already show a huge real gain -- almost
-    identical in kind to the dense-model bandwidth-doubling effect. An
-    earlier answer in this conversation called this "genuinely untested"
-    for MoE models; that was wrong, and is corrected here. What's still
-    genuinely open is *layer-split* specifically (not every MoE
-    architecture supports `split-mode=tensor` -- `deepseek2` doesn't),
-    since layer-split's pipelined nature might not give the same
-    two-buses-in-parallel bandwidth benefit tensor-split does. The
-    `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` pair above (single-GPU on
-    `llama-cpp-16gb` vs. dual-GPU layer-split on `llama-cpp-all-gpus`,
-    contexts deliberately matched) is designed specifically to answer
-    this, cleanly, with a small model that has real headroom on both
-    sides.
+13. ~~Does dual-GPU placement help a *fully GPU-resident* MoE model the way
+    it helps dense models?~~ -- **Resolved earlier this session**:
+    `gpt-oss-20b-F16` real single-vs-dual numbers (63.76 -> 141+ tok/s)
+    already answered this for tensor-split. Today's `DeepSeek-Coder-V2-
+    Lite-Instruct-Q4_K_M` test was meant to answer the *layer-split*
+    version of this same question -- but the real result reframes the
+    question entirely: layer-split single-GPU didn't just underperform,
+    it **failed to load at all** (footnote ¹⁹). So the real finding isn't
+    a bandwidth comparison, it's that this specific model/config combination
+    has a hard single-GPU placement problem, cause not yet confirmed.
 14. **Does dual-GPU placement help an `n-cpu-moe`-*offloaded* model? --
-    Genuinely untested, no data either way.** All eight `n-cpu-moe`
-    entries on `llama-cpp-16gb` have only ever been tried single-GPU. The
-    bottleneck for an offloaded model is host RAM/PCIe bandwidth for the
-    expert reads, not GPU VRAM bandwidth for the resident portion -- so
-    the dense/gpt-oss-20b-F16 bandwidth-doubling reasoning may not
-    transfer at all here. Real test: take one already-characterized
-    `n-cpu-moe` model (`Ornith-1.5-35B-Q4_K_M` is the best-documented of
-    the four, with a real external reference point already) and run the
-    same offload pattern forced across both GPUs on `llama-cpp-all-gpus`,
-    compare directly against its existing single-GPU figures
-    (65.11-66.52 tok/s decode).
+    Still genuinely untested.** Not part of today's run (needs a new
+    `llama-cpp-32gb` entry for `Ornith-1.5-35B-Q4_K_M` with `n-cpu-moe`
+    forced across both GPUs, which doesn't exist yet). Real comparison
+    point ready and waiting once that entry exists: 65.11-66.52 tok/s
+    single-GPU.
 15. **Does schwerz's `moe-cache` actually outperform plain `--n-cpu-moe`
-    for the same large (>32 GiB) model? -- Genuinely untested, no head-
-    to-head data exists.** `gpt-oss-120b` is the best candidate for this:
-    real 16GB-schwerz numbers already exist (8.11-8.80 tok/s decode, 4.0
-    GiB resident + 54 GiB reclaimable mmap cache). Once item 8 above
-    (plain `--n-cpu-moe` on `llama-cpp-all-gpus` or `llama-cpp-16gb`) has
-    a real number, this is a direct, clean comparison -- same model, same
-    host, two different offload mechanisms.
+    for the same large (>32 GiB) model? -- Still genuinely untested.**
+    Blocked on the same prerequisite as the `gpt-oss-120b` test above --
+    needs a curated `n-cpu-moe` entry on a plain service before the real
+    comparison against its existing 16GB-schwerz figures
+    (8.11-8.80 tok/s) can happen.
 
 ### Quant-ladder check: are the underutilized dual-GPU entries missing a
 ### better download, or is the current quant already the right choice?
@@ -1610,22 +1541,17 @@ not assumed:
   (meaningfully lower context for meaningfully higher quality) rather
   than picking one for you.
 
-### Anomalies worth a repeat run, not a new test
+### Anomalies
 
-16. **`Qwen3.6-35B-A3B-Q4_K_M`'s cold-run slowdown** -- cold prefill 12.69
-    tok/s and cold decode 41.60 tok/s vs. warm 67.24 tok/s, both far
-    outside the range every other `n-cpu-moe` model in this cluster
-    showed. Real figures, not yet explained (see footnote ¹³ on the
-    summary table) -- a second cold run would confirm whether this is a
-    real property of the model or a one-off slow load.
-17. **`Qwen3.8-27B-UD-Q6_K_M`'s asymmetric cold-run GPU utilization** (GPU
-    1 at 0% while GPU 0 ran the small prefill at 98%, resolved by the warm
-    run) and **`Qwen3-Coder-Next`'s 59% vs. 12% asymmetry on 32GB-schwerz**
-    -- both plausibly the same class of artifact (small-prompt timing vs.
-    the utilization snapshot), neither confirmed. The schwerz one has a
-    real path to resolution (`--experimental-logs`, above); the Q6_K_M one
-    doesn't have an obvious equivalent and may just need a few repeat runs
-    to see if it recurs.
+- ~~`Qwen3.6-35B-A3B-Q4_K_M`'s cold-run slowdown~~ -- **resolved
+  2026-09-18**, repeat run confirmed a one-off slow load, see footnote
+  ¹³.
+- ~~`Qwen3.8-27B-UD-Q6_K_M`'s asymmetric cold-run GPU utilization~~ --
+  **resolved 2026-09-18**, repeat run showed both cards at 98%, confirmed
+  a small-prompt timing artifact.
+- **`Qwen3-Coder-Next`'s 59% vs. 12% asymmetry on 32GB-schwerz** -- still
+  open, out of scope this pass (32GB-schwerz excluded). Real path to
+  resolution unchanged: `--experimental-logs --verbosity 4`, above.
 
 ~~CPU-only decode rates~~ -- resolved 2026-09-17, see the "CPU-only"
 section above.
