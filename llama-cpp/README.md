@@ -8,12 +8,12 @@ shared Docker build context, source repository, pin, CUDA setting, image tag,
 and default runtime configuration for profile overlays.
 
 `render-compose.py` reads exactly one profile env file and emits a deterministic
-Compose overlay. When `SERVICE_NAME` differs from `SOURCE_SERVICE`, its service
-extends the selected base service; otherwise it overlays that service directly.
-The source service is referenced through the script's fixed absolute
-`AI_COMPOSE_FILE` constant, because generated overlays are materialised below
-`/tmp`. Runtime collections use Compose's `!override` tag, ensuring every
-value from the profile replaces rather than combines with the base service.
+Compose file containing one fully materialised service. It loads the selected
+source service from the script's fixed absolute `AI_COMPOSE_FILE` constant,
+makes a copy, and replaces all profile-owned runtime settings on that copy.
+The output contains neither `extends` nor Compose `!override` tags, so a
+generated service with a distinct `SERVICE_NAME` does not inherit from or merge
+with its source template.
 
 ## Launching a profile
 
@@ -48,10 +48,12 @@ For less common overrides, set `LLAMA_RENDER_<KEY>` for any key in the profile
 interpolation from the repository-wide `.env` file. `LLAMA_GPU_IDS` takes
 precedence over `LLAMA_RENDER_GPU_IDS`. A CPU profile must keep `GPU_IDS` empty.
 
-The rendered GPU service uses `gpus.device_ids` to expose only the selected
-physical devices and mounts the shared lock volume. The entrypoint takes a
-non-blocking lifetime lock for each selected physical ID. A collision exits
-with status 75 and remains visible because GPU profiles use `restart: "no"`.
+Upstream GPU profiles use `gpus.device_ids` to expose only the selected
+physical devices. The Schwerz and csantiago profiles retain their established
+`gpus: all` plus profile-specific `CUDA_VISIBLE_DEVICES` behaviour. Every GPU
+profile mounts the shared lock volume; the entrypoint takes a non-blocking
+lifetime lock for each selected physical ID. A collision exits with status 75
+and remains visible because GPU profiles use `restart: "no"`.
 
 ## Profiles
 
@@ -62,14 +64,23 @@ with status 75 and remains visible because GPU profiles use `restart: "no"`.
 | `config/llama-cpp-32gb/all-gpus.env` | `llama-cpp-all-gpus` | upstream CUDA, GPUs 0 and 1 |
 | `config/llama-cpp-cpu/cpu.env` | `llama-cpp-cpu` | upstream CPU |
 | `config/llama-cpp-generel-schwerz-16gb/gpu-0.env` | `llama-cpp-generel-schwerz-16gb-gpu-0` | Schwerz `e69a1d0` GPU 0 |
-| `config/llama-cpp-generel-schwerz-16gb/gpu-1.env` | `llama-cpp-generel-schwerz-16gb` | Schwerz `e69a1d0` GPU 1 |
-| `config/llama-cpp-generel-schwerz-32gb/all-gpus.env` | `llama-cpp-generel-schwerz-32gb` | Schwerz `0ed73d1`, GPUs 0 and 1 |
-| `config/llama-cpp-csantiago78/all-gpus.env` | `llama-cpp-csantiago78` | csantiago78 `bccbacd`, GPUs 0 and 1 |
+| `config/llama-cpp-generel-schwerz-16gb/gpu-1.env` | `llama-cpp-generel-schwerz-16gb-gpu-1` | Schwerz `e69a1d0` GPU 1 |
+| `config/llama-cpp-generel-schwerz-32gb/all-gpus.env` | `llama-cpp-generel-schwerz-32gb-all-gpus` | Schwerz `0ed73d1`, GPUs 0 and 1 |
+| `config/llama-cpp-csantiago78/all-gpus.env` | `llama-cpp-csantiago78-all-gpus` | csantiago78 `bccbacd`, GPUs 0 and 1 |
+
+`SERVICE_NAME` must differ from `SOURCE_SERVICE`: the source is already a
+service in `compose.ai.yml`, while the generated document adds a second
+service. The fork profiles retain their previous source service names as
+`NETWORK_ALIAS` values, so existing DeepSeek and Pi provider URLs continue to
+work. Their source templates remain directly runnable with their former `.env`
+defaults.
 
 Every profile explicitly supplies its service name, source service, port,
 bind address, GPU IDs, restart policy, and runtime model/config mounts. The
-source service supplies the reproducible build arguments and image. The
-Dockerfile still verifies the pinned immutable commit directly. The CPU profile
+source service supplies the reproducible build arguments and image, which are
+copied into the generated service before profile values replace their matching
+runtime settings. The Dockerfile still verifies the pinned immutable commit
+directly. The CPU profile
 uses `llama-cpp` while overriding CUDA and image, retaining its
 original `unless-stopped` restart policy rather than needing a handwritten
 Compose service.

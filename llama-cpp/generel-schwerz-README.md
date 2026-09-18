@@ -1,13 +1,13 @@
 # GenerelSchwerz llama.cpp MoE-cache profiles
 
-`llama-cpp-generel-schwerz-16gb` and
+`llama-cpp-generel-schwerz-16gb-gpu-1` and
 `llama-cpp-generel-schwerz-16gb-gpu-0` are identical one-GPU profiles pinned
-to physical GPUs 1 and 0 respectively. `llama-cpp-generel-schwerz-32gb` is
+to physical GPUs 1 and 0 respectively. `llama-cpp-generel-schwerz-32gb-all-gpus` is
 the two-GPU profile. They are separate from the ordinary `llama-cpp` service
 and use the experimental CUDA MoE expert cache in
 [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
-The 16GB Compose service provides this pin to the shared `llama-cpp/Dockerfile`:
+The 16GB profile provides this pin to the shared `llama-cpp/Dockerfile`:
 
 ```text
 branch: qwen4exp-mtp
@@ -234,9 +234,9 @@ Use these host-side commands while loading and running a first request:
 ```sh
 watch -n 1 nvidia-smi
 watch -n 1 free -h
-docker stats llama-cpp-generel-schwerz-16gb-c
+docker stats llama-cpp-generel-schwerz-16gb-gpu-1-c
 # or: docker stats llama-cpp-generel-schwerz-16gb-gpu-0-c
-# or: docker stats llama-cpp-generel-schwerz-32gb-c
+# or: docker stats llama-cpp-generel-schwerz-32gb-all-gpus-c
 ```
 
 Start with a short request, then a representative coding prompt at 64K. Watch
@@ -259,7 +259,7 @@ the first shard and it automatically opens its siblings.
 ```sh
 docker compose -f compose.ai.yml \
   -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-1.env)" \
-  up -d --build llama-cpp-generel-schwerz-16gb
+  up -d --build llama-cpp-generel-schwerz-16gb-gpu-1
 
 # The companion has the same model catalogue, on the other physical GPU.
 docker compose -f compose.ai.yml \
@@ -269,7 +269,7 @@ docker compose -f compose.ai.yml \
 # Stop both one-GPU profiles before the two-GPU profile.
 docker compose -f compose.ai.yml \
   -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-32gb/all-gpus.env)" \
-  up -d --build llama-cpp-generel-schwerz-32gb
+  up -d --build llama-cpp-generel-schwerz-32gb-all-gpus
 ```
 
 Use `/v1/models` and the returned preset ID to select a GGUF in a request:

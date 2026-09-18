@@ -7,7 +7,7 @@ x-defaults: &defaults
 
 # llama-cpp overlays rendered from llama-cpp/config/*/*.env use host ports
 # 11436-11443. The llama services below run with their former .env defaults
-# and are also the common bases which generated profile overlays extend.
+# and are also the common templates copied into generated profile services.
 
 services:
 

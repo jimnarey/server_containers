@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""Render one llama.cpp service which extends a Compose template service."""
+"""Render one standalone llama.cpp service from a Compose template service."""
 
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import sys
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+import yaml
 
-# The generated overlay is intentionally tied to this repository's AI Compose
-# file. Its ``extends.file`` value must stay absolute because the overlay is
-# materialised in /tmp for use with ``docker compose -f $(...)``.
+# The generated service is intentionally tied to this repository's AI Compose
+# file. The file is read to materialise the selected source template before the
+# standalone service is written below /tmp for use with ``docker compose -f``.
 AI_COMPOSE_FILE = "/home/ai/server_containers/compose.ai.yml"
 OVERLAY_DIRECTORY = Path("/tmp")
 
 # Compose/runtime values shared by every renderer path. Keeping these here
 # makes the generated Compose contract easy to audit and avoids string drift.
-INDENT_WIDTH = 4
 MODELS_TARGET = "/models"
 UPSTREAM_PRESET_TARGET = "/models-preset.ini"
 FORK_CONFIG_TARGET = "/etc/llama.cpp/config.ini"
@@ -37,7 +37,7 @@ REQUIRED_FIELDS = frozenset({
 })
 OPTIONAL_FIELDS = frozenset({
     "CONFIG_FILE", "NETWORK_ALIAS", "PARALLEL", "FIT_TARGET",
-    "NCCL_CUMEM_ENABLE", "IMAGE", "LLAMA_CUDA",
+    "NCCL_CUMEM_ENABLE", "IMAGE", "LLAMA_CUDA", "CUDA_VISIBLE_DEVICES",
 })
 EMPTY_ALLOWED_FIELDS = frozenset({"CONFIG_FILE", "NETWORK_ALIAS", "GPU_IDS"})
 RESTART_POLICIES = frozenset({"no", "unless-stopped"})
@@ -86,6 +86,7 @@ class Profile:
     nccl_cumem_enable: str | None
     image: str | None
     llama_cuda: str
+    cuda_visible_devices: str | None
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ class SourceTemplate:
     preset_target: str
     command: CommandBuilder
     config_target: str | None = None
+    gpu_strategy: str = "device-ids"
 
 
 LINE_RULES = {
@@ -162,6 +164,7 @@ PROFILE_FIELDS = {
     "nccl_cumem_enable": FieldSpec("NCCL_CUMEM_ENABLE", optional, ""),
     "image": FieldSpec("IMAGE", optional, ""),
     "llama_cuda": FieldSpec("LLAMA_CUDA", str, "ON"),
+    "cuda_visible_devices": FieldSpec("CUDA_VISIBLE_DEVICES", optional, ""),
 }
 
 
@@ -191,13 +194,13 @@ def fork_command(_: Profile) -> list[str]:
 SOURCE_TEMPLATES = {
     "llama-cpp": SourceTemplate(False, UPSTREAM_PRESET_TARGET, upstream_command),
     "llama-cpp-generel-schwerz-16gb": SourceTemplate(
-        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET,
+        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET, "cuda-visible",
     ),
     "llama-cpp-generel-schwerz-32gb": SourceTemplate(
-        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET,
+        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET, "cuda-visible",
     ),
     "llama-cpp-csantiago78": SourceTemplate(
-        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET,
+        True, FORK_PRESET_TARGET, fork_command, FORK_CONFIG_TARGET, "cuda-visible",
     ),
 }
 
@@ -210,6 +213,10 @@ PROFILE_RULES = {
     "service_name": Rule(
         lambda context: SERVICE_RE.fullmatch(context["profile"].service_name) is not None,
         "SERVICE_NAME is not a valid Compose service name",
+    ),
+    "new_service": Rule(
+        lambda context: context["profile"].service_name != context["profile"].source_service,
+        "SERVICE_NAME must differ from SOURCE_SERVICE for a generated service",
     ),
     "port": Rule(
         lambda context: context["profile"].port is not None
@@ -240,6 +247,12 @@ PROFILE_RULES = {
     "config_file": Rule(
         lambda context: context["requires_config"] == bool(context["profile"].config_file),
         lambda context: f"{context['profile'].source_service} profiles {context['config_requirement']} CONFIG_FILE",
+    ),
+    "cuda_visibility": Rule(
+        lambda context: context["template"] is None
+        or context["template"].gpu_strategy != "cuda-visible"
+        or context["profile"].cuda_visible_devices == ",".join(context["profile"].gpu_ids),
+        "CUDA_VISIBLE_DEVICES must match GPU_IDS for this source service",
     ),
 }
 
@@ -323,80 +336,58 @@ def validate(profile: Profile) -> SourceTemplate:
     return template
 
 
-def indent(level: int) -> str:
-    return " " * (INDENT_WIDTH * level)
+def source_service(profile: Profile) -> dict[str, Any]:
+    """Load and copy the named Compose service used as this profile's base."""
+    try:
+        compose = yaml.safe_load(Path(AI_COMPOSE_FILE).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as error:
+        fail(f"cannot read {AI_COMPOSE_FILE}: {error}")
+    services = compose.get("services") if isinstance(compose, dict) else None
+    service = services.get(profile.source_service) if isinstance(services, dict) else None
+    if not isinstance(service, dict):
+        fail(f"{AI_COMPOSE_FILE}: missing service {profile.source_service}")
+    return deepcopy(service)
 
 
-def quoted(value: object) -> str:
-    """JSON strings are valid, unambiguous YAML double-quoted scalars."""
-    return json.dumps(str(value), ensure_ascii=False)
-
-
-def emit_key(lines: list[str], level: int, key: str, tag: str = "") -> None:
-    suffix = f" {tag}" if tag else ""
-    lines.append(f"{indent(level)}{key}:{suffix}")
-
-
-def emit_scalar(lines: list[str], level: int, key: str, value: object) -> None:
-    lines.append(f"{indent(level)}{key}: {quoted(value)}")
-
-
-def emit_mapping(
-    lines: list[str], level: int, key: str, items: list[tuple[str, object]], tag: str = "",
-) -> None:
-    emit_key(lines, level, key, tag)
-    for item_key, value in items:
-        emit_scalar(lines, level + 1, item_key, value)
-
-
-def emit_sequence(
-    lines: list[str], level: int, key: str, values: list[object], tag: str = "",
-) -> None:
-    emit_key(lines, level, key, tag)
-    lines.extend(f"{indent(level + 1)}- {quoted(value)}" for value in values)
-
-
-def emit_empty_collection(lines: list[str], level: int, key: str, value: str) -> None:
-    lines.append(f"{indent(level)}{key}: {value}")
-
-
-def emit_gpu_request(lines: list[str], gpu_ids: list[str]) -> None:
-    item_indent = indent(3)
-    mapping_indent = f"{item_indent}  "
-    lines.extend((
-        f"{indent(2)}gpus: !override",
-        f"{item_indent}- driver: nvidia",
-        f"{mapping_indent}device_ids:",
-    ))
-    lines.extend(f"{mapping_indent}  - {quoted(gpu_id)}" for gpu_id in gpu_ids)
-    lines.append(f"{mapping_indent}capabilities: [gpu]")
+def gpu_configuration(profile: Profile, template: SourceTemplate) -> object | None:
+    if not profile.gpu_ids:
+        return None
+    if template.gpu_strategy == "cuda-visible":
+        return "all"
+    return [{
+        "driver": "nvidia",
+        "device_ids": profile.gpu_ids,
+        "capabilities": ["gpu"],
+    }]
 
 
 def render(profile: Profile) -> str:
+    """Materialise a source service, then replace every profile-owned setting."""
     template = validate(profile)
-    lines = ["services:", f"{indent(1)}{profile.service_name}:"]
-    if profile.service_name != profile.source_service:
-        emit_mapping(lines, 2, "extends", [
-            ("file", AI_COMPOSE_FILE),
-            ("service", profile.source_service),
-        ])
-    build_args = [("LLAMA_SERVICE_NAME", profile.service_name)]
-    if profile.llama_cuda == "OFF":
-        build_args.append(("LLAMA_CUDA", "OFF"))
-    emit_key(lines, 2, "build")
-    emit_mapping(lines, 3, "args", build_args)
-    if profile.image:
-        emit_scalar(lines, 2, "image", profile.image)
-    emit_scalar(lines, 2, "container_name", f"{profile.service_name}-c")
-    emit_scalar(lines, 2, "restart", profile.restart_policy)
+    service = source_service(profile)
 
-    environment = [("LLAMA_GPU_LOCK_IDS", ",".join(profile.gpu_ids))] if profile.gpu_ids else []
+    build = service.setdefault("build", {})
+    if not isinstance(build, dict):
+        fail(f"{AI_COMPOSE_FILE}: {profile.source_service}.build must be a mapping")
+    build_args = build.setdefault("args", {})
+    if not isinstance(build_args, dict):
+        fail(f"{AI_COMPOSE_FILE}: {profile.source_service}.build.args must be a mapping")
+    build_args["LLAMA_SERVICE_NAME"] = profile.service_name
+    build_args["LLAMA_CUDA"] = profile.llama_cuda
+
+    if profile.image:
+        service["image"] = profile.image
+    service["container_name"] = f"{profile.service_name}-c"
+    service["restart"] = profile.restart_policy
+
+    environment: dict[str, str] = {}
+    if template.gpu_strategy == "cuda-visible" and profile.cuda_visible_devices:
+        environment["CUDA_VISIBLE_DEVICES"] = profile.cuda_visible_devices
+    if profile.gpu_ids:
+        environment["LLAMA_GPU_LOCK_IDS"] = ",".join(profile.gpu_ids)
     if profile.nccl_cumem_enable:
-        environment.append(("NCCL_CUMEM_ENABLE", profile.nccl_cumem_enable))
-    if environment:
-        emit_mapping(lines, 2, "environment", environment, "!override")
-    else:
-        emit_empty_collection(lines, 2, "environment", "!override {}")
+        environment["NCCL_CUMEM_ENABLE"] = profile.nccl_cumem_enable
+    service["environment"] = environment
 
     volumes = [f"{profile.models_dir}:{MODELS_TARGET}:ro"]
     if template.requires_config:
@@ -408,22 +399,26 @@ def render(profile: Profile) -> str:
     volumes.append(f"{profile.models_preset}:{template.preset_target}:ro")
     if profile.gpu_ids and not template.requires_config:
         volumes.append(GPU_LOCK_MOUNT)
-    emit_sequence(lines, 2, "volumes", volumes, "!override")
-    emit_sequence(lines, 2, "command", template.command(profile), "!override")
+    service["volumes"] = volumes
+    service["command"] = template.command(profile)
 
-    if profile.gpu_ids:
-        emit_gpu_request(lines, profile.gpu_ids)
+    gpus = gpu_configuration(profile, template)
+    if gpus is None:
+        service.pop("gpus", None)
     else:
-        emit_empty_collection(lines, 2, "gpus", "!override []")
+        service["gpus"] = gpus
     if profile.network_alias:
-        emit_key(lines, 2, "networks", "!override")
-        emit_key(lines, 3, "default")
-        emit_sequence(lines, 4, "aliases", [profile.network_alias])
+        service["networks"] = {"default": {"aliases": [profile.network_alias]}}
     else:
-        emit_empty_collection(lines, 2, "networks", "!override {}")
-    emit_sequence(lines, 2, "ports", [f"{profile.bind_address}:{profile.port}:8080"], "!override")
-    lines.append("")
-    return "\n".join(lines)
+        service.pop("networks", None)
+    service["ports"] = [f"{profile.bind_address}:{profile.port}:8080"]
+
+    return yaml.safe_dump(
+        {"services": {profile.service_name: service}},
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    )
 
 
 def main() -> None:
