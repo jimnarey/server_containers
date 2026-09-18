@@ -140,8 +140,8 @@ At present, the provider form can save the catalogue without saving a default fo
 
 ```yaml
 agent-default-model:
-  provider: llama-cpp
-  model: Qwen3.8-27B-UD-Q6_K_M
+  provider: llama-cpp-moe-16gb
+  model: Qwen3.8-Flash-Next-UD-Q3_K_XL
 ```
 
 Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
@@ -182,19 +182,20 @@ modes:
 
 - `llama-cpp` / `Qwen3.8-27B-UD-Q6_K_M`: compact at 75% of its 163,840-token
   route, retain 16,384 recent tokens, and allow a 12,288-token checkpoint.
-- `llama-cpp-moe-16gb` or `llama-cpp-moe-32gb` / Flash Next: compact at 80% of
-  its 98,304-token route, retain 16,384 tokens, and use the same checkpoint cap.
+- `llama-cpp-moe-16gb` or `llama-cpp-moe-16gb-gpu-0` / Flash Next: compact at
+  80% of its 98,304-token route, retain 16,384 tokens, and use the same
+  checkpoint cap.
 
 All other Standard routes retain Harness's normal context-relative defaults.
 The local Standard composition is bind-mounted into the pinned Harness package,
 so revisit it as part of every `DEEPSEEK_VERSION` upgrade.
 
 The **Select Model** control chooses a provider/model independently. New
-sessions default to `llama-cpp` / `Qwen3.8-27B-UD-Q6_K_M` through
-`agent-default-model` in `settings.yaml`. To use Flash Next, keep Standard mode
-selected and choose `llama-cpp-moe-16gb` (or `llama-cpp-moe-32gb`) with
-`Qwen3.8-Flash-Next-UD-Q3_K_XL` in Select Model. A session's existing model
-selection remains durable when its capability mode changes.
+sessions default to `llama-cpp-moe-16gb` / `Qwen3.8-Flash-Next-UD-Q3_K_XL`
+through `agent-default-model` in `settings.yaml`. To use the same model on the
+other physical GPU, keep Standard mode selected and choose
+`llama-cpp-moe-16gb-gpu-0`. A session's existing model selection remains
+durable when its capability mode changes.
 
 ## Command-line use over SSH
 
