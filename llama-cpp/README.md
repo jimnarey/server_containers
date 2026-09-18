@@ -1,10 +1,19 @@
 # llama.cpp service profiles
 
-`compose.ai.yml` provides the shared AI stack and the `llama-gpu-locks`
-volume. It deliberately does not declare long-lived llama.cpp services.
-`render-compose.py` reads exactly one profile env file and emits one complete,
-deterministic Compose service overlay. A service therefore exists only for the
-build/profile selected for that invocation.
+`compose.ai.yml` provides the shared AI stack, the `llama-gpu-locks` volume,
+and four runnable llama.cpp base services: `llama-cpp`, the two pinned
+GenerelSchwerz builds, and `llama-cpp-csantiago78`. Each uses the former
+`.env`-driven defaults, so it can be started directly. It also supplies the
+shared Docker build context, source repository, pin, CUDA setting, image tag,
+and default runtime configuration for profile overlays.
+
+`render-compose.py` reads exactly one profile env file and emits a deterministic
+Compose overlay. When `SERVICE_NAME` differs from `SOURCE_SERVICE`, its service
+extends the selected base service; otherwise it overlays that service directly.
+The source service is referenced through the script's fixed absolute
+`AI_COMPOSE_FILE` constant, because generated overlays are materialised below
+`/tmp`. Runtime collections use Compose's `!override` tag, ensuring every
+value from the profile replaces rather than combines with the base service.
 
 ## Launching a profile
 
@@ -57,13 +66,13 @@ with status 75 and remains visible because GPU profiles use `restart: "no"`.
 | `config/llama-cpp-generel-schwerz-32gb/all-gpus.env` | `llama-cpp-generel-schwerz-32gb` | Schwerz `0ed73d1`, GPUs 0 and 1 |
 | `config/llama-cpp-csantiago78/all-gpus.env` | `llama-cpp-csantiago78` | csantiago78 `bccbacd`, GPUs 0 and 1 |
 
-Every profile explicitly supplies its service name, source-service family,
-port, bind address, GPU IDs, reproducible build arguments, image tag, and
-runtime model/config mounts. The source service family selects the upstream or
-fork command/mount layout; the Dockerfile still verifies the pinned immutable
-commit directly. The CPU profile uses the same upstream family and renderer
-with `LLAMA_CUDA=OFF` and its original `unless-stopped` restart policy, rather
-than a separate handwritten Compose service.
+Every profile explicitly supplies its service name, source service, port,
+bind address, GPU IDs, restart policy, and runtime model/config mounts. The
+source service supplies the reproducible build arguments and image. The
+Dockerfile still verifies the pinned immutable commit directly. The CPU profile
+uses `llama-cpp` while overriding CUDA and image, retaining its
+original `unless-stopped` restart policy rather than needing a handwritten
+Compose service.
 
 The tracked runtime templates remain below `config/`. Copy fork `config.ini`
 files to the matching `/mnt/work/llama/...` directory before launch, and

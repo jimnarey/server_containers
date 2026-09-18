@@ -7,7 +7,7 @@ the two-GPU profile. They are separate from the ordinary `llama-cpp` service
 and use the experimental CUDA MoE expert cache in
 [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
-The 16GB profile env files provide this pin to the shared `llama-cpp/Dockerfile`:
+The 16GB Compose service provides this pin to the shared `llama-cpp/Dockerfile`:
 
 ```text
 branch: qwen4exp-mtp
@@ -15,7 +15,7 @@ commit: e69a1d0be5f8ae0080593865b38b175223059199
 CUDA:   12.8.1, compiled for CUDA architecture 120
 ```
 
-The 32GB profile env file pins a different commit:
+The 32GB Compose service pins a different commit:
 
 ```text
 branch: codex/moe-grouped-multigpu
@@ -39,8 +39,9 @@ Docker maintains one neutral `GenerelSchwerz/llama.cpp` clone in its build
 cache at `/mnt/work/llama-cpp/sources/generel-schwerz-llama-cpp`. Each service
 then copies it to a service-suffixed sibling, fetches and verifies its own pin,
 and builds that copy. The path is within the build image, not the host. To use
-another revision, edit that profile's `LLAMA_BRANCH` and `LLAMA_COMMIT` in its
-tracked `.env` file.
+another revision, edit that base service's `LLAMA_BRANCH` and `LLAMA_COMMIT`
+in `compose.ai.yml`. The per-card profile env files select the base service and
+supply only runtime placement/configuration values.
 
 ## Runtime configuration
 
