@@ -174,10 +174,27 @@ def upstream_command(profile: Profile) -> list[str]:
         "--reasoning-format", "deepseek",
         *COMMON_SERVER_ARGS,
         "--parallel", profile.parallel or "1",
-        "--n-gpu-layers", "all" if profile.gpu_ids else "0",
     ]
     if profile.gpu_ids:
         command.extend(("--flash-attn", "on"))
+    else:
+        # Only the no-GPU (CPU) profile needs a system-wide --n-gpu-layers:
+        # there is no device to offload to regardless of any per-model
+        # preset value. For GPU profiles this must NOT be set here -- a
+        # router-level --n-gpu-layers (even "all") overrides every
+        # per-model `n-gpu-layers = ...` value in models-preset.ini, which
+        # silently broke `n-gpu-layers = auto` (the partial-CPU-offload
+        # setting the two dense 70B-class entries depend on): the spawned
+        # instance's own args showed the literal string "all", not "auto",
+        # and `--fit` then aborted with "n_gpu_layers already set by user
+        # to -2" before it could reduce anything, producing an immediate
+        # CUDA OOM trying to force all layers onto one card. Leaving this
+        # unset lets each model's own preset value win, and falls back to
+        # llama-server's own built-in default (`auto`) for anything that
+        # doesn't set one at all -- which already behaves like "all" for a
+        # model that fits, so this is not a behavior change for every
+        # model that isn't relying on partial offload.
+        command.extend(("--n-gpu-layers", "0"))
     return [
         *command,
         "--fit", "on", "--fit-target", profile.fit_target or "1024",

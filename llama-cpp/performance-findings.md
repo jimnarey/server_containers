@@ -75,7 +75,7 @@ shoehorning in.
   simultaneous jobs -- this document records both real numbers so that
   choice can be made deliberately, not defaults to "both GPUs is always
   better."
-- **`llama-cpp-generel-schwerz-16gb` / `-16gb-gpu-0`** (fork, single
+- **`llama-cpp-generel-schwerz-16gb` / `-16gb-gpu-0`/`-gpu-1`** (fork, single
   physical GPU, a custom `moe-cache` expert-caching subsystem layered on
   the same mmap/lazy-loading mechanism the plain services also have by
   default -- see the correction above). Role: last resort for MoE models
@@ -87,6 +87,15 @@ shoehorning in.
   the `moe-cache` subsystem's own graph-compute buffer -- not yet
   root-caused, may be an architecture-specific interaction with
   `moe-cache` rather than a property of either model on its own.
+  **Real, physical-GPU-specific constraint (2026-09-18): this service
+  must run on physical GPU 1, not GPU 0** -- see the dated section below.
+  The two cards are not symmetric (GPU 0: PCIe Gen3, 4 lanes negotiated;
+  GPU 1: PCIe Gen4, 8 lanes), and `moe-expert-cache-size`'s constant
+  host-to-GPU expert streaming is directly PCIe-bandwidth-bound. Real
+  measured impact: Flash Next decode drops from 18.87 tok/s (GPU 1,
+  matching this document's historical tuned range) to 6.34-6.6 tok/s
+  (GPU 0) for the identical image, config, and model -- a ~3x real
+  regression from card choice alone, not a software problem.
 - **`llama-cpp-generel-schwerz-32gb`** (fork, `codex/moe-grouped-
   multigpu`). Established **not viable** for large models on this host:
   its `load-mode=none` requirement disables mmap entirely, so any model
@@ -147,7 +156,7 @@ combinations appears as consecutive rows rather than scattered by service.
 | Devstral-Small-2505-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 13.9 GiB | 14.0 GiB | baseline only | idle | 1,020.88 tok/s | 43.14 tok/s cold, 43.30 tok/s warm |
 | Devstral-Small-2505-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 15.1 GiB | 15.1 GiB | baseline only | idle | 950.21 tok/s | 37.26 tok/s cold, 38.13 tok/s warm |
 | Devstral-Small-2505-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.316 tok/s | 2.69 tok/s cold, 2.69 tok/s warm |
-| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU) | **failed to load**¹⁹ | not exposed | -- | -- | failed to load | failed to load |
+| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU, `ctx-size=32768`)¹⁹ | 14.3 GiB | not exposed | baseline only | idle | 168.44 tok/s | -- (load-confirmed only) |
 | DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)¹⁹ | 10.6 GiB | 9.1 GiB | baseline only | idle | 170.51 tok/s | 51.20 tok/s cold, 52.35 tok/s warm |
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
 | Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s¹³ | 68.39 tok/s cold, 68.18 tok/s warm¹³ |
@@ -160,9 +169,10 @@ combinations appears as consecutive rows rather than scattered by service.
 | granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm |
 | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | `llama-cpp-all-gpus` (MoE, dual-GPU, MTP speculative decode)²¹ | 10.3 GiB | 13.3 GiB | baseline only | idle | 275.30 tok/s | 166.62 tok/s cold, 167.64 tok/s warm |
 | GLM-4.7-Flash-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)²² | 12.8 GiB | 12.2 GiB | baseline only | idle | 279.26 tok/s | 103.98 tok/s cold, 104.16 tok/s warm |
-| Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload) | **failed to load**²³ | not exposed | -- | -- | failed to load | failed to load |
-| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload) | **failed to load**²³ | not exposed | -- | -- | failed to load | failed to load |
-| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
+| Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload)²³ | partial (auto) | partial (auto) | some (partial offload) | some | 20.85 tok/s | 4.78 tok/s (load-confirmed only) |
+| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload)²³ | partial (auto) | partial (auto) | some (partial offload) | some | 16.83 tok/s | 4.57 tok/s (load-confirmed only) |
+| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 1²⁴ | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
+| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 0²⁴ | 13.0 GiB | not exposed | baseline only | idle | -- | 6.34 tok/s cold, 6.60 tok/s warm |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
 | Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
 | Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
@@ -347,28 +357,19 @@ table). **Practical conclusion: CPU is not a viable path for dense
 20B+-class models on this host**, unlike the genuinely-useful MoE CPU
 entries elsewhere in this table -- despite fitting comfortably in RAM,
 throughput this low rules out agentic use.
-¹⁹ 2026-09-18, real and reproducible: `DeepSeek-Coder-V2-Lite-Instruct-
-Q4_K_M` (real MoE, `deepseek2` architecture, 9.65 GiB) failed to load on
-`llama-cpp-gpu-1` (single physical GPU, no `split-mode` set in that
-preset entry) with a generic HTTP 500 "failed to load" -- no RAM/swap
-growth, GPU memory never exceeded the ~101 MiB compositor baseline,
-ruling out a resource-exhaustion cause. The *same model, same quant* then
-loaded and ran successfully on `llama-cpp-all-gpus` with `split-mode=
-layer` explicitly set. Root cause not yet confirmed -- container logs
-for the failed single-GPU attempt were not captured (the test script logs
-client-side HTTP responses, not `docker logs`), and a live reproduction
-to get the real llama.cpp error is still needed. Two real hypotheses,
-neither yet confirmed: (a) this architecture may have a hard requirement
-inherited from its `deepseek2` lineage that doesn't survive a genuinely
-single-device CUDA context the way `split-mode=layer` across two visible
-devices does, or (b) an unrelated single-GPU-service-specific config gap
-(the `llama-cpp-16gb` entry has no `split-mode` set at all, unlike every
-dual-GPU entry in this document). This reframes the "does layer-split
-help a small MoE model" question this test pair was designed to answer:
-the real finding isn't a speed comparison, it's that **single-GPU
-placement fails outright** for this model on this build, at least in its
-current config -- a more fundamental result than either original
-hypothesis anticipated.
+¹⁹ **Diagnosed and fixed, 2026-09-18, later the same day.** The original
+failure was real, but the two hypotheses recorded here at the time were
+both wrong -- a live reproduction with real container logs found the
+actual cause: `ctx-size=65536`'s KV buffer request (9,180 MiB / 8.97 GiB,
+confirmed in the logs) plus the 9.65 GiB weight file exceeds one 16,311
+MiB card outright (18.62 GiB combined). Not a `deepseek2`/single-device
+architecture problem, not a `split-mode` gap -- a plain, untested
+capacity shortfall, the same class of gap this document has hit many
+times before. Backed off to `ctx-size=32768`; confirmed working (real
+load + request, 14.3 GiB used, 168.44 tok/s prefill). This also
+undermines the framing below it originally carried -- see "Real incident:
+`parameterise-llama` refactor investigation" for the full corrected story
+and what it means for the layer-split MoE-bandwidth question.
 ²⁰ 2026-09-18, first real load tests for all four new `n-cpu-moe`
 expert-offload entries -- all four load and answer correctly, confirming
 the computed `n-cpu-moe` values (19/16/18/15 respectively) were right on
@@ -397,23 +398,35 @@ throughput figure). 103.98-104.16 tok/s, a real, solid number -- among
 the faster MoE entries in this table, consistent with `deepseek2`'s
 layer-split placement still giving good throughput despite not
 benefiting from tensor-split's bandwidth-doubling.
-²³ 2026-09-18, real and reproducible failures for both remaining
-dense-70B-class entries on `llama-cpp-all-gpus`, cold and warm alike --
-identical generic HTTP 500 "failed to load" to `DeepSeek-Coder-V2-Lite`'s
-single-GPU failure above, but a different situation: RAM stayed flat
-(3.3-3.4 GiB used, no growth, no swap change) and GPU memory never
-exceeded the ~16-101 MiB compositor baseline -- ruling out both a RAM
-near-miss (unlike the real DeepSeek-70B CPU-service incident earlier this
-session) and a VRAM OOM. Both entries use `n-gpu-layers=auto` with
-`--fit on`, relying on llama.cpp's own automatic layer-count reduction to
-fit partial-CPU-offload dense 70B-class models -- the clean, immediate
-failure (no resource climb at all) suggests the `--fit` auto-sizing
-itself is failing for these two specifically, not that the models are
-too large in principle. Root cause not yet confirmed -- needs a live
-reproduction with container logs, same as the DeepSeek-Coder-V2-Lite
-failure above. Both entries remain curated and worth retrying once
-diagnosed, not removed -- this looks like a config/auto-fit problem, not
-proof these models can never run here.
+²³ **Diagnosed and fixed, 2026-09-18, later the same day.** Real root
+cause, confirmed via live reproduction with container logs: a genuine bug
+in the new `render-compose.py` refactor's `upstream_command()`, which
+unconditionally passed a router-level `--n-gpu-layers all` for every
+GPU-enabled profile -- silently overriding both models' preset-level
+`n-gpu-layers = auto` (the partial-CPU-offload setting they depend on to
+fit at all). Real log line: `"failed to fit params to free device
+memory: n_gpu_layers already set by user to -2, abort"`, then an
+immediate `cudaMalloc` OOM trying to force the entire model onto one
+GPU -- not a RAM issue, not proof the models don't fit, just the router
+taking away the one setting that would have made them fit. Fixed by
+removing the unconditional flag (GPU profiles now pass no system-level
+`--n-gpu-layers`, letting each model's own preset value, or
+`llama-server`'s own `auto` default, apply). Confirmed working with real
+requests and live RAM monitoring (swap flat at ~3.1 GiB throughout, no
+growth): both models load and answer correctly, 4.78/4.57 tok/s decode --
+the GPU/RAM columns to the left show "partial (auto)"/"some" because
+that's what a correctly-working partial-offload placement actually looks
+like, not a placeholder. See "Real incident: `parameterise-llama`
+refactor investigation" below for the full trace, including why 23 other
+entries were unaffected by the same bug.
+²⁴ 2026-09-18, real, direct A/B confirmation that physical GPU 0 and
+GPU 1 are not symmetric on this host -- GPU 0: PCIe Gen3 max, 4 lanes
+negotiated; GPU 1: PCIe Gen4 max, 8 lanes. `moe-expert-cache-size`'s
+constant host-to-GPU expert streaming is directly PCIe-bandwidth-bound,
+so this hits Flash Next especially hard. Identical image, config, model,
+and request on both cards -- the only variable is which physical GPU.
+See "Real incident: `parameterise-llama` refactor investigation" below
+for the full topology data and why this isn't a software problem.
 
 ## GPU-resident, single card, no host offload
 
@@ -1393,6 +1406,144 @@ benchmark figures for the dual-GPU config are also not yet captured (see
 the main table's footnote ¹²) -- this pass only confirmed load + a real
 response, not throughput.
 
+## Real incident: `parameterise-llama` refactor investigation -- three real problems found and fixed (2026-09-18)
+
+The user refactored how llama.cpp services are brought up: one `render-
+compose.py` script now generates a per-service Compose overlay from a
+`.env` profile per service (`SOURCE_SERVICE` names a template block still
+defined in `compose.ai.yml`; `GPU_IDS`/`CONFIG_FILE`/etc. parameterize
+it). This replaced ~370 lines of hand-duplicated service blocks. Reported
+symptom: `Qwen3.8-Flash-Next` on the 16GB schwerz service dropped to ~6
+tok/s decode, far below this document's historical tuned range
+(12.67-18.38 tok/s). Investigation found **three separate real problems**,
+only one of which was actually a refactor bug -- the other two were a
+real hardware constraint and a real pre-existing untested config, both
+just newly exposed by testing more thoroughly than before.
+
+### Problem 1: physical GPU 0 has a materially weaker PCIe link than GPU 1 (hardware, not a bug)
+
+The historically-tuned schwerz-16gb service has always run on **physical
+GPU 1** (its real default in this deployment's own `.env`, confirmed
+earlier this session -- see "Correction: the 16GB schwerz service's real
+GPU pin"). The new refactor makes it trivial to instead run the
+`-gpu-0` profile, which nothing before today had actually load-tested
+with a MoE-cache-heavy model like Flash Next. Real topology check:
+
+```
+index, pcie.link.gen.max, pcie.link.gen.current, pcie.link.width.max, pcie.link.width.current
+0, 3, 1, 8, 4
+1, 4, 1, 8, 8
+```
+
+GPU 0 maxes out at PCIe Gen3 with only 4 lanes currently negotiated; GPU
+1 is Gen4-capable at the full 8 lanes -- **the cards are not symmetric**,
+despite being identical RTX 5060 Ti units. `moe-expert-cache-size`'s
+entire mechanism streams "cold" experts from CPU-pinned host memory to
+the GPU over PCIe on every cache miss, which is directly bandwidth-bound
+on exactly this link. Real, direct A/B confirmation, identical image
+(`llama-cpp:generel-schwerz-qwen4exp-mtp-e69a1d0`), identical
+`config.ini`/`models-preset.ini`, same model, same request:
+
+| Card | Decode |
+|---|---|
+| GPU 0 (`-gpu-0` profile) | 6.34-6.60 tok/s |
+| GPU 1 (`-gpu-1` profile) | 18.87 tok/s |
+
+GPU 1's figure lands squarely in this document's historical tuned range;
+GPU 0's is a real ~3x regression from card choice alone. Confirmed not a
+software issue: container command, environment, config file content, and
+RAM/VRAM usage were all checked and matched expectations exactly on both
+cards -- only the PCIe link differs. **Fix: route the schwerz-16gb
+service (and likely any other PCIe-transfer-heavy workload, e.g.
+`n-cpu-moe` offload) to the `-gpu-1` profile, not `-gpu-0`.** This isn't
+fixable in software; GPU 0 is a real, permanently weaker slot on this
+host for this class of workload. Plain GPU-resident workloads (the bulk
+of what `llama-cpp-gpu-0`/`gpu-1` serve) are far less exposed to this,
+since they stream weights once at load time rather than continuously
+during decode -- today's earlier `qwen2.5-coder`/`Expert-Offload` tests
+all happened to run on physical GPU 1 already (port 11442's `GPU_IDS=1`),
+so none of those real numbers need revisiting.
+
+### Problem 2: `render-compose.py` silently overrode `n-gpu-layers = auto` (real refactor bug, fixed)
+
+While reproducing two of the test-plan failures from earlier today
+(`Llama-3.3-70B-Instruct-Q3_K_M`, `Qwen2.5-72B-Instruct-Q3_K_S`, both on
+`llama-cpp-all-gpus`) with real container logs this time, the actual
+spawned command showed `--n-gpu-layers all`, not `auto` -- despite both
+models' preset entries explicitly setting `n-gpu-layers = auto` (the
+partial-CPU-offload setting they depend on to fit at all). Root cause,
+confirmed directly in `render-compose.py`'s `upstream_command()`:
+
+```python
+"--n-gpu-layers", "all" if profile.gpu_ids else "0",
+```
+
+This unconditionally set a router-level `--n-gpu-layers` for every
+GPU-enabled profile, which overrode the per-model preset value entirely.
+Real failure signature: `--fit` (which is supposed to auto-reduce layer
+count to fit available memory) aborted immediately --
+`"failed to fit params to free device memory: n_gpu_layers already set
+by user to -2, abort"` -- then tried to force the *entire* 70B-class
+model onto one GPU and hit a real, immediate `cudaMalloc` OOM. This is
+why only these two entries failed while 23 other real tests the same day
+succeeded: every other curated entry either fits fully in VRAM (where
+`all` was already correct) or doesn't set `n-gpu-layers` in its own
+preset at all -- only these two actually needed `auto`'s partial-offload
+behavior, and the router was silently taking that choice away from them.
+
+**Fix**: removed the unconditional flag. GPU-enabled profiles now pass no
+system-level `--n-gpu-layers` at all, letting each model's own preset
+value win, and falling back to `llama-server`'s own built-in default
+(confirmed via `--help`: `default: auto`) for anything that doesn't set
+one -- which already behaves like `all` for a model that fits, so this
+is not a behavior change for the 23 already-working entries. The
+no-GPU (CPU) profile still gets an explicit `--n-gpu-layers 0`, since
+there's no device to offload to regardless of any preset value.
+
+**Verified with real requests, live RAM monitoring throughout (swap held
+flat at ~3.1 GiB the entire time on both, no growth, no near-miss)**:
+
+| Model | Decode |
+|---|---|
+| `Llama-3.3-70B-Instruct-Q3_K_M` | 4.78 tok/s |
+| `Qwen2.5-72B-Instruct-Q3_K_S` | 4.57 tok/s |
+
+Both slow (expected for dense 70B-class models under partial CPU
+offload) but both genuinely working now, for the first time in this
+document's history -- neither had ever been real-load-tested before
+today, on any version of this deployment.
+
+### Problem 3: `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`'s single-GPU `ctx-size` was never actually tested (pre-existing gap, not a refactor bug)
+
+The third test-plan failure from earlier today, reproduced with real
+logs: weights (9.65 GiB) loaded fine, then the `ctx-size=65536` KV buffer
+request (a real, confirmed 9,180 MiB / 8.97 GiB allocation) failed --
+combined, 18.62 GiB, over one 16,311 MiB (15.93 GiB usable) card outright.
+This is unrelated to either problem above: this entry never set
+`n-gpu-layers` at all (so it was unaffected by problem 2), and it's a
+genuine capacity shortfall, not a PCIe issue. It was simply never real-
+load-tested before today (added and curated the same day it was first
+tried) -- the same "curated but never verified" gap this document has
+hit many times before. **Fix**: backed off to `ctx-size=32768` using the
+real KV rate this failure exposed (~143.5 KiB/token). Confirmed working
+by a real load + request: 14,688 MiB used, 1,623 MiB headroom. The
+dual-GPU entry on `llama-cpp-32gb` (same 65536 context) is unaffected --
+it already has 10.6+9.1 GiB combined there, comfortable headroom on two
+cards.
+
+### What this means for the earlier layer-split MoE-bandwidth question
+
+The "outstanding MoE performance question" this document raised earlier
+today -- does layer-split give a real MoE model any bandwidth benefit the
+way tensor-split does for dense ones -- assumed `DeepSeek-Coder-V2-
+Lite-Instruct-Q4_K_M`'s single-GPU *failure* was itself the interesting
+result. It wasn't -- it was just an untested `ctx-size`, same as problem
+3 above. With both entries now working (16GB: `ctx-size=32768`; 32GB:
+`ctx-size=65536`, different contexts now, so no longer a perfectly clean
+comparison), a real single-vs-dual comparison for this model is still
+open, just needs a fresh pair of runs rather than reusing today's
+numbers.
+
 ## Higher quants downloaded, curated, and real-load-tested (2026-09-18)
 
 Eight real downloads this session, added to `llama-cpp-32gb` (all eight)
@@ -1417,10 +1568,9 @@ VRAM OOM, just an immediate "failed to load"). Real per-item outcomes:
   15) all correct without a second pass. See footnote ²⁰.
 - ~~`gpt-oss-20b-F16` on the current single-GPU architecture~~ -- **done**,
   94.34-94.39 tok/s, see footnote ¹⁴.
-- **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` -- FAILED**, real and
-  reproducible (see footnote ¹⁹). Root cause not yet confirmed -- needs a
-  live reproduction with container logs once the `parameterise-llama`
-  compose refactor's new invocation is settled.
+- ~~`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`~~ -- **diagnosed and fixed**,
+  real `ctx-size` capacity shortfall (not a code/architecture problem),
+  backed off to 32768, confirmed working. See footnote ¹⁹.
 - ~~`qwen2.5-coder-7b-instruct-q8_0`, `qwen2.5-coder-14b-instruct-q5_k_m`/
   `-q6_k`~~ -- **all three succeeded**, see footnote ¹⁶.
 - ~~`Qwen3.6-35B-A3B-Q4_K_M` anomaly repeat~~ -- **resolved**, confirmed a
@@ -1428,13 +1578,11 @@ VRAM OOM, just an immediate "failed to load"). Real per-item outcomes:
 
 ### `llama-cpp-all-gpus` (32GB service) -- 16/16 attempted, 14 succeeded
 
-- **`Llama-3.3-70B-Instruct-Q3_K_M` and `Qwen2.5-72B-Instruct-Q3_K_S` --
-  BOTH FAILED**, real and reproducible (see footnote ²³). Clean failures,
-  not a RAM near-miss like the CPU-service DeepSeek-70B incident -- looks
-  like an `n-gpu-layers=auto`/`--fit` auto-sizing problem specific to
-  these two, not proof the models can't run here. Root cause not yet
-  confirmed -- same live-reproduction blocker as the DeepSeek-Coder-V2-Lite
-  failure above.
+- ~~`Llama-3.3-70B-Instruct-Q3_K_M` and `Qwen2.5-72B-Instruct-Q3_K_S`~~ --
+  **diagnosed and fixed**, a real `render-compose.py` bug (silently
+  overrode `n-gpu-layers=auto`), not a RAM/capacity problem. Both now load
+  and answer correctly (4.78/4.57 tok/s). See footnote ²³ and "Real
+  incident: `parameterise-llama` refactor investigation" below.
 - ~~Devstral, real cold/warm benchmark~~ -- **done for all six entries**
   (both quants x three quant levels), see footnote ¹⁷.
 - ~~`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`, clean benchmark~~ --
