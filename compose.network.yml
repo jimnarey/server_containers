@@ -2,6 +2,7 @@ services:
 
   https-gateway:
     image: caddy:2.8.4-alpine
+    container_name: https-gateway-c
     restart: unless-stopped
     ports:
       # Default to loopback so a missing machine-specific setting cannot
@@ -31,6 +32,7 @@ services:
   lan-dns:
     build: ./lan-dns
     image: lan-dns:latest
+    container_name: lan-dns-c
     restart: unless-stopped
     environment:
       LAN_DNS_AI_GATEWAY_ADDRESS: ${LAN_DNS_AI_GATEWAY_ADDRESS:?LAN_DNS_AI_GATEWAY_ADDRESS is required}

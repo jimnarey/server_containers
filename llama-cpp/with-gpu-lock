@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Keep locks for the lifetime of llama-server. All GPU-enabled llama services
+# mount the same named volume at /var/lock/llama-gpu.
+set -euo pipefail
+
+if [[ -z "${LLAMA_GPU_LOCK_IDS:-}" ]]; then
+    exec /app/llama-server "$@"
+fi
+
+lock_directory=/var/lock/llama-gpu
+mkdir -p "$lock_directory"
+
+# Acquire in a stable order. A failed non-blocking lock exits before
+# llama-server starts, and releases any earlier locks as this process exits.
+mapfile -t gpu_ids < <(
+    tr ',' '\n' <<<"$LLAMA_GPU_LOCK_IDS" | sed '/^$/d' | sort -u
+)
+
+for gpu_id in "${gpu_ids[@]}"; do
+    if [[ ! "$gpu_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "invalid LLAMA_GPU_LOCK_IDS entry: $gpu_id" >&2
+        exit 64
+    fi
+
+    lock_file="$lock_directory/$gpu_id.lock"
+    exec {lock_fd}>"$lock_file"
+    if ! flock -n "$lock_fd"; then
+        echo "GPU allocation conflict: physical GPU '$gpu_id' is already held by another llama service." >&2
+        exit 75
+    fi
+done
+
+exec /app/llama-server "$@"

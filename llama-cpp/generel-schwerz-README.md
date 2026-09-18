@@ -254,7 +254,8 @@ docker compose build llama-cpp-generel-schwerz-16gb
 docker compose up -d llama-cpp-generel-schwerz-16gb
 
 # Stop the one-GPU profile before the two-GPU profile.
-docker compose stop llama-cpp-generel-schwerz-16gb llama-cpp
+docker compose stop llama-cpp-generel-schwerz-16gb \
+  llama-cpp-gpu-0 llama-cpp-gpu-1 llama-cpp-all-gpus
 docker compose build llama-cpp-generel-schwerz-32gb
 docker compose up -d llama-cpp-generel-schwerz-32gb
 ```

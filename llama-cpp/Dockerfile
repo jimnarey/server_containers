@@ -96,11 +96,14 @@ LABEL org.opencontainers.image.source="${LLAMA_REPOSITORY}" \
       org.opencontainers.image.version="${LLAMA_BRANCH}"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl libgomp1 && \
+    apt-get install -y --no-install-recommends bash curl libgomp1 util-linux && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /output/lib/ /app/
 COPY --from=build /output/llama-server /app/llama-server
+COPY with-gpu-lock /app/with-gpu-lock
+
+RUN chmod 0555 /app/with-gpu-lock
 
 ENV LD_LIBRARY_PATH=/app \
     LLAMA_ARG_HOST=0.0.0.0
@@ -109,4 +112,4 @@ WORKDIR /app
 
 HEALTHCHECK CMD ["curl", "--fail", "http://localhost:8080/health"]
 
-ENTRYPOINT ["/app/llama-server"]
+ENTRYPOINT ["/app/with-gpu-lock"]

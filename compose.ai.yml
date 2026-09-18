@@ -5,6 +5,42 @@ x-defaults: &defaults
     CADDY_USER: "admin"
     CADDY_HASH: ${CADDY_HASH}
 
+# These three services deliberately share a catalogue but not GPU visibility.
+# The image entrypoint takes non-blocking locks in the named volume below.
+# GPU-profile services are deliberately started/stopped explicitly, so a lock
+# conflict remains an exited error instead of an automatic restart loop.
+x-llama-cpp-common: &llama-cpp-common
+  image: llama-cpp:upstream-eafe15a5-cuda
+  restart: "no"
+  volumes:
+    - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+    - ${LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp/models-preset.ini}:/models-preset.ini:ro
+    - llama-gpu-locks:/var/lock/llama-gpu
+  command:
+    - --models-preset
+    - /models-preset.ini
+    - --reasoning-format
+    - deepseek
+    - --models-max
+    - "1"
+    - --models-autoload
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8080"
+    - --parallel
+    - ${LLAMA_CPP_PARALLEL:-1}
+    - --n-gpu-layers
+    - all
+    - --flash-attn
+    - on
+    - --fit
+    - on
+    - --fit-target
+    - ${LLAMA_CPP_FIT_TARGET:-1024}
+    - --no-webui
+    - --metrics
+
 services:
 
   ollama:
@@ -75,48 +111,75 @@ services:
     volumes:
       - searxng-valkey-data:/data
 
-  llama-cpp:
+  # This preserves the former single-GPU service's catalogue and image, while
+  # restricting device visibility to physical GPU 0.
+  llama-cpp-gpu-0:
+    <<: *llama-cpp-common
     build:
       context: ./llama-cpp
       target: server
       args:
         LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp.git
         LLAMA_SOURCE_NAME: ggml-org-llama-cpp
-        LLAMA_SERVICE_NAME: llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-gpu-0
         LLAMA_BRANCH: master
         LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
         LLAMA_CUDA: "ON"
-    image: llama-cpp:upstream-eafe15a5-cuda
-    container_name: llama-cpp-c
-    restart: unless-stopped
+    container_name: llama-cpp-gpu-0-c
+    environment:
+      LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_GPU_0_DEVICE_ID:-0}
+    gpus:
+      - driver: nvidia
+        device_ids: ["${LLAMA_CPP_GPU_0_DEVICE_ID:-0}"]
+        capabilities: [gpu]
+    ports:
+      - "${LLAMA_CPP_GPU_0_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_GPU_0_PORT:-11441}:8080"
+
+  # Identical to gpu-0 except for its exclusive physical-GPU assignment.
+  llama-cpp-gpu-1:
+    <<: *llama-cpp-common
+    build:
+      context: ./llama-cpp
+      target: server
+      args:
+        LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp.git
+        LLAMA_SOURCE_NAME: ggml-org-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-gpu-1
+        LLAMA_BRANCH: master
+        LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
+        LLAMA_CUDA: "ON"
+    container_name: llama-cpp-gpu-1-c
+    environment:
+      LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_GPU_1_DEVICE_ID:-1}
+    gpus:
+      - driver: nvidia
+        device_ids: ["${LLAMA_CPP_GPU_1_DEVICE_ID:-1}"]
+        capabilities: [gpu]
+    ports:
+      - "${LLAMA_CPP_GPU_1_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_GPU_1_PORT:-11442}:8080"
+
+  # The compatibility/default route for DeepSeek and Pi. Its network alias
+  # retains http://llama-cpp:8080/v1 without making it another service name.
+  llama-cpp-all-gpus:
+    <<: *llama-cpp-common
+    build:
+      context: ./llama-cpp
+      target: server
+      args:
+        LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp.git
+        LLAMA_SOURCE_NAME: ggml-org-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-all-gpus
+        LLAMA_BRANCH: master
+        LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
+        LLAMA_CUDA: "ON"
+    container_name: llama-cpp-all-gpus-c
+    environment:
+      LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_ALL_GPU_LOCK_IDS:-0,1}
     gpus: all
-    volumes:
-      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp/models-preset.ini}:/models-preset.ini:ro
-    command:
-      - --models-preset
-      - /models-preset.ini
-      - --reasoning-format
-      - deepseek
-      - --models-max
-      - "1"
-      - --models-autoload
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --parallel
-      - ${LLAMA_CPP_PARALLEL:-1}
-      - --n-gpu-layers
-      - all
-      - --flash-attn
-      - on
-      - --fit
-      - on
-      - --fit-target
-      - ${LLAMA_CPP_FIT_TARGET:-1024}
-      - --no-webui
-      - --metrics
+    networks:
+      default:
+        aliases:
+          - llama-cpp
     ports:
       - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
 
@@ -220,12 +283,14 @@ services:
         LLAMA_CUDA: "ON"
     image: llama-cpp:generel-schwerz-qwen4exp-mtp-e69a1d0
     container_name: llama-cpp-generel-schwerz-16gb-c
-    restart: unless-stopped
+    restart: "no"
     gpus: all
     environment:
       CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
+      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
       - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
@@ -275,12 +340,14 @@ services:
         LLAMA_CUDA: "ON"
     image: llama-cpp:generel-schwerz-codex-moe-grouped-multigpu-0ed73d1
     container_name: llama-cpp-generel-schwerz-32gb-c
-    restart: unless-stopped
+    restart: "no"
     gpus: all
     environment:
       CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
+      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
       - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
@@ -477,12 +544,14 @@ services:
         LLAMA_CUDA: "ON"
     image: llama-cpp:csantiago78-moe-expert-cache-bccbacd
     container_name: llama-cpp-csantiago78-c
-    restart: unless-stopped
+    restart: "no"
     gpus: all
     environment:
       CUDA_VISIBLE_DEVICES: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
+      LLAMA_GPU_LOCK_IDS: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
       - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/llama/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
@@ -540,6 +609,7 @@ services:
   # http://guarded-fetch:8080/v1/fetch from the default Compose network.
 
 volumes:
+  llama-gpu-locks:
   ollama-home:
   ollama-cpu-home:
   searxng-cache:

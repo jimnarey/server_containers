@@ -249,7 +249,7 @@ def discover_models() -> list[Model]:
         name,
         "--publish",
         f"127.0.0.1:{port}:8080",
-        "llama-cpp",
+        "llama-cpp-all-gpus",
         "--models-dir",
         "/models",
         "--models-max",
