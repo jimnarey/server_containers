@@ -1,4 +1,4 @@
-# GenerelSchwerz llama.cpp MoE-cache services
+# GenerelSchwerz llama.cpp MoE-cache profiles
 
 `llama-cpp-generel-schwerz-16gb` and
 `llama-cpp-generel-schwerz-16gb-gpu-0` are identical one-GPU profiles pinned
@@ -7,8 +7,7 @@ the two-GPU profile. They are separate from the ordinary `llama-cpp` service
 and use the experimental CUDA MoE expert cache in
 [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
-The shared `llama-cpp/Dockerfile` receives this pin from the 16GB service's
-Compose build arguments:
+The 16GB profile env files provide this pin to the shared `llama-cpp/Dockerfile`:
 
 ```text
 branch: qwen4exp-mtp
@@ -16,7 +15,7 @@ commit: e69a1d0be5f8ae0080593865b38b175223059199
 CUDA:   12.8.1, compiled for CUDA architecture 120
 ```
 
-The 32GB service has separate `build.args` and pins a different commit:
+The 32GB profile env file pins a different commit:
 
 ```text
 branch: codex/moe-grouped-multigpu
@@ -34,15 +33,14 @@ expert cache (its own `docs/moe-grouped-multigpu.md`, in the source tree,
 records design, evidence and known gaps in detail) -- not yet merged upstream
 into `qwen4exp-mtp`. See `models-preset-32gb.ini`'s header comment for the
 real constraints this pin imposes on model configuration, and
-`docker-compose.yml`'s comment on `llama-cpp-generel-schwerz-32gb` for the
-full rationale.
+the 32GB profile's model-preset header for the full rationale.
 
 Docker maintains one neutral `GenerelSchwerz/llama.cpp` clone in its build
 cache at `/mnt/work/llama-cpp/sources/generel-schwerz-llama-cpp`. Each service
 then copies it to a service-suffixed sibling, fetches and verifies its own pin,
 and builds that copy. The path is within the build image, not the host. To use
-another revision, edit that service's `LLAMA_BRANCH` and `LLAMA_COMMIT` in
-`compose.ai.yml`.
+another revision, edit that profile's `LLAMA_BRANCH` and `LLAMA_COMMIT` in its
+tracked `.env` file.
 
 ## Runtime configuration
 
@@ -258,19 +256,19 @@ the first shard and it automatically opens its siblings.
 ## Build and run
 
 ```sh
-docker compose build llama-cpp-generel-schwerz-16gb
-docker compose up -d llama-cpp-generel-schwerz-16gb
+docker compose -f compose.ai.yml \
+  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-1.env)" \
+  up -d --build llama-cpp-generel-schwerz-16gb
 
 # The companion has the same model catalogue, on the other physical GPU.
-docker compose build llama-cpp-generel-schwerz-16gb-gpu-0
-docker compose up -d llama-cpp-generel-schwerz-16gb-gpu-0
+docker compose -f compose.ai.yml \
+  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-0.env)" \
+  up -d --build llama-cpp-generel-schwerz-16gb-gpu-0
 
 # Stop both one-GPU profiles before the two-GPU profile.
-docker compose stop llama-cpp-generel-schwerz-16gb \
-  llama-cpp-generel-schwerz-16gb-gpu-0 \
-  llama-cpp-gpu-0 llama-cpp-gpu-1 llama-cpp-all-gpus
-docker compose build llama-cpp-generel-schwerz-32gb
-docker compose up -d llama-cpp-generel-schwerz-32gb
+docker compose -f compose.ai.yml \
+  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-32gb/all-gpus.env)" \
+  up -d --build llama-cpp-generel-schwerz-32gb
 ```
 
 Use `/v1/models` and the returned preset ID to select a GGUF in a request:

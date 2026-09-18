@@ -1,49 +1,73 @@
-# llama.cpp services
+# llama.cpp service profiles
 
-All eight llama.cpp services use the single `llama-cpp/Dockerfile`. Their build definitions in `compose.ai.yml` name a repository, branch, commit, and service name. The source stage maintains one neutral clone for each of the three repositories at `LLAMA_SOURCES=/mnt/work/llama-cpp/sources`; the build stage copies that clone to a sibling directory whose suffix is the service name, checks out the requested commit, and builds that copy. The workspace is inside Docker build layers, so it is cacheable but does not modify the host.
+`compose.ai.yml` provides the shared AI stack and the `llama-gpu-locks`
+volume. It deliberately does not declare long-lived llama.cpp services.
+`render-compose.py` reads exactly one profile env file and emits one complete,
+deterministic Compose service overlay. A service therefore exists only for the
+build/profile selected for that invocation.
 
-| Service | Repository | Commit |
-| --- | --- | --- |
-| `llama-cpp-gpu-0` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
-| `llama-cpp-gpu-1` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
-| `llama-cpp-all-gpus` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
-| `llama-cpp-cpu` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
-| `llama-cpp-generel-schwerz-16gb` | `GenerelSchwerz/llama.cpp` | `e69a1d0be5f8ae0080593865b38b175223059199` |
-| `llama-cpp-generel-schwerz-16gb-gpu-0` | `GenerelSchwerz/llama.cpp` | `e69a1d0be5f8ae0080593865b38b175223059199` |
-| `llama-cpp-generel-schwerz-32gb` | `GenerelSchwerz/llama.cpp` | `0ed73d1c9e26587cc41b73f77e9e058a0da55368` |
-| `llama-cpp-csantiago78` | `csantiago78/llama.cpp` | `bccbacdb8945680f1cfc7e6bffd1e59014705750` |
-
-Docker therefore caches three neutral source clones and makes eight isolated, pinned source copies during builds. The branch is descriptive provenance; the build fetches and verifies the immutable commit directly, so a deleted branch cannot break it. Changing a pin belongs in the service's `build.args`, not in a checkout on the host.
-
-## Runtime configuration
-
-Every host-side llama.cpp setting is below `/mnt/work/llama`:
-
-```text
-/mnt/work/llama/
-  llama-cpp-16gb/models-preset.ini  (shared by gpu-0 and gpu-1)
-  llama-cpp-32gb/models-preset.ini  (used by all-gpus / the llama-cpp alias)
-  llama-cpp-cpu/models-preset.ini
-  llama-cpp-generel-schwerz-16gb/{config.ini,models-preset.ini}
-  llama-cpp-generel-schwerz-32gb/{config.ini,models-preset.ini}
-  llama-cpp-csantiago78/{config.ini,models-preset.ini}
-```
-
-Tracked templates live in matching `llama-cpp/config/<service>/` directories. Compose mounts the `/mnt/work/llama` copies read-only, so runtime changes never alter the checkout.
-
-`llama-cpp-all-gpus` is the ordinary full-catalogue workflow: it validates
-every explicit 32GB template path, discovers the model library, and adds
-missing models with the `[*]` defaults.
+## Launching a profile
 
 ```sh
-./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/config/llama-cpp-32gb/models-preset.ini \
-  --force /mnt/work/llama/llama-cpp-32gb
+docker compose -f compose.ai.yml \
+  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
+  up -d --build llama-cpp-gpu-1
 ```
 
-The two one-GPU services are deliberately preset-only: this validates the
-single-card settings and prevents an automatically discovered dual-GPU model
-from appearing in their catalogue. They share one generated runtime file.
+By default the renderer writes the YAML to a stable `/tmp/llama-compose-<sha>`
+file and prints that path, which is what makes it usable directly after
+Compose's `-f`. Diagnostics go to standard error. The renderer has no clock,
+random, network, or host-state input, so the same profile and overrides always
+produce byte-identical YAML. Inspect YAML before a launch with:
+
+```sh
+./llama-cpp/render-compose.py --stdout llama-cpp/config/llama-cpp-16gb/gpu-1.env
+```
+
+Set `LLAMA_GPU_IDS` to replace a profile's GPU selection without modifying its
+file. It accepts a comma-separated Docker/NVIDIA device-ID list; for example,
+this starts the GPU-1 profile on GPU 0 instead:
+
+```sh
+LLAMA_GPU_IDS=0 docker compose -f compose.ai.yml \
+  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
+  up -d --build llama-cpp-gpu-1
+```
+
+For less common overrides, set `LLAMA_RENDER_<KEY>` for any key in the profile
+(for example `LLAMA_RENDER_PORT=11444`). These explicit names avoid accidental
+interpolation from the repository-wide `.env` file. `LLAMA_GPU_IDS` takes
+precedence over `LLAMA_RENDER_GPU_IDS`. A CPU profile must keep `GPU_IDS` empty.
+
+The rendered GPU service uses `gpus.device_ids` to expose only the selected
+physical devices and mounts the shared lock volume. The entrypoint takes a
+non-blocking lifetime lock for each selected physical ID. A collision exits
+with status 75 and remains visible because GPU profiles use `restart: "no"`.
+
+## Profiles
+
+| Profile env file | Service | Build |
+| --- | --- | --- |
+| `config/llama-cpp-16gb/gpu-0.env` | `llama-cpp-gpu-0` | upstream CUDA, GPU 0 |
+| `config/llama-cpp-16gb/gpu-1.env` | `llama-cpp-gpu-1` | upstream CUDA, GPU 1 |
+| `config/llama-cpp-32gb/all-gpus.env` | `llama-cpp-all-gpus` | upstream CUDA, GPUs 0 and 1 |
+| `config/llama-cpp-cpu/cpu.env` | `llama-cpp-cpu` | upstream CPU |
+| `config/llama-cpp-generel-schwerz-16gb/gpu-0.env` | `llama-cpp-generel-schwerz-16gb-gpu-0` | Schwerz `e69a1d0` GPU 0 |
+| `config/llama-cpp-generel-schwerz-16gb/gpu-1.env` | `llama-cpp-generel-schwerz-16gb` | Schwerz `e69a1d0` GPU 1 |
+| `config/llama-cpp-generel-schwerz-32gb/all-gpus.env` | `llama-cpp-generel-schwerz-32gb` | Schwerz `0ed73d1`, GPUs 0 and 1 |
+| `config/llama-cpp-csantiago78/all-gpus.env` | `llama-cpp-csantiago78` | csantiago78 `bccbacd`, GPUs 0 and 1 |
+
+Every profile explicitly supplies its service name, source-service family,
+port, bind address, GPU IDs, reproducible build arguments, image tag, and
+runtime model/config mounts. The source service family selects the upstream or
+fork command/mount layout; the Dockerfile still verifies the pinned immutable
+commit directly. The CPU profile uses the same upstream family and renderer
+with `LLAMA_CUDA=OFF` and its original `unless-stopped` restart policy, rather
+than a separate handwritten Compose service.
+
+The tracked runtime templates remain below `config/`. Copy fork `config.ini`
+files to the matching `/mnt/work/llama/...` directory before launch, and
+generate the model presets as before:
 
 ```sh
 ./llama-cpp/generate-models-preset.py --preset-only --force \
@@ -51,85 +75,11 @@ from appearing in their catalogue. They share one generated runtime file.
   /mnt/work/llama/llama-cpp-16gb
 ```
 
-The other four services are also deliberately preset-only. This validates the paths named in their own template but neither scans the model library nor adds models to their catalogue:
+`llama-cpp-all-gpus` retains the `llama-cpp` network alias, preserving the
+existing DeepSeek and Pi endpoint `http://llama-cpp:8080/v1` when that profile
+is launched. The profile files use host ports 11436 through 11443; see the
+comment at the top of `compose.ai.yml`.
 
-```sh
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-cpu/models-preset.ini \
-  /mnt/work/llama/llama-cpp-cpu
-
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-16gb
-
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-32gb
-
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-csantiago78/models-preset.ini \
-  /mnt/work/llama/llama-cpp-csantiago78
-```
-
-Copy each fork's `config.ini` template to the equivalent `/mnt/work/llama` directory before starting it. The repository templates are mounted only through these generated/copied host paths.
-
-## GPU allocation and start
-
-`llama-cpp-gpu-0` can use only physical GPU 0 and `llama-cpp-gpu-1` only
-physical GPU 1, so they can run together. The shared locks also permit one
-GPU-0-pinned and one GPU-1-pinned llama service to run together, including the
-two 16GB fork instances. `llama-cpp-all-gpus` locks both cards, as do the
-two-GPU fork services. The established 16GB fork is pinned to GPU 1 by
-`GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES`; its `-gpu-0` companion is pinned to
-GPU 0 by `GS_LLAMA_CPP_16GB_GPU_0_CUDA_VISIBLE_DEVICES`. Their shared lock
-volume rejects any accidental overlap.
-
-Start these services with ordinary Compose commands:
-
-```sh
-docker compose -f compose.ai.yml up -d llama-cpp-gpu-0 llama-cpp-gpu-1
-docker compose -f compose.ai.yml up -d llama-cpp-all-gpus
-```
-
-The image takes non-blocking lifetime locks in a shared Docker volume before
-starting `llama-server`. If any assigned GPU is already locked, the container
-exits with status 75 and a `GPU allocation conflict` error. These GPU-profile
-services use `restart: "no"`, so the conflict remains visible rather than
-entering a restart loop. With detached Compose the creation command has
-already succeeded, so inspect the error with `docker compose ps` and
-`docker compose logs SERVICE`; run without `-d` if the shell exit status is
-needed. The locks apply only to llama services; they intentionally do not
-reserve an idle GPU against ComfyUI or another non-llama workload.
-
-`LLAMA_CPP_GPU_0_DEVICE_ID` and `LLAMA_CPP_GPU_1_DEVICE_ID` default to `0` and
-`1`. Set them to stable NVIDIA GPU UUIDs if host GPU numbering may change.
-Keep `LLAMA_CPP_ALL_GPU_LOCK_IDS` aligned with every GPU accessible to the
-all-GPU service.
-
-Use `gpu-pcie-link.py` to inspect the effective PCIe capability of the NVIDIA
-index used in Compose. Its successful output is always `pcie-genN-xM`, where
-`N` is the maximum path generation and `M` is the negotiated width. This
-captures lane sharing imposed by the motherboard's current M.2 configuration:
-
-```sh
-./llama-cpp/gpu-pcie-link.py 0
-# pcie-gen3-x4
-```
-
-`llama-cpp-all-gpus` retains the `llama-cpp` network alias, so existing
-DeepSeek and Pi configuration using `http://llama-cpp:8080/v1` remains valid.
-
-## Ports
-
-```sh
-docker compose -f compose.ai.yml logs -f llama-cpp-all-gpus
-```
-
-`llama-cpp-all-gpus` remains at `192.168.50.136:11436`; the single-GPU
-services use 11441 (GPU 0) and 11442 (GPU 1). The CPU service uses 11437 and
-the fork services use 11438–11440 and 11443. Inside Compose, DeepSeek and Pi use
-`http://llama-cpp:8080/v1` when the all-GPU service is active.
-
-The shared GGUF library defaults to `/mnt/data/models/gguf` and is mounted read-only at `/models`. Download and manage models on the host.
-
-See [GenerelSchwerz build notes](generel-schwerz-README.md) for the two MoE profiles' runtime constraints.
+The GGUF library defaults to `/mnt/data/models/gguf` and is mounted read-only
+at `/models`. See [GenerelSchwerz build notes](generel-schwerz-README.md) for
+the fork-specific runtime constraints.

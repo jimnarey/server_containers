@@ -59,6 +59,22 @@ shoehorning in.
   everything under 16 GiB on both GPUs" policy -- whether it helps a MoE
   model (sparse activation, a different bandwidth profile entirely) is
   genuinely untested and shouldn't be assumed to transfer either way.
+  **Real tension worth naming explicitly (2026-09-18)**: forcing a small
+  model onto both GPUs for a per-job speed win directly trades away
+  *concurrency* -- it occupies the entire host's GPU capacity for one job,
+  where the same model on a single `llama-cpp-gpu-0`/`gpu-1` card leaves
+  the other card free for a second, independent job. Real numbers make
+  the tradeoff concrete: `qwen2.5-coder-7b-instruct-q8_0` single-GPU
+  (52.91-53.06 tok/s) vs. forced dual-GPU (90.27-90.62 tok/s) is a real
+  ~1.7x speedup for *one* job, but running it single-GPU on each card
+  simultaneously gets two independent ~53 tok/s jobs running at once --
+  more aggregate throughput *and* more concurrency than the dual-GPU
+  choice, if the workload is "run several agentic sessions," not "make
+  one session as fast as possible." Which one is right depends entirely
+  on whether the goal is minimum single-job latency or maximum
+  simultaneous jobs -- this document records both real numbers so that
+  choice can be made deliberately, not defaults to "both GPUs is always
+  better."
 - **`llama-cpp-generel-schwerz-16gb` / `-16gb-gpu-0`** (fork, single
   physical GPU, a custom `moe-cache` expert-caching subsystem layered on
   the same mmap/lazy-loading mechanism the plain services also have by
@@ -104,6 +120,7 @@ combinations appears as consecutive rows rather than scattered by service.
 | Model | Service | GPU 1 | GPU 2 | RAM | CPU | Prefill | Decode |
 |---|---|---|---|---|---|---|---|
 | gpt-oss-20b-F16 | standalone, 1 GPU pinned | ~13.3 GiB | not exposed | baseline only | idle | 3,802 tok/s | 63.76 tok/s |
+| gpt-oss-20b-F16 | `llama-cpp-gpu-1` (MoE, single physical GPU)¹⁴ | 14.1 GiB | not exposed | baseline only | idle | 580.26 tok/s | 94.34 tok/s cold, 94.39 tok/s warm |
 | gpt-oss-20b-F16 | `llama-cpp-all-gpus` (forced dual-GPU tensor-split)⁹ | 7.4 GiB | 7.5 GiB | baseline only | idle | 557.97 tok/s (cold) | 141.38 tok/s cold, 142.33 tok/s warm |
 | gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
 | Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split)⁷ | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
@@ -113,15 +130,38 @@ combinations appears as consecutive rows rather than scattered by service.
 | Qwen3.8-27B-UD-IQ3_S | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.1 GiB | 9.2 GiB | baseline only | idle | 202.25 tok/s (cold) | 47.50 tok/s cold, 47.55 tok/s warm |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm |
+| Qwen3.6-27B-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split, new model)¹⁵ | 14.0 GiB | 14.0 GiB | baseline only | idle | 167.97 tok/s | 31.47 tok/s cold, 31.50 tok/s warm |
 | qwen2.5-coder-7b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 5.4 GiB | not exposed | baseline only | idle | 1,797.27 tok/s | 80.81 tok/s cold, 81.04 tok/s warm |
+| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 8.3 GiB | not exposed | baseline only | idle | 1,870.13 tok/s | 52.91 tok/s cold, 53.06 tok/s warm |
+| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 4.4 GiB | 4.5 GiB | baseline only | idle | 1,342.20 tok/s | 90.27 tok/s cold, 90.62 tok/s warm |
 | qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 11.6 GiB | not exposed | baseline only | idle | 1,300.84 tok/s | 40.92 tok/s cold, 41.02 tok/s warm |
-| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹² | 12.8 GiB | 12.9 GiB | baseline only | idle | 999.02 tok/s | load-confirmed only¹² |
-| Devstral-Small-2505-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹² | 12.8 GiB | 12.9 GiB | baseline only | idle | 1,037.67 tok/s | load-confirmed only¹² |
+| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 12.9 GiB | not exposed | baseline only | idle | 1,140.48 tok/s | 38.09 tok/s cold, 38.14 tok/s warm |
+| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 6.8 GiB | 6.8 GiB | baseline only | idle | 761.79 tok/s | 62.99 tok/s cold, 63.41 tok/s warm |
+| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 14.3 GiB | not exposed | baseline only | idle | 1,182.33 tok/s | 33.06 tok/s cold, 33.07 tok/s warm |
+| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 7.5 GiB | 7.5 GiB | baseline only | idle | 627.89 tok/s | 55.47 tok/s cold, 56.49 tok/s warm |
+| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 12.8 GiB | 12.9 GiB | baseline only | idle | 784.07 tok/s | 42.49 tok/s cold, 42.53 tok/s warm |
+| Devstral-Small-2-24B-Instruct-2512-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 13.9 GiB | 14.0 GiB | baseline only | idle | 981.03 tok/s | 39.44 tok/s cold, 39.53 tok/s warm |
+| Devstral-Small-2-24B-Instruct-2512-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 15.1 GiB | 15.1 GiB | baseline only | idle | 913.35 tok/s | 33.97 tok/s cold, 35.22 tok/s warm |
+| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.998 tok/s | 2.76 tok/s cold, 2.76 tok/s warm |
+| Devstral-Small-2505-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 12.8 GiB | 12.9 GiB | baseline only | idle | 1,040.28 tok/s | 47.02 tok/s cold, 47.06 tok/s warm |
+| Devstral-Small-2505-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 13.9 GiB | 14.0 GiB | baseline only | idle | 1,020.88 tok/s | 43.14 tok/s cold, 43.30 tok/s warm |
+| Devstral-Small-2505-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 15.1 GiB | 15.1 GiB | baseline only | idle | 950.21 tok/s | 37.26 tok/s cold, 38.13 tok/s warm |
+| Devstral-Small-2505-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.316 tok/s | 2.69 tok/s cold, 2.69 tok/s warm |
+| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU) | **failed to load**¹⁹ | not exposed | -- | -- | failed to load | failed to load |
+| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)¹⁹ | 10.6 GiB | 9.1 GiB | baseline only | idle | 170.51 tok/s | 51.20 tok/s cold, 52.35 tok/s warm |
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
-| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 12.69 tok/s (cold)¹³ | 41.60 tok/s cold, 67.24 tok/s warm¹³ |
+| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s¹³ | 68.39 tok/s cold, 68.18 tok/s warm¹³ |
 | Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm |
 | Ornith-1.5-35B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.2 GiB | not exposed | baseline only | idle | 92.14 tok/s | 65.11 tok/s cold, 66.52 tok/s warm |
 | Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
+| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 12.7 GiB | not exposed | baseline only | idle | 122.90 tok/s | 69.32 tok/s cold, 69.59 tok/s warm |
+| Laguna-XS-2.1-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 144.99 tok/s | 80.42 tok/s cold, 80.56 tok/s warm |
+| North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 147.28 tok/s | 55.45 tok/s cold, 55.41 tok/s warm |
+| granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm |
+| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | `llama-cpp-all-gpus` (MoE, dual-GPU, MTP speculative decode)²¹ | 10.3 GiB | 13.3 GiB | baseline only | idle | 275.30 tok/s | 166.62 tok/s cold, 167.64 tok/s warm |
+| GLM-4.7-Flash-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)²² | 12.8 GiB | 12.2 GiB | baseline only | idle | 279.26 tok/s | 103.98 tok/s cold, 104.16 tok/s warm |
+| Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload) | **failed to load**²³ | not exposed | -- | -- | failed to load | failed to load |
+| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload) | **failed to load**²³ | not exposed | -- | -- | failed to load | failed to load |
 | Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
 | Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
@@ -170,9 +210,14 @@ comparing against the 43K-token stress test once run (see below) rather
 than assumed to be quant-size-inversely-correlated from one data point.
 Cold run showed a striking asymmetry worth flagging: GPU 1 sat at 0% util
 while GPU 0 ran the 119-token prefill at 98% -- by the warm run both cards
-were at 97-98%. Plausibly the small prompt finished before the snapshot
-caught GPU 1 doing its share, not necessarily a real placement problem, but
-unconfirmed either way. The session-derived step-duration figure previously
+were at 97-98%. **Resolved, 2026-09-18, repeat run**: a clean repeat
+(256-token five-topic prompt, cold/warm 31.07/31.12 tok/s decode -- in
+line with this footnote's original 30.16-31.05 tok/s) showed both cards
+at 98% utilization on *both* the cold and warm run, no asymmetry at all.
+Confirms the original snapshot was a small-prompt timing artifact (the
+prefill likely finished on one card before the `nvidia-smi` snapshot
+caught the other doing its share), not a real placement problem. The
+session-derived step-duration figure previously
 here (model-only step median 24.6s->18.0s, mean 91.5s->45.1s,
 `split-mode=tensor` before/after) is still the only *real-session* data
 point and remains in the "`llama-cpp-all-gpus` service" section below -- it
@@ -249,16 +294,126 @@ are marked load-confirmed only, not a benchmark number -- this was a
 short smoke test (load + a handful of tokens), not the standard 256-token
 five-topic benchmark used elsewhere in this table. A proper cold/warm
 benchmark run is still pending.
-¹³ Real figures, but unusually slow relative to Qwen3.6-35B-A3B's own
-warm run and to its three `n-cpu-moe` peers in this table: cold prefill
-12.69 tok/s (vs. 92-129 tok/s for the other three), cold decode 41.60
-tok/s vs. warm 67.24 tok/s -- a ~62% cold-to-warm jump, far larger than
-any other gap in this table. `time to first text` was 27.10 s despite
-prefill compute itself taking only 7.01 s of that, consistent with ~20 s
-of pure model-load time before any compute started -- the largest
-cold-load penalty recorded for any of these four MoE models. Not yet
-explained; worth a repeat run before treating the cold figures as
-representative of this model rather than a one-off slow load.
+¹³ **Resolved, 2026-09-18, repeat run**: the original run showed cold
+prefill 12.69 tok/s and a 41.60->67.24 tok/s cold-to-warm decode jump, far
+outside every other `n-cpu-moe` model's range, with ~20 s of apparent
+pure model-load time before any compute started. A clean repeat run
+(figures now in the table above) landed squarely in line with its three
+peers: 125.48 tok/s prefill, 68.39/68.18 tok/s cold/warm decode -- no
+unusual cold-to-warm gap at all. Confirms the original run was a one-off
+slow load, not a real property of this model. The original figures are
+kept here for the record: cold prefill 12.69 tok/s, cold decode 41.60
+tok/s, warm decode 67.24 tok/s, `time to first text` 27.10 s despite
+prefill compute itself only taking 7.01 s of that.
+¹⁴ 2026-09-18, real test on the *current* single-GPU architecture
+(`llama-cpp-gpu-1`) -- fills a gap the earlier "standalone, 1 GPU pinned"
+row couldn't, since that predates this deployment's per-GPU-locked
+refactor. 14.1 GiB used, real headroom (~2.2 GiB) on the 16,311 MiB card.
+¹⁵ 2026-09-18, new model (Qwen3.6-generation dense 27B). Confirmed working
+at the projected `ctx-size=163840`: 14,299/14,384 MiB, ~2.0/1.9 GiB real
+headroom per card -- within ~50 MiB of this document's own pre-download
+projection (~28.08 GiB combined, ~3.8 GiB headroom; actual 28,683 MiB
+combined, ~3.85 GiB headroom). `split-mode=tensor` confirmed working for
+this architecture.
+¹⁶ 2026-09-18, higher quants of the two Qwen2.5-Coder models, both
+single-GPU and forced dual-GPU tensor-split. Real, direct confirmation of
+the same bandwidth-doubling effect already established for other dense
+models: `q8_0` (7b) 52.91->90.27 tok/s (~1.71x), `q5_k_m` (14b)
+38.09->62.99 tok/s (~1.65x), `q6_k` (14b) 33.06->55.47 tok/s (~1.68x) --
+closely consistent multipliers across three different quants/sizes of the
+same architecture family.
+¹⁷ 2026-09-18, real cold/warm benchmark for all six Devstral dual-GPU
+entries (both quants existing and new). Real, notable: `Devstral-Small-
+2505` decodes faster than `Devstral-Small-2-24B-Instruct-2512` at every
+matching quant level (Q4_K_M: 47.0 vs 42.5 tok/s; Q5_K_M: 43.1 vs 39.4
+tok/s; Q6_K: 37.3-38.1 vs 34.0-35.2 tok/s) despite identical file sizes
+and VRAM footprints -- a real difference between the two Devstral
+releases, architecture/weights, not a measurement artifact (both tested
+back-to-back, same service, same context). `Q6_K` cold runs show VRAM
+right at the projected ceiling (894-1,006 MiB headroom per card, matching
+the ~1.5 GiB combined projection) -- the tightest fit of anything
+successfully tested in this document.
+¹⁸ 2026-09-18, real CPU-only benchmark -- dramatically slower than
+predicted. This document's own prediction (before testing) was "the same
+ballpark as gpt-oss-20b-F16's CPU figure (10.42-10.43 tok/s) adjusted for
+size" -- the real figure, 2.69-2.76 tok/s, is roughly 3.8x slower than
+that prediction, not just a smaller adjustment. Root cause is architectural,
+not a bug: gpt-oss-20b-F16 is MoE (sparse activation lets CPU inference
+skip most experts most tokens); Devstral is dense, so every one of its
+~24B parameters must be read from RAM on every token, with no sparsity to
+exploit. Real end-to-end times reflect this: cold requests took 152-200 s
+end-to-end (vs. single-digit seconds for every GPU-resident entry in this
+table). **Practical conclusion: CPU is not a viable path for dense
+20B+-class models on this host**, unlike the genuinely-useful MoE CPU
+entries elsewhere in this table -- despite fitting comfortably in RAM,
+throughput this low rules out agentic use.
+¹⁹ 2026-09-18, real and reproducible: `DeepSeek-Coder-V2-Lite-Instruct-
+Q4_K_M` (real MoE, `deepseek2` architecture, 9.65 GiB) failed to load on
+`llama-cpp-gpu-1` (single physical GPU, no `split-mode` set in that
+preset entry) with a generic HTTP 500 "failed to load" -- no RAM/swap
+growth, GPU memory never exceeded the ~101 MiB compositor baseline,
+ruling out a resource-exhaustion cause. The *same model, same quant* then
+loaded and ran successfully on `llama-cpp-all-gpus` with `split-mode=
+layer` explicitly set. Root cause not yet confirmed -- container logs
+for the failed single-GPU attempt were not captured (the test script logs
+client-side HTTP responses, not `docker logs`), and a live reproduction
+to get the real llama.cpp error is still needed. Two real hypotheses,
+neither yet confirmed: (a) this architecture may have a hard requirement
+inherited from its `deepseek2` lineage that doesn't survive a genuinely
+single-device CUDA context the way `split-mode=layer` across two visible
+devices does, or (b) an unrelated single-GPU-service-specific config gap
+(the `llama-cpp-16gb` entry has no `split-mode` set at all, unlike every
+dual-GPU entry in this document). This reframes the "does layer-split
+help a small MoE model" question this test pair was designed to answer:
+the real finding isn't a speed comparison, it's that **single-GPU
+placement fails outright** for this model on this build, at least in its
+current config -- a more fundamental result than either original
+hypothesis anticipated.
+²⁰ 2026-09-18, first real load tests for all four new `n-cpu-moe`
+expert-offload entries -- all four load and answer correctly, confirming
+the computed `n-cpu-moe` values (19/16/18/15 respectively) were right on
+the first attempt, unlike the *existing* four-model cluster's real
+first-guess failure. `granite-4.0-h-small`'s real decode (27.16-27.49
+tok/s) is noticeably the slowest of the eight `n-cpu-moe` models tested
+in this document (next-slowest is 38-41 tok/s) -- consistent with the
+prediction that its 9B active-parameter count (vs. ~3B for every other
+model in this cluster) would mean proportionally heavier CPU-offloaded
+expert compute per token. A real, confirmed architectural cost, not
+noise.
+²¹ 2026-09-18, first standardized cold/warm benchmark for this model on
+`llama-cpp-all-gpus` (previously only real DSH session data existed:
+42.2-101.2 tok/s across three agentic sessions). The standardized
+256-token five-topic benchmark shows *much* higher throughput
+(166.62-167.64 tok/s) than the real agentic sessions did -- both are
+real, valid measurements of different things, not a contradiction: the
+DSH sessions ran with far deeper context and real tool-call overhead
+between generations, while this benchmark is a single short-context
+request. Uneven VRAM split (10.3/13.3 GiB) confirms this model does not
+use `split-mode=tensor` (no `split-mode` set in its preset entry,
+consistent with its MTP speculative-decode sidecar's own placement needs).
+²² 2026-09-18, first standardized cold/warm benchmark for this model
+(previously only load+request confirmed, with real headroom noted but no
+throughput figure). 103.98-104.16 tok/s, a real, solid number -- among
+the faster MoE entries in this table, consistent with `deepseek2`'s
+layer-split placement still giving good throughput despite not
+benefiting from tensor-split's bandwidth-doubling.
+²³ 2026-09-18, real and reproducible failures for both remaining
+dense-70B-class entries on `llama-cpp-all-gpus`, cold and warm alike --
+identical generic HTTP 500 "failed to load" to `DeepSeek-Coder-V2-Lite`'s
+single-GPU failure above, but a different situation: RAM stayed flat
+(3.3-3.4 GiB used, no growth, no swap change) and GPU memory never
+exceeded the ~16-101 MiB compositor baseline -- ruling out both a RAM
+near-miss (unlike the real DeepSeek-70B CPU-service incident earlier this
+session) and a VRAM OOM. Both entries use `n-gpu-layers=auto` with
+`--fit on`, relying on llama.cpp's own automatic layer-count reduction to
+fit partial-CPU-offload dense 70B-class models -- the clean, immediate
+failure (no resource climb at all) suggests the `--fit` auto-sizing
+itself is failing for these two specifically, not that the models are
+too large in principle. Root cause not yet confirmed -- needs a live
+reproduction with container logs, same as the DeepSeek-Coder-V2-Lite
+failure above. Both entries remain curated and worth retrying once
+diagnosed, not removed -- this looks like a config/auto-fit problem, not
+proof these models can never run here.
 
 ## GPU-resident, single card, no host offload
 
