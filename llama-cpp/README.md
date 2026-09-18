@@ -1,6 +1,6 @@
 # llama.cpp services
 
-All seven llama.cpp services use the single `llama-cpp/Dockerfile`. Their build definitions in `compose.ai.yml` name a repository, branch, commit, and service name. The source stage maintains one neutral clone for each of the three repositories at `LLAMA_SOURCES=/mnt/work/llama-cpp/sources`; the build stage copies that clone to a sibling directory whose suffix is the service name, checks out the requested commit, and builds that copy. The workspace is inside Docker build layers, so it is cacheable but does not modify the host.
+All eight llama.cpp services use the single `llama-cpp/Dockerfile`. Their build definitions in `compose.ai.yml` name a repository, branch, commit, and service name. The source stage maintains one neutral clone for each of the three repositories at `LLAMA_SOURCES=/mnt/work/llama-cpp/sources`; the build stage copies that clone to a sibling directory whose suffix is the service name, checks out the requested commit, and builds that copy. The workspace is inside Docker build layers, so it is cacheable but does not modify the host.
 
 | Service | Repository | Commit |
 | --- | --- | --- |
@@ -9,10 +9,11 @@ All seven llama.cpp services use the single `llama-cpp/Dockerfile`. Their build 
 | `llama-cpp-all-gpus` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
 | `llama-cpp-cpu` | `ggml-org/llama.cpp` | `eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e` |
 | `llama-cpp-generel-schwerz-16gb` | `GenerelSchwerz/llama.cpp` | `e69a1d0be5f8ae0080593865b38b175223059199` |
+| `llama-cpp-generel-schwerz-16gb-gpu-0` | `GenerelSchwerz/llama.cpp` | `e69a1d0be5f8ae0080593865b38b175223059199` |
 | `llama-cpp-generel-schwerz-32gb` | `GenerelSchwerz/llama.cpp` | `0ed73d1c9e26587cc41b73f77e9e058a0da55368` |
 | `llama-cpp-csantiago78` | `csantiago78/llama.cpp` | `bccbacdb8945680f1cfc7e6bffd1e59014705750` |
 
-Docker therefore caches three neutral source clones and makes seven isolated, pinned source copies during builds. The branch is descriptive provenance; the build fetches and verifies the immutable commit directly, so a deleted branch cannot break it. Changing a pin belongs in the service's `build.args`, not in a checkout on the host.
+Docker therefore caches three neutral source clones and makes eight isolated, pinned source copies during builds. The branch is descriptive provenance; the build fetches and verifies the immutable commit directly, so a deleted branch cannot break it. Changing a pin belongs in the service's `build.args`, not in a checkout on the host.
 
 ## Runtime configuration
 
@@ -62,10 +63,13 @@ Copy each fork's `config.ini` template to the equivalent `/mnt/work/llama` direc
 ## GPU allocation and start
 
 `llama-cpp-gpu-0` can use only physical GPU 0 and `llama-cpp-gpu-1` only
-physical GPU 1. They are the only pair of GPU-enabled llama services that can
-run together. `llama-cpp-all-gpus` locks both cards, as do the two-GPU fork
-services. The 16GB fork locks the GPU named by its existing
-`GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES` setting.
+physical GPU 1, so they can run together. The shared locks also permit one
+GPU-0-pinned and one GPU-1-pinned llama service to run together, including the
+two 16GB fork instances. `llama-cpp-all-gpus` locks both cards, as do the
+two-GPU fork services. The established 16GB fork is pinned to GPU 1 by
+`GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES`; its `-gpu-0` companion is pinned to
+GPU 0 by `GS_LLAMA_CPP_16GB_GPU_0_CUDA_VISIBLE_DEVICES`. Their shared lock
+volume rejects any accidental overlap.
 
 Start these services with ordinary Compose commands:
 
@@ -89,6 +93,16 @@ reserve an idle GPU against ComfyUI or another non-llama workload.
 Keep `LLAMA_CPP_ALL_GPU_LOCK_IDS` aligned with every GPU accessible to the
 all-GPU service.
 
+Use `gpu-pcie-link.py` to inspect the effective PCIe capability of the NVIDIA
+index used in Compose. Its successful output is always `pcie-genN-xM`, where
+`N` is the maximum path generation and `M` is the negotiated width. This
+captures lane sharing imposed by the motherboard's current M.2 configuration:
+
+```sh
+./llama-cpp/gpu-pcie-link.py 0
+# pcie-gen3-x4
+```
+
 `llama-cpp-all-gpus` retains the `llama-cpp` network alias, so existing
 DeepSeek and Pi configuration using `http://llama-cpp:8080/v1` remains valid.
 
@@ -100,7 +114,7 @@ docker compose -f compose.ai.yml logs -f llama-cpp-all-gpus
 
 `llama-cpp-all-gpus` remains at `192.168.50.136:11436`; the single-GPU
 services use 11441 (GPU 0) and 11442 (GPU 1). The CPU service uses 11437 and
-the fork services use 11438–11440. Inside Compose, DeepSeek and Pi use
+the fork services use 11438–11440 and 11443. Inside Compose, DeepSeek and Pi use
 `http://llama-cpp:8080/v1` when the all-GPU service is active.
 
 The shared GGUF library defaults to `/mnt/data/models/gguf` and is mounted read-only at `/models`. Download and manage models on the host.

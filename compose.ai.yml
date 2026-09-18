@@ -286,8 +286,10 @@ services:
     restart: "no"
     gpus: all
     environment:
-      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
-      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-0}"
+      # This established service is the GPU-1 instance.  CUDA renumbers its
+      # one visible device to 0, which is what config.ini's main-gpu uses.
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-1}"
+      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-1}"
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
@@ -307,6 +309,48 @@ services:
       - --metrics
     ports:
       - "${GS_LLAMA_CPP_16GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_PORT:-11438}:8080"
+
+  # Same pinned one-GPU MoE-cache build and catalogue as the established
+  # 16GB service, but constrained to physical GPU 0.  Both services mount the
+  # same read-only runtime files: CUDA renumbers their respective sole visible
+  # device to 0, so no card-specific config.ini is required.
+  llama-cpp-generel-schwerz-16gb-gpu-0:
+    build:
+      context: ./llama-cpp
+      target: server
+      args:
+        LLAMA_REPOSITORY: https://github.com/GenerelSchwerz/llama.cpp.git
+        LLAMA_SOURCE_NAME: generel-schwerz-llama-cpp
+        LLAMA_SERVICE_NAME: llama-cpp-generel-schwerz-16gb-gpu-0
+        LLAMA_BRANCH: qwen4exp-mtp
+        LLAMA_COMMIT: e69a1d0be5f8ae0080593865b38b175223059199
+        LLAMA_CUDA: "ON"
+    image: llama-cpp:generel-schwerz-qwen4exp-mtp-e69a1d0
+    container_name: llama-cpp-generel-schwerz-16gb-gpu-0-c
+    restart: "no"
+    gpus: all
+    environment:
+      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_GPU_0_CUDA_VISIBLE_DEVICES:-0}"
+      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_16GB_GPU_0_CUDA_VISIBLE_DEVICES:-0}"
+    volumes:
+      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
+      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+    command:
+      - --models-preset
+      - /etc/llama.cpp/models-preset.ini
+      - --models-max
+      - "1"
+      - --models-autoload
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-webui
+      - --metrics
+    ports:
+      - "${GS_LLAMA_CPP_16GB_GPU_0_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_GPU_0_PORT:-11443}:8080"
 
   # Experimental GenerelSchwerz/llama.cpp build using both physical GPUs.
   # 2026-09-16: pinned to codex/moe-grouped-multigpu, NOT qwen4exp-mtp (that's

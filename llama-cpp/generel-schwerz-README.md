@@ -1,9 +1,11 @@
 # GenerelSchwerz llama.cpp MoE-cache services
 
-`llama-cpp-generel-schwerz-16gb` is the one-GPU profile and
-`llama-cpp-generel-schwerz-32gb` is the two-GPU profile. They are separate
-from the ordinary `llama-cpp` service and use the experimental CUDA MoE expert
-cache in [GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
+`llama-cpp-generel-schwerz-16gb` and
+`llama-cpp-generel-schwerz-16gb-gpu-0` are identical one-GPU profiles pinned
+to physical GPUs 1 and 0 respectively. `llama-cpp-generel-schwerz-32gb` is
+the two-GPU profile. They are separate from the ordinary `llama-cpp` service
+and use the experimental CUDA MoE expert cache in
+[GenerelSchwerz/llama.cpp](https://github.com/GenerelSchwerz/llama.cpp).
 
 The shared `llama-cpp/Dockerfile` receives this pin from the 16GB service's
 Compose build arguments:
@@ -76,8 +78,12 @@ appear as a duplicate or bypass a profile. Add a direct `model = /models/...`
 section to the repository template, install it to each runtime location, then
 recreate the service when deliberately making another model available.
 
-The 16GB service is exposed on port 11438 and limits CUDA visibility to physical
-GPU 0. The 32GB service is on port 11439 and exposes both GPUs.
+The established 16GB service is exposed on port 11438 and limits CUDA
+visibility to physical GPU 1. Its companion is on port 11443 and limits CUDA
+visibility to physical GPU 0. The 32GB service is on port 11439 and exposes
+both GPUs. The one-GPU pair share read-only runtime config and model-preset
+files: with exactly one device visible, CUDA renumbers it to logical device 0,
+which is what `main-gpu = 0` selects.
 
 2026-09-16: the 32GB service's model placement is now genuinely different
 from the 16GB one, not just "the same idea across two cards." Because
@@ -216,10 +222,11 @@ traffic.
 
 ### GPU and host-memory discipline
 
-The 16GB profile makes only physical GPU 0 visible. The 32GB profile makes both
-cards visible, so the normal `llama-cpp` service must be stopped first. The
-ordinary service currently requests all GPUs too; stop it before the 16GB
-profile as well unless it has separately been configured to expose only GPU 1.
+The established 16GB profile makes only physical GPU 1 visible; its companion
+makes only physical GPU 0 visible. They may run together: their lifetime GPU
+locks are complementary. The 32GB profile makes both cards visible, so both
+one-GPU services and the normal all-GPU `llama-cpp` service must be stopped
+first.
 Do not rely on “unused” VRAM reported before a model load—leave at least 1–2
 GiB free on every participating card for CUDA workspaces and transient peaks.
 
@@ -229,6 +236,7 @@ Use these host-side commands while loading and running a first request:
 watch -n 1 nvidia-smi
 watch -n 1 free -h
 docker stats llama-cpp-generel-schwerz-16gb-c
+# or: docker stats llama-cpp-generel-schwerz-16gb-gpu-0-c
 # or: docker stats llama-cpp-generel-schwerz-32gb-c
 ```
 
@@ -253,8 +261,13 @@ the first shard and it automatically opens its siblings.
 docker compose build llama-cpp-generel-schwerz-16gb
 docker compose up -d llama-cpp-generel-schwerz-16gb
 
-# Stop the one-GPU profile before the two-GPU profile.
+# The companion has the same model catalogue, on the other physical GPU.
+docker compose build llama-cpp-generel-schwerz-16gb-gpu-0
+docker compose up -d llama-cpp-generel-schwerz-16gb-gpu-0
+
+# Stop both one-GPU profiles before the two-GPU profile.
 docker compose stop llama-cpp-generel-schwerz-16gb \
+  llama-cpp-generel-schwerz-16gb-gpu-0 \
   llama-cpp-gpu-0 llama-cpp-gpu-1 llama-cpp-all-gpus
 docker compose build llama-cpp-generel-schwerz-32gb
 docker compose up -d llama-cpp-generel-schwerz-32gb
@@ -264,9 +277,11 @@ Use `/v1/models` and the returned preset ID to select a GGUF in a request:
 
 ```sh
 curl http://192.168.50.136:11438/v1/models
+curl http://192.168.50.136:11443/v1/models
 curl http://192.168.50.136:11439/v1/models
 ```
 
 For containers on this Compose network, the corresponding API bases are
 `http://llama-cpp-generel-schwerz-16gb:8080/v1` and
+`http://llama-cpp-generel-schwerz-16gb-gpu-0:8080/v1`, and
 `http://llama-cpp-generel-schwerz-32gb:8080/v1`.
