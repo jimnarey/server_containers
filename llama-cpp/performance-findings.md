@@ -1,7 +1,7 @@
 # Local llama.cpp performance findings
 
 Durable record of every real performance measurement taken across the local
-llama.cpp deployments (plain `llama-cpp`, the GenerelSchwerz MoE-cache forks,
+llama.cpp deployments (`llama-cpp-all-gpus`, the GenerelSchwerz MoE-cache forks,
 and standalone comparison runs), what was done to get each number, and what
 conclusions are and are not supported by them. Host: 2x RTX 5060 Ti (16 GiB
 each, no peer access -- `nvidia-smi topo -p2p r` reports `CNS`), 60 GiB system
@@ -28,24 +28,38 @@ passthrough in `compose.ai.yml` -- it's not "0% used", it architecturally
 cannot see a GPU); "not used" means the GPU is visible to the container but
 the model didn't touch it.
 
+Rows are grouped by model, so a model with several tested resource
+combinations appears as consecutive rows rather than scattered by service.
+
 | Model | Service | GPU 1 | GPU 2 | RAM | CPU | Prefill | Decode |
 |---|---|---|---|---|---|---|---|
 | gpt-oss-20b-F16 | standalone, 1 GPU pinned | ~13.3 GiB | not exposed | baseline only | idle | 3,802 tok/s | 63.76 tok/s |
+| gpt-oss-20b-F16 | `llama-cpp-all-gpus` (forced dual-GPU tensor-split)⁹ | 7.4 GiB | 7.5 GiB | baseline only | idle | 557.97 tok/s (cold) | 141.38 tok/s cold, 142.33 tok/s warm |
+| gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
+| Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split)⁷ | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
+| Qwen3.8-27B-UD-Q5_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 12.0 GiB | 12.0 GiB | baseline only | idle | -- | 34.92 tok/s cold, 34.94 tok/s warm |
+| Qwen3.8-27B-UD-Q6_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s⁶ | 30.16-31.05 tok/s |
+| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.5 GiB | not exposed | baseline only | idle | -- | 30.64 tok/s cold, 30.69 tok/s warm |
+| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.1 GiB | 9.2 GiB | baseline only | idle | 202.25 tok/s (cold) | 47.50 tok/s cold, 47.55 tok/s warm |
+| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm |
+| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm |
 | Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
+| Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
+| Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
 | Qwen3-Next-80B-A3B-Instruct | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 55 GiB mmap cache³ | idle | 62.98 tok/s | 31.81-32.00 tok/s |
+| Qwen3-Next-80B-A3B-Instruct | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 9.23 tok/s | 9.98-13.24 tok/s |
 | gpt-oss-120b | 16GB schwerz | 7.1 GiB | not exposed | 4.0 GiB + 54 GiB mmap cache | idle | 11.06 tok/s | 8.11-8.80 tok/s |
+| gpt-oss-120b | 32GB schwerz (grouped-multigpu) | 3.8 GiB | 4.0 GiB | 60/60 GiB (swap-maxed) | some (swap I/O) | 2.20 tok/s⁴ | 2.36-3.01 tok/s⁴ |
 | Llama-4-Scout-17B-16E | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
 | GLM-4.5-Air | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
-| gpt-oss-120b | 32GB schwerz (grouped-multigpu) | 3.8 GiB | 4.0 GiB | 60/60 GiB (swap-maxed) | some (swap I/O) | 2.20 tok/s⁴ | 2.36-3.01 tok/s⁴ |
 | GLM-4.5-Air | 32GB schwerz (grouped-multigpu) | 10.1 GiB | 10.1 GiB | 60/60 GiB (swap-maxed) | some (swap I/O), 0% GPU compute | 1.68 tok/s⁴ | 1.01-1.39 tok/s⁴ |
-| Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
-| Qwen3.8-27B-UD-Q4_K_M | plain llama-cpp (dense, tensor-split) | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
-| Qwen3.8-27B-UD-Q6_K_M | plain llama-cpp (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s⁶ | 30.16-31.05 tok/s |
-| gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
 | Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
-| Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
-| Qwen3-Next-80B-A3B-Instruct | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 9.23 tok/s | 9.98-13.24 tok/s |
+| gemma-3n-E2B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 5.1 GiB | **compute (8 threads)** | 145.26 tok/s | 21.72-21.85 tok/s |
+| gemma-3n-E4B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 6.0 GiB | **compute (8 threads)** | 77.51 tok/s | 12.72-12.73 tok/s |
+| NVIDIA-Nemotron-3-Nano-4B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 4.5-4.8 GiB | **compute (8 threads)** | 55.47 tok/s | 12.67-12.71 tok/s |
+| Qwen3.5-9B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.0-7.1 GiB | **compute (8 threads)** | 42.23 tok/s | 7.29-7.30 tok/s |
+| Ornith-1.5-9B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.4-7.5 GiB | **compute (8 threads)** | 45.29 tok/s | 7.36-7.35 tok/s |
 
 ¹ From this session's six-model 16GB run (same deployed config as the tuned
 benchmark, different prompt) -- see footnote 2.
@@ -83,12 +97,12 @@ caught GPU 1 doing its share, not necessarily a real placement problem, but
 unconfirmed either way. The session-derived step-duration figure previously
 here (model-only step median 24.6s->18.0s, mean 91.5s->45.1s,
 `split-mode=tensor` before/after) is still the only *real-session* data
-point and remains in the "Plain `llama-cpp` service" section below -- it
+point and remains in the "`llama-cpp-all-gpus` service" section below -- it
 also confounds `reasoning-effort=low` going live in the same window, so
 it's a different kind of evidence from the clean benchmark figures here,
 not a contradiction of them.
 ⁷ Re-run 2026-09-17 to replace the dated/accidental 2026-09-14 test (see the
-"Plain `llama-cpp` service" section below) with a properly current figure --
+"`llama-cpp-all-gpus` service" section below) with a properly current figure --
 cold prefill 68.13 tok/s, decode 39.11 tok/s, warm decode 40.62 tok/s. Closely
 corroborates the 09-14 numbers (56.78 prefill, 40.50-40.66 decode) rather
 than contradicting them: same VRAM footprint (10555/10640 MiB, 97-98% both
@@ -96,7 +110,46 @@ cards), decode essentially identical, prefill within normal run-to-run
 variance. Nothing material changed for this quant's dense dual-GPU
 performance between the two dates. Table figures above are the 09-17
 re-run; the original 09-14 numbers are kept in the detailed section below
-as corroborating evidence, not superseded/wrong.
+as corroborating evidence, not superseded/wrong. Reconfirmed again
+2026-09-18, after the service refactor's NCCL break was fixed
+(`NCCL_CUMEM_ENABLE=0` -- see "Real incident: split-mode=tensor broken by
+the service refactor, fixed" below) and now running via llama.cpp's own
+non-NCCL AllReduce fallback path rather than real NCCL, with a real
+256-token cold/warm benchmark: 39.89-40.51 tok/s cold, 39.96 tok/s warm,
+10,655+10,740 MiB combined VRAM. Consistent with the figures above to
+within normal run-to-run variance -- not given its own table row, since
+the difference between the two reduce mechanisms is marginal to
+nonexistent for this workload; forced dual-GPU tensor-split is just how
+this deployment runs these models now, regardless of which AllReduce path
+NCCL ends up taking underneath.
+⁸ Single physical GPU (`llama-cpp-gpu-1`, one card exposed to the
+container by Docker's own `gpus.device_ids`), from the same 2026-09-18
+clean 256-token cold/warm benchmark as the dual-GPU forced-tensor-split
+rows below. See "Qwen3.8-27B, single GPU, real 3-bit quants" below for how
+these ctx-size values (98304/65536 respectively) were reached.
+⁹ Each of these three models fits solo on one 16 GiB card already;
+`split-mode=tensor` was forced explicitly anyway because dense/GPU-resident
+decode at batch=1 is memory-bandwidth-bound, and splitting doubles
+effective VRAM bandwidth even when capacity isn't the constraint -- see
+"Both 3-bit quants forced onto dual-GPU tensor-split despite fitting on
+one card" below for the full reasoning and the single-GPU-vs-dual-GPU
+comparison. 2026-09-18 clean 256-token cold/warm benchmark, user-run.
+¹⁰ First real cold/warm figures for these five small models, user-run,
+same 256-token five-topic prompt as every other row in this table.
+`nvidia-smi` confirmed 0% utilization and no model process on either GPU
+for all five (genuinely CPU-only, matching this service's architectural
+`llama-cpp-cpu` -- has no `gpus:` passthrough). Host swap held flat at
+3.6/8 GiB across all ten requests (cold+warm x5) -- pre-existing from
+something else running earlier in the session, not caused by or growing
+during any of these runs, unlike the real near-misses recorded elsewhere
+in this document. RAM ranges shown are cold->warm; decode speed here
+tracks parameter count reasonably closely (gemma-3n-E2B-it, the smallest,
+fastest at 21.72-21.85 tok/s; the two 9B models, Qwen3.5-9B and
+Ornith-1.5-9B, slowest at 7.29-7.36 tok/s), unlike the MoE-vs-dense
+comparison recorded under "Practical implications" below, where a larger
+MoE model outdecoded smaller dense ones -- these five are a same-family
+(dense) size comparison, not a MoE one, so a roughly monotonic
+size-to-speed relationship here isn't a contradiction of that finding.
 
 ## GPU-resident, single card, no host offload
 
@@ -199,7 +252,7 @@ are lowering `ctx-size` for just these two entries, or switching them from
 `fit=off` to `fit=on` so llama.cpp auto-reduces GPU layer count instead of
 all-or-nothing.
 
-## Plain `llama-cpp` service (dense, both GPUs via `split-mode=tensor`)
+## `llama-cpp-all-gpus` service (dense, both GPUs via `split-mode=tensor`)
 
 | Model | Metric | Before tensor-split | After tensor-split |
 |---|---|---|---|
@@ -374,7 +427,7 @@ wall, not produce a useful CPU-speed number.
 ## Single-GPU-pinned variants and Nemotron dual-GPU context (2026-09-17)
 
 `split-mode=none` + `main-gpu=N` is the real mechanism for pinning a model
-to exactly one specific GPU on the plain `llama-cpp` service, which exposes
+to exactly one specific GPU on the `llama-cpp-all-gpus` service, which exposes
 both cards (`gpus: all`) -- without it, an un-pinned entry's default
 split-mode spreads the model across every visible GPU regardless of whether
 that's obvious from the section name. Goal was running a model alongside
@@ -520,7 +573,7 @@ copy of it:
 ## Real reliability gap: orphaned GPU subprocess on the 16GB schwerz service (2026-09-17)
 
 Found while reviewing DSH logs and re-confirmed while debugging unrelated
-failed loads on the plain GPU service: a `Qwen3-Coder-Next-Q4_K_M`
+failed loads on the `llama-cpp-all-gpus` service: a `Qwen3-Coder-Next-Q4_K_M`
 `llama-server` subprocess under the `llama-cpp-generel-schwerz-16gb-c`
 container was still running and holding 7.5 GiB of VRAM **28 minutes**
 after the DSH session that had loaded it (`e845f1c7`) had already ended.
@@ -588,6 +641,56 @@ slower for this workload -- the user's explicit call: "We need split mode
 tensor. It is much faster."). Worth a clean cold/warm re-benchmark at some
 point to get a real, non-8-token number for the fallback path specifically.
 
+**2026-09-18, later the same day: the clean re-benchmark, real 256-token
+cold/warm runs for all five Qwen3.8-27B configurations, user-run:**
+
+| Config | Placement | VRAM | Cold decode | Warm decode |
+|---|---|---|---|---|
+| `Q4_K_M` | dual-GPU tensor-split (fallback AllReduce) | 10,655 + 10,740 MiB (~21.4 GiB combined) | 39.89-40.51 tok/s | 39.96 tok/s |
+| `Q5_K_M` | dual-GPU tensor-split (fallback AllReduce) | 12,231 + 12,316 MiB (~24.5 GiB combined) | 34.92 tok/s | 34.94 tok/s |
+| `Q6_K_M` | dual-GPU tensor-split (fallback AllReduce) | (not captured -- output truncated) | ~29-31 tok/s (prior 8-token sample + historical NCCL-based figure, not re-confirmed cleanly this round) | -- |
+| `Qwen3.8-27B-UD-IQ3_S` | single GPU (`llama-cpp-gpu-1`) | 14,858 MiB (one card) | 30.64 tok/s | 30.69 tok/s |
+| `Qwen3.8-27B-UD-Q3_K_XL` | single GPU (`llama-cpp-gpu-1`) | 14,664 MiB (one card) | 28.92 tok/s | 28.91 tok/s |
+
+Both GPUs sat at 97-99% utilization in every case (dual and single alike)
+-- none of these are idle-waiting on something else, all genuinely
+compute/bandwidth-saturated.
+
+**The user's real observation: the single-GPU Q3 quants (smaller, lower-bit)
+decode slower than the dual-GPU Q4_K_M (larger, higher-bit).** This is a
+real, explicable effect, not a fluke or a sign of something wrong:
+
+Dense-model decode at batch=1 is memory-bandwidth-bound, not
+compute-bound -- every generated token requires streaming the *entire*
+weight set from VRAM through the GPU once. Tensor-split across two GPUs
+doesn't just divide the memory footprint; it divides that per-token
+streaming work across two GPUs' memory buses in parallel, roughly
+doubling the effective bandwidth available to decode (at the cost of a
+small per-layer cross-GPU reduce). A smaller/lower-bit quant on a single
+GPU reduces the bytes that GPU must stream per token, but nowhere near
+enough to make up for only having one card's bandwidth instead of two.
+
+The numbers here are consistent with that explanation, not just
+qualitatively but quantitatively: `Q4_K_M` split across two GPUs streams
+roughly half its ~15.3 GiB weight set per card per token-pass (~7.6 GiB/
+card-equivalent), while `IQ3_S` streams its entire ~11.2 GiB alone on one
+card. That's a predicted ratio of about 1.46x more data through the single
+bottleneck GPU for `IQ3_S` versus what each GPU handles in the `Q4_K_M`
+split -- and the observed decode ratio is 40/30.6 ≈ 1.3x, 40/28.9 ≈ 1.38x.
+Close enough, given real-world overhead (the cross-GPU reduce cost eating
+into the dual-GPU side's theoretical 2x) to treat memory bandwidth as the
+real, dominant explanation rather than coincidence.
+
+**Practical implication**: for this dense model family on this hardware,
+dual-GPU tensor-split will essentially always out-decode a single-GPU
+placement, regardless of quant size, because it's fundamentally adding a
+second memory bus, not just splitting work. The single-GPU Q3 configs are
+still genuinely useful -- they're the only way to run this model *and*
+have the other physical GPU free for something else (schwerz, a second
+session) at the same time -- but that's a concurrency/exclusivity trade,
+not a speed one, and shouldn't be expected to compete with dual-GPU on
+raw decode throughput.
+
 ## Qwen3.8-27B, single GPU, real 3-bit quants (2026-09-18)
 
 The llama.cpp services were rebuilt from source with a per-GPU-locked
@@ -638,6 +741,311 @@ even when the KV-rate itself was measured rather than guessed.
 Both are real, working single-GPU options for this model family that
 `Qwen3.8-27B-UD-Q4_K_M` (the previous smallest quant on disk) could not
 achieve solo on one 16 GiB card at any context (see the entry above).
+
+## Both 3-bit quants forced onto dual-GPU tensor-split despite fitting on one card (2026-09-18)
+
+Following the bandwidth analysis above (dense-model decode at batch=1 is
+memory-bandwidth-bound, so dual-GPU tensor-split roughly doubles effective
+bandwidth regardless of whether the model needed to split for capacity
+reasons): added both `Qwen3.8-27B-UD-IQ3_S` and `Qwen3.8-27B-UD-Q3_K_XL`
+to `llama-cpp-32gb`'s preset too, with `split-mode=tensor` forced
+explicitly, `ctx-size=163840` (matching `Q6_K_M`, the largest of the three
+already-working dual-GPU quants, as a known-good starting point). Both
+confirmed working with a real load + request:
+
+| Config | VRAM/card | Decode (8-token sample) | Decode (clean 256-token cold/warm) |
+|---|---|---|---|
+| `IQ3_S`, single GPU (`llama-cpp-gpu-1`) | 14,858 MiB | 30.64-30.69 tok/s | 30.64-30.69 tok/s (this *was* the clean run) |
+| `IQ3_S`, forced dual-GPU tensor-split | 9,331 + 9,416 MiB | 39.54 tok/s | **47.50 / 47.55 tok/s** |
+| `Q3_K_XL`, single GPU (`llama-cpp-gpu-1`) | 14,664 MiB | 28.91-28.92 tok/s | 28.91-28.92 tok/s (this *was* the clean run) |
+| `Q3_K_XL`, forced dual-GPU tensor-split | 9,857 + 9,942 MiB | 38.41 tok/s | **45.53 / 45.63 tok/s** |
+
+The clean 256-token cold/warm numbers (user-run) came in noticeably higher
+than the earlier 8-token samples suggested, and higher than `Q4_K_M`'s own
+dual-GPU decode speed (~40 tok/s) despite `Q4_K_M` being the larger quant
+-- consistent with a smaller quant needing proportionally less bandwidth
+per token even after the dual-GPU doubling. Both use *less* VRAM per card
+than their own single-GPU placement (weights are split, not duplicated)
+-- ~6.4-7 GiB free per card at this context, real headroom to raise
+`ctx-size` further that hasn't been tested yet. Confirms forcing
+tensor-split is a genuine, worthwhile throughput win even for a model
+that fits on one card, not just a capacity mechanism -- the trade-off is
+occupying both physical GPUs instead of leaving one free for something
+else (schwerz, a second session).
+
+**Same change applied to `gpt-oss-20b-F16` (2026-09-18, same day).** This
+entry had no `split-mode` set at all -- silently inheriting llama.cpp's
+own default (layer split, not tensor) rather than an intentional choice.
+Forced `split-mode=tensor` explicitly. Confirmed working by a real load +
+request, then re-confirmed with a clean 256-token cold/warm run (user-run):
+7,621 + 7,706 MiB combined VRAM (vs. ~13.3 GiB solo on one card in the
+GPU-resident baseline earlier in this document -- little more than half,
+since weights split rather than duplicate) and **141.38 / 142.33 tok/s**
+decode cold/warm -- well above the initial 114.8 tok/s 8-token estimate,
+and about 2.2x the recorded 63.76 tok/s single-GPU baseline (slightly
+better than a flat doubling -- plausibly because this is the F16-weight
+entry, so the per-token bytes streamed are larger than a quantized model's,
+making the bandwidth-bound effect even more pronounced). Unlike
+`GLM-4.7-Flash` (`deepseek2` architecture, confirmed NOT to support
+`split-mode=tensor` on this build), `gpt-oss`'s architecture does support
+it here.
+
+## Real incident: `llama-cpp-cpu` RAM audit, one near-miss on host stability (2026-09-18)
+
+Auditing `llama-cpp-cpu`'s preset for models that can't fit in this host's
+RAM (60 GiB total, no GPU passthrough at all on this service -- everything
+must fit in RAM alone, unlike the schwerz MoE-cache services which page
+experts through VRAM). Five small chat models added for CPU testing
+(`gemma-3n-E2B-it`/`E4B-it`, `NVIDIA-Nemotron-3-Nano-4B`, `Qwen3.5-9B`,
+`Ornith-1.5-9B` -- 2.8-5.4 GiB each, no real RAM risk, `gemma-3n-E2B-it`
+confirmed working with a real request). Three real findings from the audit
+itself:
+
+1. **`Qwen3.8-Flash-Next-UD-Q3_K_XL` (84 GiB) was actually selectable
+   despite the file's own header comment claiming it was "deliberately
+   absent."** The comment was wrong in practice: omitting a model from the
+   sparse override source does not stop `generate-models-preset.py`'s
+   full-discovery mode from adding it anyway as a basic catch-all entry --
+   confirmed present in the deployed file under its raw discovered ID
+   (`unsloth--Qwen3.8-Flash-Next--UD-Q3_K_XL`) at `[*]` defaults. The tool
+   has no exclude mechanism; switching this service to `--preset-only`
+   mode (like the schwerz/csantiago78 fork services) would fix it but also
+   remove auto-discovery for every small model in this file, a bigger
+   trade-off than asked for. Fixed by adding an explicit entry under the
+   correct friendly name with `load-mode=mmap`/`lazy-mode=on` (the same
+   safety net the schwerz services use for oversized models) -- this
+   replaces the confusing raw-ID duplicate and gives it the best-available
+   graceful degradation, but is explicitly **not** a claim that it will
+   actually work; the realistic failure mode if selected is prolonged
+   swap-thrashing, not a clean fast error.
+
+2. **`DeepSeek-R1-Distill-Llama-70B-Q4_K_M` at `ctx-size=65536` FAILED a
+   real load test -- a genuine near-miss on host stability, not a
+   theoretical risk.** The entry's own prior justification ("Q8 K/V cache
+   is about 10 GiB" against 39.6 GiB weights, should have left ~6 GiB free
+   on a ~56 GiB-available host) turned out to be wrong or incomplete in
+   practice. Real load: swap climbed steadily from a baseline 2.9 GiB to
+   7.7 GiB of the 8 GiB ceiling before the container was stopped manually
+   to avoid risking wider host instability (other things run on this host
+   besides these services); the in-flight request then failed with an
+   empty reply, consistent with the server being killed under memory
+   pressure. The host recovered fully within seconds of stopping the
+   container (swap back to ~3.5 GiB, ~55-57 GiB available again) -- this
+   was contained, not a system-wide event, but real memory pressure that
+   a different (more loaded) moment on this host could have handled worse.
+   Backed off to `ctx-size=8192`, matching the already-conservative
+   `Qwen2.5-72B-Instruct-Q3_K_S` entry -- **not yet re-verified with a real
+   load**, deliberately, given the risk just observed; the exact cause
+   (compute/scratch buffers, mmap page-cache duplication during active
+   load, or the original KV estimate itself) was not isolated before
+   backing off, so treat 8192 as an emergency reduction to verify when
+   convenient, not a confirmed-safe value.
+
+3. **`Llama-3.3-70B-Instruct-Q3_K_M` (32 GiB) was sitting as an
+   undiscovered catch-all entry with an even more expensive cache config
+   than the DeepSeek entry that just failed** (`[*]` defaults are
+   `cache-type-k/v` both `q8_0`, vs. DeepSeek's `q8_0`/`q4_0` mix) at the
+   same `ctx-size=65536` default. Close enough in profile (dense, 70B
+   class) to the just-demonstrated failure that it was promoted to an
+   explicit entry with `ctx-size=8192` as a preemptive fix, by reasoning
+   from the DeepSeek result rather than by repeating the same live-load
+   risk a second time in one sitting. Also **not yet re-verified with a
+   real load**.
+
+General lesson, consistent with several earlier findings in this document:
+a documented intent ("this model doesn't fit, so it's absent") is not the
+same as a verified runtime guarantee, especially on a service using full
+discovery mode -- the two dense-70B-class entries here had *looked* safe
+on paper (weights + a plausible KV estimate, under the available RAM
+figure) and one of them demonstrably was not, in practice, at the context
+size it had been configured for.
+
+**Resolution (2026-09-18, same day): `llama-cpp-cpu` switched from
+full-discovery to `--preset-only`, and trimmed to just what's actually
+verified.** This closes the root cause behind finding 1 above (the tool
+having no way to exclude a discovered model) rather than continuing to
+patch around it per-model. Final curated catalogue: the five small models
+(same as before) plus only the two real, CPU-tested >32 GiB MoE models
+(`Qwen3-Coder-Next-Q4_K_M`, `Qwen3-Next-80B-A3B-Instruct-Q4_K_M`) --
+`Qwen2.5-72B-Instruct-Q3_K_S`, `Llama-3.3-70B-Instruct-Q3_K_M`,
+`DeepSeek-R1-Distill-Llama-70B-Q4_K_M` (the one that actually failed),
+the untested Nemotron 3.5 Lightning CPU entry, the non-MoE
+`gpt-oss-20b-F16` entry, and the CPU-unsafe `Qwen3.8-Flash-Next-UD-Q3_K_XL`
+entry are all removed rather than kept with caveats -- confirmed via a
+real deployed-catalogue check (`/v1/models` after restart): exactly 7
+models, matching intent precisely. `llama-cpp-gpu-0`/`llama-cpp-gpu-1`
+(via the shared `llama-cpp-16gb` preset) were also switched to
+`--preset-only` at the same time, so `llama-cpp-all-gpus` (`llama-cpp-32gb`)
+is now the *only* service still using full-discovery mode -- this was
+already the documented intent in `llama-cpp/README.md`, which had gotten
+ahead of the actual deployed state until this pass caught it up. Note:
+`llama-cpp-16gb`'s own model list still has the same class of
+oversized/unverified entries as the CPU file did (e.g.
+`DeepSeek-R1-Distill-Llama-70B-Q4_K_M`, which cannot fit on one 16 GiB
+card at all) -- not audited or changed in this pass, since preset-only
+mode only stops *undiscovered* models from appearing, not explicitly
+curated ones that don't actually fit their service.
+
+## `llama-cpp-16gb` pruned to proven/known-safe entries (2026-09-18)
+
+Follow-up to the note at the end of the previous section: `llama-cpp-16gb`
+(the shared preset for the single-GPU-locked `llama-cpp-gpu-0`/
+`llama-cpp-gpu-1` services) still had the same class of oversized entries
+the CPU file did, just not yet exercised by a live incident. Audited and
+pruned directly rather than waiting for one.
+
+**Six entries removed, each for a distinct, unambiguous reason -- no
+genuine borderline cases:**
+
+- `Llama-3.3-70B-Instruct-Q3_K_M` (32 GiB), `Qwen2.5-72B-Instruct-Q3_K_S`
+  (32.12 GiB), `DeepSeek-R1-Distill-Llama-70B-Q4_K_M` (39.60 GiB) -- dense
+  models, nowhere close to fitting a 16,311 MiB card. The DeepSeek entry is
+  also the exact model that just failed a real CPU-service load test this
+  same day (previous section) -- independent confirmation this size class
+  is a real risk, not just a paper estimate.
+- `Qwen3-Coder-Next-Q4_K_M`, `Qwen3-Next-80B-A3B-Instruct-Q4_K_M` (45.09
+  GiB each) -- real, CPU-tested MoE models correctly present in
+  `llama-cpp-cpu`'s catalogue, but their entries here had `n-gpu-layers = 0`,
+  meaning they ran fully CPU-bound even under a GPU-locked service. Wrong
+  service for what they actually do at runtime; removed here, not
+  duplicated.
+- `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0` -- real on-disk weight size
+  17.60 GiB, confirmed via `stat`, already exceeding one card's 16,311 MiB
+  (~15.93 GiB) capacity before any KV cache is allocated. Never tested
+  single-GPU (only proven on `llama-cpp-all-gpus`, both cards). Same
+  failure signature already proven for `Qwen3.8-27B-UD-Q4_K_M` (weight
+  alone left under 1 GiB free, real CUDA OOM on the KV buffer) -- not a
+  judgement call, a direct size comparison.
+
+**Sixteen entries kept**, all either real-load-confirmed this session on a
+single GPU (`gpt-oss-20b-F16`, both `Qwen3.8-27B` 3-bit quants, and the
+four `n-cpu-moe`-offloaded 30-35B MoE models) or small enough that fit was
+never genuinely in question: two tiny embedding models (0.31-0.60 GiB),
+and the older CodeLlama/Magicoder/WizardCoder/StarCoder2/Qwen2.5-Coder
+models (3.56-8.44 GiB, real on-disk sizes verified via `stat` this pass) --
+downloaded before the second GPU existed, never individually re-tested
+this session, but each under half a 16 GiB card leaves no real doubt.
+
+Redeployed via `generate-models-preset.py --preset-only --force`; the
+generator validated every explicit `/models/...` path in the pruned file
+and added nothing else, consistent with `--preset-only` semantics.
+Live `/v1/models` verification against a running `gpu-0`/`gpu-1` container
+still pending -- neither was running at the time of this prune (only
+`llama-cpp-cpu` was up); the new catalogue takes effect the next time
+either starts.
+
+## `llama-cpp-32gb` pruned of CPU-only-in-a-GPU-service entries (2026-09-18)
+
+Follow-up to the `llama-cpp-16gb` prune above, same day, at the user's
+request: two entries removed from `llama-cpp-32gb`
+(`llama-cpp-all-gpus`'s preset) --  `Qwen3-Coder-Next-Q4_K_M` and
+`Qwen3-Next-80B-A3B-Instruct-Q4_K_M`. Both carried `n-gpu-layers = 0`,
+meaning they never touched either GPU even on this dual-GPU-locked
+service -- pure CPU pass-through. An explicit curated entry for a
+CPU-only config on a GPU-locked service implies a GPU-resident capability
+that was never actually being exercised; both models are properly homed
+and tested elsewhere (CPU-only figures in `llama-cpp-cpu`'s preset, MoE
+host-offload figures in the 16GB schwerz service's table above).
+
+This service stays in full-discovery mode (the one exception, per
+`llama-cpp/README.md`), so both models remain selectable here via their
+raw directory-based catch-all IDs -- that's intentional and accepted by
+the user; only the curated entry (and the misleading "this works here"
+implication it carried) was removed. Confirmed via redeploy:
+`generate-models-preset.py` reported "Discovered 35 models; added
+defaults for 28 models," consistent with both names no longer being
+explicit template entries.
+
+Audited the rest of the file against the same "GPU-resident vs. host-only"
+criterion before deciding not to touch it further:
+`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0` (real dual-GPU-resident
+DSH sessions at 42-101 tok/s, MTP speculative decode, GPU 0/1: 10.5/13.5
+GiB), `gpt-oss-20b-F16` (real dual-GPU-resident 141+ tok/s), and
+`GLM-4.7-Flash-Q4_K_M` (real `split-mode=layer` dual-GPU placement, the
+supported mechanism for its deepseek2 architecture on this build) are all
+MoE-architecture models too, but each is independently verified
+GPU-resident on this exact service -- none is a duplicate of a
+host-offload-only test the way the two removed entries were. No further
+removals identified.
+
+Live `/v1/models` verification against a running `llama-cpp-all-gpus`
+container still pending -- it was not running at the time of this prune
+(only `llama-cpp-cpu` was up); the new catalogue takes effect the next
+time it starts.
+
+## Real-request audit of both pruned presets finds three genuine bugs (2026-09-18)
+
+Follow-up, same day, prompted by "confirm all of the updated configs work"
+-- rather than trust the size/architecture reasoning behind the two prunes
+above, sent a real request (chat completion or, for the two embedding
+models, `/v1/embeddings`) to every curated entry in `llama-cpp-16gb` and
+spot-checked `llama-cpp-32gb`. This is the same lesson this document has
+recorded before ("a documented intent is not the same as a verified
+runtime guarantee") applied to the *kept* entries this time, not just the
+removed ones -- and it found three real problems, all in the "older,
+small, never individually tested but size makes it obviously safe" group
+that the 16GB prune had waved through on size alone:
+
+1. **`magicoder-s-ds-6.7b.Q4_0` cannot load on this build at all.** Real
+   error: `error loading model vocabulary: unknown tokenizer:
+   'deepseek_coder'`. This llama.cpp build doesn't support this old GGUF's
+   tokenizer format -- not a config problem, not fixable by any preset
+   setting. Removed from `llama-cpp-16gb` entirely. (The other five
+   TheBloke/bartowski/Qwen2.5-Coder "older" entries all loaded and
+   answered correctly -- this was specific to this one file, not the
+   category.)
+2. **`Qwen3-Embedding-0.6B-Q8_0` rejected every embeddings request**:
+   `"This server does not support embeddings. Start it with
+   --embeddings"`. The preset entry never set the `--embeddings` flag, so
+   the router loaded it in default generative mode -- selectable, even
+   answered on `/v1/models`, but functionally useless for its one actual
+   purpose.
+3. **`embeddinggemma-300M-Q8_0` crashed outright** on load:
+   `GGML_ASSERT(n_outputs_max <= cparams.n_outputs_max) failed` inside
+   `llama_context::encode`, a hard process abort, not a clean error --
+   same root cause as #2 (no `--embeddings`), worse failure mode.
+
+**Fix**: `embeddings = true` added to both embedding entries; confirmed
+working afterward with real `/v1/embeddings` calls (1024-dim and 768-dim
+vectors returned respectively).
+
+**A fourth, separate problem was also found and fixed while investigating
+these**: the repo source file for `llama-cpp-16gb` was itself missing
+both embedding-model sections entirely -- a real transcription error made
+when that file was rewritten earlier the same day (the "16 entries kept"
+count in that pass's own summary included both embedding models, but the
+actual file written did not). The only reason this stayed invisible was
+that the *previously deployed* copy at `/mnt/work/llama/llama-cpp-16gb/`
+still had them from before that rewrite, so `/v1/models` kept reporting
+them as present even though the checked-in template no longer would have
+regenerated them on any future redeploy. Caught by diffing the repo file
+against the live-deployed file after the live-request audit surfaced the
+embeddings bug and prompted a closer look. Both embedding sections restored
+(with the `embeddings = true` fix applied) and the file redeployed;
+repo and deployed copies now match exactly.
+
+`llama-cpp-32gb` was only edited with a targeted removal (not a full
+rewrite), so the transcription-error risk was lower; spot-checked
+`gpt-oss-20b-F16` (unrelated to the edit, confirms the router itself is
+still healthy) and `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`
+(immediately adjacent to the removed lines, confirms the edit didn't
+corrupt that section) -- both answered correctly. The three dense
+70B-class entries in that file (`Llama-3.3-70B-Instruct-Q3_K_M`,
+`Qwen2.5-72B-Instruct-Q3_K_S`, `DeepSeek-R1-Distill-Llama-70B-Q4_K_M`) were
+**not** live-tested in this pass -- each relies on partial CPU offload via
+this service's `--fit`/`n-gpu-layers=auto` (DeepSeek's file size, 39.60
+GiB, exceeds the ~31.85 GiB combined VRAM of both cards outright, so it
+must be offloading layers to host RAM to run at all), a real load would
+take minutes and significant host resources, and none of the three has a
+recorded real-load confirmation anywhere in this document's history
+either. Flagged here as a genuine open gap, not claimed as verified.
+
+**General lesson, worth restating**: a size or architecture argument
+("small enough, must be fine") is a necessary check, not a sufficient
+one. The two prunes above were correct on capacity; the real bugs they
+missed were both a missing CLI flag and a codebase-level incompatibility,
+neither of which any file-size or VRAM reasoning could have caught. Live
+request testing is what actually confirms a preset entry works.
 
 ## Currently untested / no data exists
 

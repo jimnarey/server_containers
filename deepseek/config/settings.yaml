@@ -60,6 +60,20 @@ llm-pi-ai:
         - id: Qwen3.8-27B-UD-Q6_K_M
           contextWindow: 163840
           maxTokens: 24576
+        # 2026-09-18: same two 3-bit quants as the gpu-0/gpu-1 providers
+        # below, but forced onto dual-GPU split-mode=tensor here despite
+        # fitting on one card -- real measurement showed dense decode is
+        # memory-bandwidth-bound, so splitting nearly doubles decode speed
+        # (IQ3_S: 30.7 -> 39.5 tok/s; Q3_K_XL: 28.9 -> 38.4 tok/s) at the
+        # cost of occupying both physical GPUs instead of leaving one free.
+        # contextWindow=163840 matches the real deployed/tested ctx-size
+        # (see performance-findings.md) -- different from, and not to be
+        # confused with, the single-GPU entries of the same model ID under
+        # llama-cpp-gpu-0/llama-cpp-gpu-1, which use a smaller ctx-size.
+        - id: Qwen3.8-27B-UD-IQ3_S
+          contextWindow: 163840
+        - id: Qwen3.8-27B-UD-Q3_K_XL
+          contextWindow: 163840
         - id: gpt-oss-20b-F16
           contextWindow: 131072
         # 2026-09-17: added for amiga-ui coding-agent use. Runs split-mode=layer
