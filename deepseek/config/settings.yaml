@@ -17,20 +17,14 @@ llm-pi-ai:
       # precaution. Applied here for consistency.
       streamIdleTimeoutMs: 1800000
       models:
-        - id: Qwen3-Embedding-0.6B-Q8_0
-          contextWindow: 32768
-        - id: embeddinggemma-300M-Q8_0
-          contextWindow: 2048
-        - id: codellama-13b-instruct.Q4_0
-          contextWindow: 16384
-        - id: magicoder-s-ds-6.7b.Q4_0
-          contextWindow: 16384
-        - id: wizardcoder-python-13b-v1.0.Q4_0
-          contextWindow: 16384
-        - id: wizardcoder-python-13b-v1.0.Q4_K_M
-          contextWindow: 16384
-        - id: starcoder2-15b-instruct.Q4_0
-          contextWindow: 16384
+        # 2026-09-18: removed Qwen3-Embedding-0.6B-Q8_0, embeddinggemma-300M-
+        # Q8_0, codellama-13b-instruct.Q4_0, wizardcoder-python-13b-v1.0 (both
+        # quants) and starcoder2-15b-instruct.Q4_0 -- weight files deleted
+        # from disk at the user's request (see llama-cpp-16gb's preset).
+        # magicoder-s-ds-6.7b.Q4_0 also removed here for the same reason it
+        # was already removed from the preset earlier the same day
+        # (unsupported tokenizer, real load failure) -- this entry was
+        # already dead before today's cleanup, just not yet caught here.
         - id: Llama-3.3-70B-Instruct-Q3_K_M
           contextWindow: 8192
         - id: Qwen2.5-72B-Instruct-Q3_K_S
@@ -51,7 +45,13 @@ llm-pi-ai:
         # window this model actually has.
         - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
           contextWindow: 262144
-        - id: DeepSeek-R1-Distill-Llama-70B-Q4_K_M
+        # 2026-09-18: DeepSeek-R1-Distill-Llama-70B-Q4_K_M removed --
+        # weight file deleted, dense and redundant with the two 70B-class
+        # entries above, never real-load-tested. See llama-cpp-32gb's
+        # preset comment.
+        # 2026-09-18: added -- real MoE (deepseek2, 27 layers, 64/6
+        # active), fits one card, not yet load-tested.
+        - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
           contextWindow: 65536
         - id: Qwen3.8-27B-UD-Q4_K_M
           contextWindow: 131072
@@ -100,6 +100,45 @@ llm-pi-ai:
         - id: GLM-4.7-Flash-Q4_K_M
           contextWindow: 202752
           maxTokens: 24576
+        # 2026-09-18: moved here from llama-cpp-gpu-0/llama-cpp-gpu-1 --
+        # real single-GPU testing found this model needs both cards to
+        # reach a useful context (16384 works solo but was judged too
+        # small; 32768 fails a real CUDA OOM), not to fit at all. Now
+        # split-mode=tensor across both GPUs, contextWindow=131072 not yet
+        # load-tested (see the preset's own comment) -- verify before
+        # trusting this value.
+        - id: Devstral-Small-2-24B-Instruct-2512-Q4_K_M
+          contextWindow: 131072
+        - id: Devstral-Small-2505-Q4_K_M
+          contextWindow: 131072
+        # 2026-09-18: higher quants added same day, contextWindow matches
+        # the Q4_K_M entries (131072) -- see the preset's own comment for
+        # the real headroom projections. Not yet load-tested.
+        - id: Devstral-Small-2-24B-Instruct-2512-Q5_K_M
+          contextWindow: 131072
+        - id: Devstral-Small-2-24B-Instruct-2512-Q6_K
+          contextWindow: 131072
+        - id: Devstral-Small-2505-Q5_K_M
+          contextWindow: 131072
+        - id: Devstral-Small-2505-Q6_K
+          contextWindow: 131072
+        # 2026-09-18: higher quants of the two Qwen2.5-Coder models, forced
+        # dual-GPU tensor-split, contextWindow matches the existing 16GB
+        # entries (32768). Not yet load-tested.
+        - id: qwen2.5-coder-7b-instruct-q8_0
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q5_k_m
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q6_k
+          contextWindow: 32768
+        # 2026-09-18: new model, Qwen3.6-generation dense 27B (distinct
+        # from the existing Qwen3.6-35B-A3B MoE entry on llama-cpp-16gb).
+        # contextWindow=163840 is an estimate carried over from the
+        # Qwen3.8-27B family's real overhead at this context, not measured
+        # for this specific model -- see the preset's own comment. Not yet
+        # load-tested.
+        - id: Qwen3.6-27B-Q6_K
+          contextWindow: 163840
     # These services mount the shared 16GB catalogue. It contains only models
     # whose one-card placement and context settings are selected for a 16 GiB
     # GPU. The all-GPU `llama-cpp` provider uses a separate 32GB catalogue for
@@ -125,6 +164,31 @@ llm-pi-ai:
           contextWindow: 16384
         - id: Ornith-1.5-35B-Q4_K_M
           contextWindow: 16384
+        # 2026-09-18: added with the preset entries, real GGUF metadata
+        # (block_count/expert_count) but n-cpu-moe values computed, not yet
+        # load-tested -- see the preset's own comment.
+        - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload
+          contextWindow: 16384
+        - id: Laguna-XS-2.1-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        - id: North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        - id: granite-4.0-h-small-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        # 2026-09-18: added with the preset entry, contextWindow matches
+        # the llama-cpp entry (65536) for a clean single-vs-dual
+        # comparison -- see performance-findings.md. Not yet load-tested.
+        - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
+          contextWindow: 65536
+        # 2026-09-18: higher quants of the two Qwen2.5-Coder models,
+        # contextWindow matches the existing Q4_K_M entries (32768). Not
+        # yet load-tested.
+        - id: qwen2.5-coder-7b-instruct-q8_0
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q5_k_m
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q6_k
+          contextWindow: 32768
     llama-cpp-gpu-1:
       apiKeyEnv: LLAMA_CPP_GPU_1_API_KEY
       api: openai-completions
@@ -145,6 +209,31 @@ llm-pi-ai:
           contextWindow: 16384
         - id: Ornith-1.5-35B-Q4_K_M
           contextWindow: 16384
+        # 2026-09-18: added with the preset entries, real GGUF metadata
+        # (block_count/expert_count) but n-cpu-moe values computed, not yet
+        # load-tested -- see the preset's own comment.
+        - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload
+          contextWindow: 16384
+        - id: Laguna-XS-2.1-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        - id: North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        - id: granite-4.0-h-small-Q4_K_M-Expert-Offload
+          contextWindow: 16384
+        # 2026-09-18: added with the preset entry, contextWindow matches
+        # the llama-cpp entry (65536) for a clean single-vs-dual
+        # comparison -- see performance-findings.md. Not yet load-tested.
+        - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
+          contextWindow: 65536
+        # 2026-09-18: higher quants of the two Qwen2.5-Coder models,
+        # contextWindow matches the existing Q4_K_M entries (32768). Not
+        # yet load-tested.
+        - id: qwen2.5-coder-7b-instruct-q8_0
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q5_k_m
+          contextWindow: 32768
+        - id: qwen2.5-coder-14b-instruct-q6_k
+          contextWindow: 32768
     # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
     # decode rates in prior testing. Their router presets intentionally use 8K.
     llama-cpp-cpu:
@@ -166,6 +255,13 @@ llm-pi-ai:
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
           contextWindow: 65536
           maxTokens: 4096
+        # 2026-09-18: added with the preset entry -- dense, not MoE, so this
+        # is plain CPU inference. contextWindow=65536 not yet load-tested on
+        # this service.
+        - id: Devstral-Small-2-24B-Instruct-2512-Q4_K_M
+          contextWindow: 65536
+        - id: Devstral-Small-2505-Q4_K_M
+          contextWindow: 65536
     # The one-GPU MoE-cache router has a deliberately explicit catalogue.
     # Its friendly IDs are defined by its service preset, not directory
     # names under /models. 2026-09-17: this service is a last resort for

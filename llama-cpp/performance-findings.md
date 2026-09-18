@@ -14,6 +14,76 @@ request, numbers recorded here) from an *estimate* (parameter-count or
 published-config derived) -- both appear below, but never presented as the
 same kind of evidence.
 
+## Service roles
+
+Each service has an established, evidenced role -- not an arbitrary
+assignment. New models should be placed according to these roles, and a
+model that doesn't fit any of them cleanly is worth flagging rather than
+shoehorning in.
+
+- **`llama-cpp-cpu`** (no GPU passthrough -- architecturally cannot see a
+  GPU, not just configured not to use one). Two real use cases: (a) small
+  dense chat models, comfortably under 10 GiB, kept here deliberately and
+  never added to a GPU preset (`gemma-3n-E2B-it`, `gemma-3n-E4B-it`,
+  `NVIDIA-Nemotron-3-Nano-4B`, `Qwen3.5-9B`, `Ornith-1.5-9B`); (b) MoE
+  models too large to fit combined 32 GiB VRAM even with `n-cpu-moe`/
+  tensor-split, where CPU-only sparse-expert-activation decode is still
+  genuinely usable (`Qwen3-Coder-Next`, `Qwen3-Next-80B-A3B-Instruct`, both
+  ~45 GiB, 9-13 tok/s decode -- a real, working option, not a fallback of
+  last resort). `Devstral-Small` breaks this pattern slightly: it's dense,
+  not oversized-MoE, added here not because it's too big but because
+  single-GPU placement couldn't give it a useful context size -- CPU is
+  the RAM-unconstrained alternative to the dual-GPU tensor-split path for
+  that specific problem, a different reason from every other CPU entry.
+- **`llama-cpp-gpu-0` / `llama-cpp-gpu-1`** ("the 16GB service" -- one
+  physical GPU each via Docker's own `gpus.device_ids`, confirmed only one
+  GPU is visible inside either container; shared curated preset
+  `llama-cpp-16gb`). Single-card placement for models that are either (a)
+  small/dense enough to sit fully GPU-resident (`qwen2.5-coder-7b/14b`,
+  the Qwen3.8-27B 3-bit quants, `gpt-oss-20b-F16`), or (b) MoE models
+  17-20 GiB that need `n-cpu-moe` partial expert offload to fit one card
+  (eight such entries as of 2026-09-18). Explicitly **not** used for
+  models that need dual-GPU bandwidth-doubling, or models too large to fit
+  even with offload -- those belong on `llama-cpp-all-gpus` instead.
+- **`llama-cpp-all-gpus`** ("the 32GB service" -- both cards, `gpus: all`,
+  keeps the `llama-cpp` DSH-compatibility alias). Two real, distinct
+  reasons a model lands here, not one blanket "big models" rule: (a)
+  models too large for one card even with offload (dense 70B-class
+  quants, the full dense Qwen3.8-27B ladder); (b) a deliberate choice to
+  force smaller models that already fit one card onto both GPUs anyway
+  via `split-mode=tensor`, because dense decode is memory-bandwidth-bound
+  and real A/B testing confirmed splitting roughly doubles effective
+  bandwidth -- `gpt-oss-20b-F16` went from 63.76 to 141+ tok/s, the
+  Qwen3.8-27B 3-bit quants from ~28-30 to 45-47 tok/s. This is a real,
+  *evidenced* choice for dense architectures specifically, not a "run
+  everything under 16 GiB on both GPUs" policy -- whether it helps a MoE
+  model (sparse activation, a different bandwidth profile entirely) is
+  genuinely untested and shouldn't be assumed to transfer either way.
+- **`llama-cpp-generel-schwerz-16gb` / `-16gb-gpu-0`** (fork, single
+  physical GPU, a custom `moe-cache` expert-caching subsystem layered on
+  the same mmap/lazy-loading mechanism the plain services also have by
+  default -- see the correction above). Role: last resort for MoE models
+  too large for the plain 32 GiB dual-GPU split. Got a real, deliberate
+  tuning pass for exactly one model (`Qwen3.8-Flash-Next`: +125% prefill/
+  +9% decode from batch/ubatch tuning) that hasn't been repeated for any
+  other model on this service. Known real failure mode: two wide-attention
+  architectures (`Llama-4-Scout`, `GLM-4.5-Air`) hit a genuine CUDA OOM in
+  the `moe-cache` subsystem's own graph-compute buffer -- not yet
+  root-caused, may be an architecture-specific interaction with
+  `moe-cache` rather than a property of either model on its own.
+- **`llama-cpp-generel-schwerz-32gb`** (fork, `codex/moe-grouped-
+  multigpu`). Established **not viable** for large models on this host:
+  its `load-mode=none` requirement disables mmap entirely, so any model
+  exceeding physical RAM (`gpt-oss-120b`, `GLM-4.5-Air`, both real
+  failures) has no fallback but swap, producing disk-I/O-speed decode
+  (2-3 tok/s), not real model performance. No established positive role
+  on this host yet -- the one thing it might still offer (genuine
+  cross-GPU MoE dispatch/caching for a model that *does* fit in RAM) has
+  never been cleanly measured; see the test plan below.
+- **`llama-cpp-csantiago78`** -- another fork variant referenced in DSH
+  `settings.yaml`. Not characterized by this session's testing; no
+  established role documented here.
+
 ## Resource usage by model/service (summary table)
 
 One row per model/service combination actually run. Resource columns show
@@ -43,6 +113,15 @@ combinations appears as consecutive rows rather than scattered by service.
 | Qwen3.8-27B-UD-IQ3_S | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.1 GiB | 9.2 GiB | baseline only | idle | 202.25 tok/s (cold) | 47.50 tok/s cold, 47.55 tok/s warm |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm |
+| qwen2.5-coder-7b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 5.4 GiB | not exposed | baseline only | idle | 1,797.27 tok/s | 80.81 tok/s cold, 81.04 tok/s warm |
+| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 11.6 GiB | not exposed | baseline only | idle | 1,300.84 tok/s | 40.92 tok/s cold, 41.02 tok/s warm |
+| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹² | 12.8 GiB | 12.9 GiB | baseline only | idle | 999.02 tok/s | load-confirmed only¹² |
+| Devstral-Small-2505-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹² | 12.8 GiB | 12.9 GiB | baseline only | idle | 1,037.67 tok/s | load-confirmed only¹² |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
+| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 12.69 tok/s (cold)¹³ | 41.60 tok/s cold, 67.24 tok/s warm¹³ |
+| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm |
+| Ornith-1.5-35B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.2 GiB | not exposed | baseline only | idle | 92.14 tok/s | 65.11 tok/s cold, 66.52 tok/s warm |
+| Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
 | Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
 | Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
@@ -54,7 +133,6 @@ combinations appears as consecutive rows rather than scattered by service.
 | Llama-4-Scout-17B-16E | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
 | GLM-4.5-Air | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
 | GLM-4.5-Air | 32GB schwerz (grouped-multigpu) | 10.1 GiB | 10.1 GiB | 60/60 GiB (swap-maxed) | some (swap I/O), 0% GPU compute | 1.68 tok/s⁴ | 1.01-1.39 tok/s⁴ |
-| Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
 | gemma-3n-E2B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 5.1 GiB | **compute (8 threads)** | 145.26 tok/s | 21.72-21.85 tok/s |
 | gemma-3n-E4B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 6.0 GiB | **compute (8 threads)** | 77.51 tok/s | 12.72-12.73 tok/s |
 | NVIDIA-Nemotron-3-Nano-4B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 4.5-4.8 GiB | **compute (8 threads)** | 55.47 tok/s | 12.67-12.71 tok/s |
@@ -150,6 +228,37 @@ comparison recorded under "Practical implications" below, where a larger
 MoE model outdecoded smaller dense ones -- these five are a same-family
 (dense) size comparison, not a MoE one, so a roughly monotonic
 size-to-speed relationship here isn't a contradiction of that finding.
+¹¹ 2026-09-18, real 256-token cold/warm five-topic benchmark on
+`llama-cpp-gpu-1`, user-run -- first proper benchmark figures for
+qwen2.5-coder-7b/14b (previously smoke-tested only, no decode figure on
+record) and the four `n-cpu-moe`-offloaded 30-35B MoE models (previously
+load+request-confirmed in the "real-request audit" pass, also no decode
+figure on record). GPU column is total card usage from `nvidia-smi`
+(process + ~13-98 MiB compositor baseline), not process-only.
+¹² 2026-09-18, later the same day: moved from `llama-cpp-16gb`
+(`llama-cpp-gpu-1`) to `llama-cpp-all-gpus`, `split-mode=tensor`,
+`ctx-size=131072`. See "Real incident: Devstral-Small ctx-size failure,
+fixed" below for why -- single-GPU testing found `ctx-size=32768` fails a
+real CUDA OOM and the working fallback (16384) was judged too small to
+be useful, making this a real dual-GPU model on this hardware despite
+fitting on one card by weight size alone. Both quants confirmed working
+at 131072 by a real load + request: near-equal weight split across both
+cards (12.8-12.9 GiB each, ~3.1-3.2 GiB real headroom per card), the
+prefill figures shown are from that same real request. Decode figures
+are marked load-confirmed only, not a benchmark number -- this was a
+short smoke test (load + a handful of tokens), not the standard 256-token
+five-topic benchmark used elsewhere in this table. A proper cold/warm
+benchmark run is still pending.
+¹³ Real figures, but unusually slow relative to Qwen3.6-35B-A3B's own
+warm run and to its three `n-cpu-moe` peers in this table: cold prefill
+12.69 tok/s (vs. 92-129 tok/s for the other three), cold decode 41.60
+tok/s vs. warm 67.24 tok/s -- a ~62% cold-to-warm jump, far larger than
+any other gap in this table. `time to first text` was 27.10 s despite
+prefill compute itself taking only 7.01 s of that, consistent with ~20 s
+of pure model-load time before any compute started -- the largest
+cold-load penalty recorded for any of these four MoE models. Not yet
+explained; worth a repeat run before treating the cold figures as
+representative of this model rather than a one-off slow load.
 
 ## GPU-resident, single card, no host offload
 
@@ -329,22 +438,51 @@ unsupported"). `load-mode = mmap` is what let Flash Next's 84 GiB file run in
 page cache, not full eager residency). Remove mmap and a model that exceeds
 physical RAM has no fallback but swap.
 
-gpt-oss-120b (62.8 GiB) and GLM-4.5-Air (67.7 GiB) both exceed this host's
-60 GiB RAM on file size alone, before KV cache or the cache mechanism's own
-bookkeeping. Under `load-mode=none` there was never a scenario where either
-fits -- the 2-3 tok/s figures above are disk-swap I/O speed, not model or
-cache speed. Qwen3-Coder-Next (46 GiB) partially avoided full catastrophe
-because it's small enough to mostly fit even without mmap's elasticity, and
-its numbers are the least broken of the three -- but it was still touching
-swap and its GPU utilization was asymmetric between two otherwise-identical
-cards (59% vs 12%), which is itself unexplained (see "Still open" below).
+**Correction, 2026-09-18: `load-mode`/`lazy-mode` are stock llama.cpp
+flags, not a schwerz-fork-exclusive feature.** Verified directly against
+`llama-server --help` on the same plain build `llama-cpp-16gb`/`32gb`/`cpu`
+run: `--load-mode` defaults to `auto` (mmap, unless a device doesn't
+support it) and `--lazy-mode` defaults to `auto` (on, for tensors larger
+than 4 GiB) -- i.e. the plain services already get mmap+lazy loading by
+default, with no special config needed. What's genuinely schwerz-specific
+is its separate `moe-cache` expert-caching subsystem layered on top of
+this shared mechanism, and `codex/moe-grouped-multigpu`'s own requirement
+to *disable* mmap (`load-mode=none`) for its grouped cross-GPU dispatch to
+work at all -- that's the real, fork-specific cause of the RAM ceiling
+below, not an absence of mmap capability elsewhere in this deployment.
+This matters for `## Currently untested / no data exists` below: Flash
+Next's exclusion from the 32GB catalogue was reasoned as "mmap is
+fundamental to its viability and this branch forbids it" -- true for the
+*schwerz* 32GB (`codex/moe-grouped-multigpu`) branch specifically, not
+necessarily for the plain `llama-cpp-all-gpus` service, which was never
+actually tested against this model.
 
-**Fix applied**: Flash Next is deliberately excluded from the 32GB
-catalogue's model list entirely (mmap is fundamental to its viability and
-this branch forbids it; even if it somehow fit, this branch's benefit is
-decode-only and Flash Next's dominant cost has always been prefill). The two
-other oversized models were moved to the 16GB service instead, where mmap is
-available, with `load-mode=mmap`/`lazy-mode=on` added per-model.
+gpt-oss-120b (58.44 GiB real binary size -- corrected 2026-09-18 from an
+earlier "62.8 GiB" figure that was actually decimal GB mislabeled as
+GiB, found while checking real GGUF metadata: 36 layers, 128 experts/4
+active) and GLM-4.5-Air (63.07 GiB real binary size, corrected from
+"67.7 GiB" the same way; 47 layers, 128 experts/8 active) both exceed or
+nearly exceed this host's 60 GiB RAM on file size alone, before KV cache
+or the cache mechanism's own bookkeeping. Under `load-mode=none` there was never
+a scenario where either fits -- the 2-3 tok/s figures above are disk-swap
+I/O speed, not model or cache speed. Qwen3-Coder-Next (46 GiB) partially
+avoided full catastrophe because it's small enough to mostly fit even
+without mmap's elasticity, and its numbers are the least broken of the
+three -- but it was still touching swap and its GPU utilization was
+asymmetric between two otherwise-identical cards (59% vs 12%), which is
+itself unexplained (see "Still open" below).
+
+**Fix applied**: Flash Next is deliberately excluded from the *schwerz*
+32GB catalogue's model list entirely (mmap is fundamental to its
+viability and that specific branch forbids it; even if it somehow fit,
+that branch's benefit is decode-only and Flash Next's dominant cost has
+always been prefill). The two other oversized models were moved to the
+16GB schwerz service instead, where mmap is available, with
+`load-mode=mmap`/`lazy-mode=on` added per-model. Whether Flash Next, and
+whether gpt-oss-120b/GLM-4.5-Air via plain `--n-cpu-moe` rather than
+schwerz's `moe-cache`, would fare differently on the plain, mmap-capable
+`llama-cpp-32gb`/`llama-cpp-16gb` services is a real, currently open
+question -- see the test plan below.
 
 ### Deployment bugs found and fixed along the way (not performance findings, but real, and cost real time)
 
@@ -1047,32 +1185,308 @@ missed were both a missing CLI flag and a codebase-level incompatibility,
 neither of which any file-size or VRAM reasoning could have caught. Live
 request testing is what actually confirms a preset entry works.
 
-## Currently untested / no data exists
+## Real incident: Devstral-Small ctx-size failure, fixed (2026-09-18)
 
-- **The grouped-multigpu cache's real decode benefit** -- no clean number
-  exists yet; every 32GB run so far was memory-bound, not compute-bound.
-  `Ornith-1.5-35B-A3B` is the priority retest: it's the one model with a real
-  external reference point (the fork's own validation reported 39.6 tok/s
-  equal-split / 38.8 tok/s at an uneven split, on different GPU hardware, not
-  directly comparable but a real number to check against). `--experimental-
-  logs --verbosity 4` should be enabled in `32gb.ini` before that retest --
-  not done yet -- so the fork's own `moe-grouped-owner`/`moe-grouped-plan`
-  telemetry can confirm genuine cross-GPU dispatch rather than inferring it
-  from `nvidia-smi` utilization snapshots (which is how Coder-Next's
-  59%-vs-12% asymmetry was noticed but not explained).
-- ~~CPU-only decode rates~~ -- resolved 2026-09-17, see the "CPU-only" section
-  above. (`settings.yaml`'s comment referencing "prior testing" never left
-  any recoverable figures; the numbers above are a fresh measurement, not a
-  recovered one -- the `llama-cpp-cpu` service had never actually been
-  started on this host before this round.)
-- gpt-oss-120b / Llama-4-Scout / GLM-4.5-Air on the 16GB service, properly
-  isolated prefill/decode from a clean memory state (the mmap fix above was
-  only sanity-checked, not benchmarked).
+`Devstral-Small-2-24B-Instruct-2512-Q4_K_M` and `Devstral-Small-2505-Q4_K_M`
+were added to `llama-cpp-16gb` (13.35 GiB each) with `ctx-size = 32768` --
+deliberately conservative versus a KV-rate extrapolation to 65536, given
+this document's own repeated lesson that such extrapolations undercount
+something. Conservative wasn't conservative enough: a real load on
+`llama-cpp-gpu-1` failed for **both** quants, identically:
+
+```
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 2720.00 MiB on device 0: cudaMalloc failed: out of memory
+alloc_tensor_range: failed to allocate CUDA0 buffer of size 2852126720
+llama_init_from_model: failed to initialize the context: failed to allocate buffer for kv cache
+```
+
+Not an architecture or config bug -- a real, close-margin capacity
+shortfall. The weight file alone (13.35 GiB = 13,670 MiB) left only
+~2,641 MiB free on the 16,311 MiB card, a hair under the 2,720 MiB the
+KV buffer needed at `ctx-size=32768`. Root-caused directly from container
+logs (`docker logs llama-cpp-gpu-1-c`) rather than guessed -- the
+`failed to fit params to free device memory: n_gpu_layers already set by
+user to -2, abort` warning immediately above it is a red herring (an
+informational note about `--fit` not running because `n-gpu-layers` was
+already resolved, unrelated to the actual OOM two lines later).
+
+**First fix**: backed off to `ctx-size = 16384` (half) for both entries,
+redeployed, restarted `llama-cpp-gpu-1`, confirmed working by a real load
++ request for both quants. `Devstral-Small-2505-Q4_K_M` (the model
+resident at capture time): **15,180 MiB** used, 1,131 MiB headroom on the
+16,311 MiB card -- tighter than either Qwen3.8-27B 3-bit quant at their
+own working ctx-size (1.45-1.65 GiB headroom), consistent with Devstral's
+larger weight file leaving less room to begin with.
+
+**User judgement call, same day**: 16384 was too small a context to be
+useful in practice, and probing intermediate values one restart at a time
+(24576 was queued next) was too slow a way to find the real ceiling.
+Since this model genuinely needs the combination of weight-splitting
+*and* a second card's worth of headroom to reach a worthwhile context on
+this hardware -- not a capacity requirement, a context one -- it was
+moved off `llama-cpp-16gb` entirely and onto `llama-cpp-all-gpus`
+(`split-mode=tensor`, matching the same bandwidth-doubling pattern
+already established for `gpt-oss-20b-F16` and the Qwen3.8-27B quants)
+and `llama-cpp-cpu` (dense CPU inference, RAM not the constraint a 13.35
+GiB weight + 65536-ctx KV would face on one card). `ctx-size=131072`
+(Devstral's published native ceiling) confirmed working on
+`llama-cpp-all-gpus` for both quants on the first try: 12.8-12.9 GiB per
+card, ~3.1-3.2 GiB real headroom each, near-equal weight split confirming
+real tensor-split (not just balanced placement). The `llama-cpp-cpu`
+entries (`ctx-size=65536`) are not yet load-tested. Real decode/prefill
+benchmark figures for the dual-GPU config are also not yet captured (see
+the main table's footnote ¹²) -- this pass only confirmed load + a real
+response, not throughput.
+
+## Higher quants downloaded and curated (2026-09-18)
+
+Eight real downloads this session, reviewed against the running host
+budget and added to `llama-cpp-32gb` (all eight) and `llama-cpp-16gb`
+(the three that fit solo on one card): `Devstral-Small-2-24B-Instruct-
+2512-Q5_K_M`/`-Q6_K`, `Devstral-Small-2505-Q5_K_M`/`-Q6_K` (32GB only --
+both exceed one 16,311 MiB card), `qwen2.5-coder-7b-instruct-q8_0`,
+`qwen2.5-coder-14b-instruct-q5_k_m`/`-q6_k` (both services -- all three
+fit solo), and `Qwen3.6-27B-Q6_K` (32GB only, new model -- the dense
+sibling of the existing `Qwen3.6-35B-A3B` MoE entry, exceeds one card).
+All eleven new entries are real-load-*untested* -- ctx-size/fit
+projections are documented per-entry in each preset's own comments, none
+verified yet. `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` was reviewed too
+but excluded from this batch: it predates today's downloads (already on
+disk, already curated on both services in an earlier pass this session).
+
+## Test plan: remaining gaps, by service (2026-09-18)
+
+Every gap below is a real, identified hole in coverage, not a hypothetical
+-- cross-checked against every curated preset's actual contents and the
+summary table above. Ordered within each service roughly by priority.
+32GB-schwerz-specific tests are intentionally excluded from this pass at
+the user's request (not deprioritized in general -- just out of scope for
+this particular pass).
+
+### `llama-cpp-gpu-0` / `llama-cpp-gpu-1` (16GB service)
+
+1. **The four new `n-cpu-moe` expert-offload entries** --
+   `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload` (17.60 GiB,
+   52 layers, 128 experts/6 active, `n-cpu-moe=19`),
+   `Laguna-XS-2.1-Q4_K_M-Expert-Offload` (18.88 GiB, 40 layers, 256/8,
+   `n-cpu-moe=16`), `North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload` (17.88
+   GiB, 49 layers, 128/8, `n-cpu-moe=18`), `granite-4.0-h-small-Q4_K_M-
+   Expert-Offload` (18.14 GiB, 40 layers, 72/10, `n-cpu-moe=15`). Real GGUF
+   metadata, computed `n-cpu-moe` values, **zero real-load tests** -- the
+   ~11.5 GiB GPU-resident target these were computed from was itself only
+   reached after a first guess (~13.25 GiB) failed a real CUDA OOM for the
+   *existing* four-model cluster, so these four carry the same real risk of
+   needing a second pass.
+2. **`gpt-oss-20b-F16` on the *current* single-GPU architecture** -- the
+   only single-card number on record for this model is from the pre-
+   refactor "standalone, 1 GPU pinned" deployment shape, not
+   `llama-cpp-gpu-0`/`gpu-1` as they exist now. Cheap to fill (model
+   already proven working elsewhere); mainly useful for a clean
+   apples-to-apples row.
+3. **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`** -- added 2026-09-18, real
+   MoE (`deepseek2`, 27 layers, 64 experts/6 active), 9.65 GiB, fits fully
+   GPU-resident with real headroom, no offload needed. `ctx-size=65536`,
+   never real-load-tested. Half of the layer-split MoE-bandwidth test --
+   see "Outstanding questions about MoE performance" below.
+
+### `llama-cpp-all-gpus` (32GB service)
+
+4. **`Llama-3.3-70B-Instruct-Q3_K_M`** and **`Qwen2.5-72B-Instruct-Q3_K_S`**
+   -- curated, `n-gpu-layers=auto` partial CPU offload, never once
+   real-load-tested on this service, in this document's entire history.
+   (`DeepSeek-R1-Distill-Llama-70B-Q4_K_M`, the third model in this same
+   dense-70B-class group, was removed and its weight file deleted
+   2026-09-18 at the user's request -- redundant with these two, never
+   tested either, and with no real use case in this collection once that
+   was pointed out. These two remaining entries carry the same open risk
+   it did; treat them with the same live `free -h`/`swapon --show`
+   monitoring discipline established by the CPU-service near-miss.)
+5. **Devstral, real cold/warm benchmark** -- both quants are
+   load-confirmed working (`split-mode=tensor`, `ctx-size=131072`,
+   12.8-12.9 GiB/card) but only from a short smoke test. No real
+   decode/prefill throughput number exists yet.
+6. **`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`, clean benchmark** --
+   real data already exists (42.2-101.2 tok/s decode across three genuine
+   DSH agentic sessions, using its MTP speculative-decode sidecar), but
+   it's session-derived, not the standardized 256-token five-topic
+   benchmark this table otherwise uses, and was never added as a summary
+   table row. Either add the existing session data as a labeled row, or
+   run the standard benchmark for a directly comparable number.
+7. **`GLM-4.7-Flash-Q4_K_M`, same gap** -- real load + request confirmed
+   with real headroom (~3.2-3.9 GiB free/card), never in the summary
+   table, no cold/warm decode figure on record.
+8. **`gpt-oss-120b` / `GLM-4.5-Air` / `Llama-4-Scout-17B-16E` -- never
+   tried on this service at all.** Only ever tested on the schwerz forks
+   (gpt-oss-120b: real success on 16GB-schwerz, real swap-thrashing
+   failure on 32GB-schwerz; GLM-4.5-Air and Llama-4-Scout: real CUDA OOM
+   on 16GB-schwerz, GLM-4.5-Air also failed on 32GB-schwerz). Given the
+   mmap/lazy-mode correction above -- this is stock behavior here too,
+   not schwerz-exclusive -- there's real reason to try gpt-oss-120b here
+   via `--n-cpu-moe` (real GGUF metadata already in hand: 36 layers, 128
+   experts/4 active, 58.44 GiB). GLM-4.5-Air and Llama-4-Scout are
+   higher-risk: both failed on schwerz for reasons that looked
+   architectural (wide attention leaving too little VRAM margin for
+   compute buffers), which may not be specific to schwerz's `moe-cache`
+   -- worth trying, but expect a real chance of the same failure mode.
+   Llama-4-Scout is a real outlier worth separate note: only **1** active
+   expert per token (16 experts total) -- confirmed via GGUF metadata --
+   the sparsest architecture in this entire collection, so per-token
+   compute should be cheap even fully offloaded, a genuinely different
+   risk profile from its raw size alone.
+9. **`Qwen3.8-Flash-Next-UD-Q3_K_XL` on the plain 32GB service** -- never
+   tried here at all. Its exclusion from the *schwerz* 32GB catalogue was
+   reasoned specifically around that branch's `load-mode=none`
+   requirement; the plain `llama-cpp-all-gpus` service defaults to
+   mmap-enabled (see the correction above), so the reasoning that
+   excluded it there doesn't automatically apply here. Real open question,
+   not previously considered.
+10. **`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M`** -- added 2026-09-18, real
+    MoE, `deepseek2` architecture (does not support `split-mode=tensor` on
+    this build, same restriction as GLM-4.7-Flash -- `split-mode=layer`
+    set explicitly), `ctx-size=65536` (deliberately matched to the
+    `llama-cpp-16gb` entry, not this model's 163840 native max, so the
+    two are a clean comparison, not confounded by different contexts).
+    Never real-load-tested. The other half of the layer-split MoE-
+    bandwidth test -- see below.
+
+### `llama-cpp-cpu`
+
+11. **Devstral, both quants** -- curated (`ctx-size=65536`), zero load
+    tests on this service. Dense, not MoE, so this is plain CPU inference
+    -- expect something in the same ballpark as `gpt-oss-20b-F16`'s
+    CPU-only figure (10.42-10.43 tok/s) adjusted for Devstral's larger
+    size, but that's a prediction, not a measurement.
+
+### `llama-cpp-generel-schwerz-32gb`
+
+12. **The grouped-multigpu cache's real decode benefit** -- still no clean
+    number; every run so far was memory-bound, not compute-bound (see
+    "32GB schwerz service ... failed batch" above). `Ornith-1.5-35B-A3B`
+    is the priority retest if this service is revisited at all: the one
+    model with a real external reference point (the fork's own validation
+    reported 39.6 tok/s equal-split on different hardware -- not directly
+    comparable, but a real number to check against). `--experimental-logs
+    --verbosity 4` should be enabled first so the fork's own
+    `moe-grouped-owner`/`moe-grouped-plan` telemetry can confirm genuine
+    cross-GPU dispatch, rather than inferring it from `nvidia-smi`
+    snapshots the way Coder-Next's unexplained 59%-vs-12% asymmetry was
+    noticed but never explained.
+
+### Outstanding questions about MoE performance
+
+Three real, distinct open questions -- not one. Worth separating clearly
+because they have different answers, and one of them turns out to already
+be *partly* answered by data already in this document, not actually open.
+
+13. **Does dual-GPU placement help a *fully GPU-resident* MoE model the
+    way it helps dense models? -- Partly answered already, correcting an
+    earlier overstatement in this document.** `gpt-oss-20b-F16` is real
+    MoE (confirmed via GGUF metadata: 32 experts/4 active), and its
+    existing single-GPU (63.76 tok/s) vs. forced dual-GPU tensor-split
+    (141.38-142.33 tok/s) numbers already show a huge real gain -- almost
+    identical in kind to the dense-model bandwidth-doubling effect. An
+    earlier answer in this conversation called this "genuinely untested"
+    for MoE models; that was wrong, and is corrected here. What's still
+    genuinely open is *layer-split* specifically (not every MoE
+    architecture supports `split-mode=tensor` -- `deepseek2` doesn't),
+    since layer-split's pipelined nature might not give the same
+    two-buses-in-parallel bandwidth benefit tensor-split does. The
+    `DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` pair above (single-GPU on
+    `llama-cpp-16gb` vs. dual-GPU layer-split on `llama-cpp-all-gpus`,
+    contexts deliberately matched) is designed specifically to answer
+    this, cleanly, with a small model that has real headroom on both
+    sides.
+14. **Does dual-GPU placement help an `n-cpu-moe`-*offloaded* model? --
+    Genuinely untested, no data either way.** All eight `n-cpu-moe`
+    entries on `llama-cpp-16gb` have only ever been tried single-GPU. The
+    bottleneck for an offloaded model is host RAM/PCIe bandwidth for the
+    expert reads, not GPU VRAM bandwidth for the resident portion -- so
+    the dense/gpt-oss-20b-F16 bandwidth-doubling reasoning may not
+    transfer at all here. Real test: take one already-characterized
+    `n-cpu-moe` model (`Ornith-1.5-35B-Q4_K_M` is the best-documented of
+    the four, with a real external reference point already) and run the
+    same offload pattern forced across both GPUs on `llama-cpp-all-gpus`,
+    compare directly against its existing single-GPU figures
+    (65.11-66.52 tok/s decode).
+15. **Does schwerz's `moe-cache` actually outperform plain `--n-cpu-moe`
+    for the same large (>32 GiB) model? -- Genuinely untested, no head-
+    to-head data exists.** `gpt-oss-120b` is the best candidate for this:
+    real 16GB-schwerz numbers already exist (8.11-8.80 tok/s decode, 4.0
+    GiB resident + 54 GiB reclaimable mmap cache). Once item 8 above
+    (plain `--n-cpu-moe` on `llama-cpp-all-gpus` or `llama-cpp-16gb`) has
+    a real number, this is a direct, clean comparison -- same model, same
+    host, two different offload mechanisms.
+
+### Quant-ladder check: are the underutilized dual-GPU entries missing a
+### better download, or is the current quant already the right choice?
+
+Checked at the user's request -- several dual-GPU entries leave real
+headroom per card (`Qwen3.8-27B-UD-IQ3_S`: 9.1/9.2 GiB used of 16.3 GiB;
+`Qwen3.8-27B-UD-Q3_K_XL`: 9.6/9.7 GiB; both Devstral quants: 12.8/12.9
+GiB). Real research against each model's actual published quant ladder,
+not assumed:
+
+- **`gpt-oss-20b-F16`** -- no higher quant exists to move to. `F16` is
+  already this model's ceiling (its MXFP4-native experts aren't
+  re-quantized upward by going to F16; there's nothing above it in the
+  published ladder).
+- **`Qwen3.8-27B` family** -- not actually a "missing download" case. The
+  real quant ladder (unsloth's Dynamic v3.0 release) runs UD-IQ1_S (6.2
+  GB) through UD-Q2_K_XL (10.7 GB), Q4_K_M (~17 GB), Q5_K_M, Q6_K_M
+  (already all three downloaded and curated), then jumps straight to
+  UD-Q8_K_XL (~29-31.5 GB) and BF16 (~54.7 GB) -- both far too large to
+  fit this host's 31.85 GiB combined VRAM with any real KV/context
+  headroom. The real fix for `IQ3_S`/`Q3_K_XL`'s underutilization on
+  *this* service isn't a new download -- `Q4_K_M`/`Q5_K_M`/`Q6_K_M`
+  already exist, are already curated and tested here, and use the
+  available headroom far better for meaningfully better quality. The
+  3-bit quants only earn their place on `llama-cpp-gpu-0`/`gpu-1`, where
+  they're the smallest quants that still fit solo on one card -- keeping
+  them on the 32GB service too is arguably just redundant with the better
+  quants already there.
+- **Devstral** -- checked the real published ladder (`Q2_K` 8.89 GiB,
+  `IQ4_XS` 12.8 GiB, `IQ4_NL` 13.5 GiB, `Q4_K_M` 13.35 GiB (downloaded),
+  `UD-Q8_K_XL` ~27 GiB, `BF16` ~44 GiB) -- no `Q5_K_M`/`Q6_K_M` confirmed
+  to exist in this release's ladder. Same gap pattern as `Qwen3.8-27B`:
+  the next real step up (`UD-Q8_K_XL`) is roughly double the current
+  file, and wouldn't fit in the ~6.5-6.8 GiB combined headroom this pair
+  currently has at `ctx-size=131072` without a substantial context cut.
+  No clean win available here either -- flagging the real tradeoff
+  (meaningfully lower context for meaningfully higher quality) rather
+  than picking one for you.
+
+### Anomalies worth a repeat run, not a new test
+
+16. **`Qwen3.6-35B-A3B-Q4_K_M`'s cold-run slowdown** -- cold prefill 12.69
+    tok/s and cold decode 41.60 tok/s vs. warm 67.24 tok/s, both far
+    outside the range every other `n-cpu-moe` model in this cluster
+    showed. Real figures, not yet explained (see footnote ¹³ on the
+    summary table) -- a second cold run would confirm whether this is a
+    real property of the model or a one-off slow load.
+17. **`Qwen3.8-27B-UD-Q6_K_M`'s asymmetric cold-run GPU utilization** (GPU
+    1 at 0% while GPU 0 ran the small prefill at 98%, resolved by the warm
+    run) and **`Qwen3-Coder-Next`'s 59% vs. 12% asymmetry on 32GB-schwerz**
+    -- both plausibly the same class of artifact (small-prompt timing vs.
+    the utilization snapshot), neither confirmed. The schwerz one has a
+    real path to resolution (`--experimental-logs`, above); the Q6_K_M one
+    doesn't have an obvious equivalent and may just need a few repeat runs
+    to see if it recurs.
+
+~~CPU-only decode rates~~ -- resolved 2026-09-17, see the "CPU-only"
+section above.
 
 ## Still open (noticed, not explained)
+
+Both entries here are also listed under "Anomalies worth a repeat run" in
+the test plan above, since resolving them is now a scheduled test, not
+just an open observation:
 
 - Qwen3-Coder-Next's 59% vs 12% GPU utilization asymmetry between two
   identical RTX 5060 Tis on the 32GB service. Could be genuine grouped-layer
   imbalance, could be an artifact of the memory pressure it was also under.
   Not resolved -- needs the experimental-logs telemetry, not another
   utilization snapshot.
+- Qwen3.8-27B-UD-Q6_K_M's asymmetric cold-run GPU utilization on
+  `llama-cpp-all-gpus` (GPU 1 at 0% while GPU 0 ran the small prefill at
+  98%, resolved by the warm run) -- plausibly a small-prompt timing
+  artifact, not confirmed.
