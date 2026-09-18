@@ -558,6 +558,36 @@ Lesson for next time: check the *running container's* environment,
 not the compose file's default, before pinning anything "to avoid"
 contention with another service.
 
+## Real incident: split-mode=tensor broken by the service refactor, fixed (2026-09-18)
+
+`llama-cpp-all-gpus` started failing a real load for all three
+`Qwen3.8-27B` quants (`Q4_K_M`, `Q5_K_M` by extension, `Q6_K_M` confirmed)
+under `split-mode=tensor` -- **not** an OOM. Real error:
+`ggml_backend_cuda_comm_allreduce_nccl` -> `ncclGroupEnd()` -> `CUDA error:
+unhandled cuda error`. Diagnosed with `NCCL_DEBUG=INFO`: NCCL negotiates a
+working transport fine (tried and ruled out both `NCCL_P2P_DISABLE=1`,
+forcing SHM, and `NCCL_SHM_DISABLE=1`, forcing pure `NET/Socket` -- same
+failure either way), then a CUDA kernel launch inside NCCL itself fails
+with `Cuda failure 1 'invalid argument'` (`enqueue.cc:1500`), independent
+of transport. This points at an NCCL 2.25.1 / RTX 5060 Ti (a very recent
+GPU generation) compatibility gap introduced by the service refactor's
+rebuild-from-source (the pre-refactor image apparently didn't hit this).
+
+**Fix: `NCCL_CUMEM_ENABLE=0`** on `llama-cpp-all-gpus` in `compose.ai.yml`.
+This does not make NCCL itself succeed -- the log still shows `NCCL init
+failed (unhandled system error); falling back to internal AllReduce` --
+its real effect is letting llama.cpp catch that failure and use its own
+non-NCCL AllReduce path instead of crashing. Confirmed by a real load +
+request for both `Q4_K_M` and `Q6_K_M` (HTTP 200, real completions).
+Decode speed on the fallback path (8-token samples, not a clean
+benchmark -- 34.97 tok/s `Q4_K_M`, 29.15 tok/s `Q6_K_M`) lands close to
+the original NCCL-based tensor-split figures earlier in this document
+(~39-40 / ~30-31 tok/s) -- close enough that tensor-split remains clearly
+worth keeping over `split-mode=layer` (tried, works, confirmed much
+slower for this workload -- the user's explicit call: "We need split mode
+tensor. It is much faster."). Worth a clean cold/warm re-benchmark at some
+point to get a real, non-8-token number for the fallback path specifically.
+
 ## Qwen3.8-27B, single GPU, real 3-bit quants (2026-09-18)
 
 The llama.cpp services were rebuilt from source with a per-GPU-locked

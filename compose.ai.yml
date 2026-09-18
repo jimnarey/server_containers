@@ -184,6 +184,23 @@ services:
     container_name: llama-cpp-all-gpus-c
     environment:
       LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_ALL_GPU_LOCK_IDS:-0,1}
+      # 2026-09-18: split-mode=tensor (Qwen3.8-27B x3) started failing a
+      # real load post service-refactor: NCCL fails a kernel launch with
+      # "Cuda failure 1 'invalid argument'" (enqueue.cc:1500) regardless of
+      # transport (confirmed with NCCL_P2P_DISABLE=1 and NCCL_SHM_DISABLE=1,
+      # neither fixed it -- removed, they're not the real lever). Fixed by
+      # NCCL_CUMEM_ENABLE=0 -- confirmed by a real load + request for both
+      # Q4_K_M and Q6_K_M (HTTP 200, real completions). It does NOT make
+      # NCCL itself succeed: the log still shows "NCCL init failed
+      # (unhandled system error); falling back to internal AllReduce" --
+      # this variable's real effect is letting llama.cpp catch that failure
+      # and use its own non-NCCL AllReduce instead of crashing. Decode speed
+      # on the fallback path (8-token samples, not a clean benchmark: 34.97
+      # tok/s Q4_K_M, 29.15 tok/s Q6_K_M) is close to the original NCCL-based
+      # tensor-split figures in performance-findings.md (~39-40 / ~30-31
+      # tok/s) -- close enough that tensor-split remains the right choice
+      # over layer-split, which was tried and confirmed much slower.
+      NCCL_CUMEM_ENABLE: "0"
     gpus: all
     networks:
       default:
