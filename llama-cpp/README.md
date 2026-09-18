@@ -21,7 +21,8 @@ Every host-side llama.cpp setting is below `/mnt/work/llama`:
 
 ```text
 /mnt/work/llama/
-  llama-cpp/models-preset.ini  (shared by gpu-0, gpu-1, and all-gpus)
+  llama-cpp-16gb/models-preset.ini  (shared by gpu-0 and gpu-1)
+  llama-cpp-32gb/models-preset.ini  (used by all-gpus / the llama-cpp alias)
   llama-cpp-cpu/models-preset.ini
   llama-cpp-generel-schwerz-16gb/{config.ini,models-preset.ini}
   llama-cpp-generel-schwerz-32gb/{config.ini,models-preset.ini}
@@ -30,15 +31,27 @@ Every host-side llama.cpp setting is below `/mnt/work/llama`:
 
 Tracked templates live in matching `llama-cpp/config/<service>/` directories. Compose mounts the `/mnt/work/llama` copies read-only, so runtime changes never alter the checkout.
 
-The three upstream GPU services share the ordinary full-catalogue workflow: it validates every explicit template path, discovers the model library, and adds missing models with the `[*]` defaults.
+`llama-cpp-all-gpus` is the ordinary full-catalogue workflow: it validates
+every explicit 32GB template path, discovers the model library, and adds
+missing models with the `[*]` defaults.
 
 ```sh
 ./llama-cpp/generate-models-preset.py \
-  --preset llama-cpp/config/llama-cpp/models-preset.ini \
-  --force /mnt/work/llama/llama-cpp
+  --preset llama-cpp/config/llama-cpp-32gb/models-preset.ini \
+  --force /mnt/work/llama/llama-cpp-32gb
 ```
 
-The other four services are deliberately preset-only. This validates the paths named in their own template but neither scans the model library nor adds models to their catalogue:
+The two one-GPU services are deliberately preset-only: this validates the
+single-card settings and prevents an automatically discovered dual-GPU model
+from appearing in their catalogue. They share one generated runtime file.
+
+```sh
+./llama-cpp/generate-models-preset.py --preset-only --force \
+  --preset llama-cpp/config/llama-cpp-16gb/models-preset.ini \
+  /mnt/work/llama/llama-cpp-16gb
+```
+
+The other four services are also deliberately preset-only. This validates the paths named in their own template but neither scans the model library nor adds models to their catalogue:
 
 ```sh
 ./llama-cpp/generate-models-preset.py --preset-only --force \

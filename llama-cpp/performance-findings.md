@@ -486,8 +486,10 @@ reasoning-budget fix). Split into two real, independently tracked repo
 sources, mirroring the schwerz 16GB/32GB split pattern from earlier this
 project:
 
-- `llama-cpp/config/llama-cpp/models-preset.ini` -- GPU service, unchanged in shape from
-  before except for removing the failed Qwen `-1gpu` entry above.
+- the then-shared GPU source (subsequently split into
+  `llama-cpp/config/llama-cpp-16gb/models-preset.ini` and
+  `llama-cpp/config/llama-cpp-32gb/models-preset.ini`) -- unchanged in shape
+  at that time except for removing the failed Qwen `-1gpu` entry above.
 - `llama-cpp/config/llama-cpp-cpu/models-preset.ini` -- new. Strips every GPU-only directive
   (`split-mode`, `main-gpu`, `n-gpu-layers=auto` partial offload) and adds a
   CPU-specific Nemotron entry (see below). `llama-cpp-cpu` was not actually
@@ -549,11 +551,63 @@ confirmed via `docker exec llama-cpp-generel-schwerz-16gb-c env`. The
 earlier `gpt-oss-20b-F16-1gpu` test didn't reveal this because schwerz had
 no model resident at that moment -- real contention only surfaced once both
 services had a model loaded at the same time (compounded by the orphaned
-subprocess above). All single-GPU-pinned entries in `llama-cpp/config/llama-cpp/models-preset.ini`
-were moved from `main-gpu=1` to `main-gpu=0` and re-verified with a real
-load. Lesson for next time: check the *running container's* environment,
+subprocess above). All single-GPU-pinned entries in the then-shared upstream
+GPU preset were moved from `main-gpu=1` to `main-gpu=0` and re-verified with
+a real load. That source has since been split into the 16GB and 32GB presets.
+Lesson for next time: check the *running container's* environment,
 not the compose file's default, before pinning anything "to avoid"
 contention with another service.
+
+## Qwen3.8-27B, single GPU, real 3-bit quants (2026-09-18)
+
+The llama.cpp services were rebuilt from source with a per-GPU-locked
+architecture since the last note above (see `llama-cpp/README.md`):
+`llama-cpp-gpu-0`/`llama-cpp-gpu-1` each reserve exactly one physical GPU at
+the Docker level (`gpus.device_ids`), confirmed via `docker exec ...
+nvidia-smi` inside `llama-cpp-gpu-1-c` -- only one GPU is visible at all, so
+`split-mode`/`main-gpu` pinning (needed on `llama-cpp-all-gpus`, which still
+sees both cards) is unnecessary for models deployed on these two services.
+
+User downloaded two real 3-bit Unsloth Dynamic v3.0 quants of Qwen3.8-27B
+(no literal "Q3_K_M" exists for this model -- the real ladder is
+`UD-IQ3_XXS`/`UD-IQ3_S`/`UD-Q3_K_XL`). Both load and respond on
+`llama-cpp-gpu-1` (physical GPU 1), confirmed with real requests, at
+`ctx-size=65536`:
+
+- `Qwen3.8-27B-UD-IQ3_S` (11.2 GiB on disk): **13,610 MiB** VRAM, 30.2 tok/s
+  decode. ~2.7 GiB headroom on the 16,311 MiB card at 65536.
+- `Qwen3.8-27B-UD-Q3_K_XL` (12.2 GiB on disk): **14,664 MiB** VRAM, 27.7
+  tok/s decode. ~1.6 GiB headroom at 65536 -- tighter, matches the earlier
+  estimate that this quant would have less margin than `IQ3_S`.
+
+**2026-09-18, same day, largest real context per quant:** extrapolated a
+target ctx-size from the real measured KV rate for this model family
+(34.0 KiB/token combined K+V at q8/q8, from the earlier Q4_K_M single-GPU
+OOM test) -- 131072 for `IQ3_S`, 98304 for `Q3_K_XL`. **Both first attempts
+failed a real load**, each by a small margin late in loading (`allocating
+720.28 MiB on device 0: cudaMalloc failed: out of memory` for `IQ3_S` at
+131072; `560.28 MiB` for `Q3_K_XL` at 98304) -- the flat ~600 MiB overhead
+assumed on top of the KV-rate extrapolation undercounted something, likely
+a compute/graph buffer with its own context-dependent cost beyond raw KV
+cache. Backed off by a full 32768 tokens rather than guess again narrowly,
+and both were then confirmed working by a real load:
+
+- `Qwen3.8-27B-UD-IQ3_S`: **ctx-size=98304 works**, 14,858 MiB VRAM, 1,453
+  MiB headroom. (131072 does not fit.)
+- `Qwen3.8-27B-UD-Q3_K_XL`: **ctx-size=65536 works** (unchanged from the
+  original test, re-confirmed), 14,664 MiB VRAM, 1,647 MiB headroom. (98304
+  does not fit.)
+
+There is likely real headroom between each quant's working value and its
+failed one (e.g. `IQ3_S` somewhere in 98304-131072), but that gap is
+untested -- the lesson here is that a KV-rate-only extrapolation is not
+sufficient for predicting the real ceiling on this build; treat any
+extrapolated ctx-size as a starting point to verify, not a target to trust,
+even when the KV-rate itself was measured rather than guessed.
+
+Both are real, working single-GPU options for this model family that
+`Qwen3.8-27B-UD-Q4_K_M` (the previous smallest quant on disk) could not
+achieve solo on one 16 GiB card at any context (see the entry above).
 
 ## Currently untested / no data exists
 

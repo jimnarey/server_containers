@@ -23,6 +23,7 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -239,6 +240,21 @@ def discover_models() -> list[Model]:
     name = f"llama-cpp-preset-discovery-{uuid.uuid4().hex[:10]}"
     environment = os.environ.copy()
     environment["LLAMA_CPP_MODELS"] = str(MODEL_ROOT)
+
+    # The all-GPU service normally mounts the generated 32GB preset. During
+    # generation that destination may not exist yet; Docker would then create
+    # a directory at the intended file path for the bind mount. Give the
+    # disposable discovery container its own valid temporary preset instead.
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        prefix="llama-cpp-preset-discovery-",
+        suffix=".ini",
+        delete=False,
+    ) as preset_file:
+        preset_file.write("version = 1\n")
+        discovery_preset = Path(preset_file.name)
+    environment["LLAMA_CPP_32GB_CONFIG"] = str(discovery_preset)
     compose = ["docker", "compose", "-f", str(COMPOSE_FILE)]
     command = [
         *compose,
@@ -291,6 +307,7 @@ def discover_models() -> list[Model]:
         )
     finally:
         remove_discovery_container()
+        discovery_preset.unlink(missing_ok=True)
 
 
 def render_preset(overrides: str, models: Iterable[Model]) -> tuple[str, list[Model]]:

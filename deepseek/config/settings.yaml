@@ -62,33 +62,27 @@ llm-pi-ai:
           maxTokens: 24576
         - id: gpt-oss-20b-F16
           contextWindow: 131072
-        # 2026-09-17: single-GPU-pinned sibling of the entry above (pinned to
-        # GPU 0, split-mode=none), for running alongside the 16GB schwerz
-        # service without VRAM contention -- same use case as GLM-4.7-Flash
-        # below. contextWindow is the tested value (see the llama-cpp GPU
-        # template and performance-findings.md).
+        # 2026-09-18: `gpt-oss-20b-F16-1gpu` removed -- the services were
+        # refactored into per-GPU-locked containers (llama-cpp-gpu-0/
+        # llama-cpp-gpu-1, see the providers of the same name below), so a
+        # separate pinned catalog entry to force single-GPU placement is no
+        # longer needed: use plain `gpt-oss-20b-F16` via whichever of the
+        # gpu-0/gpu-1/llama-cpp providers fits.
         #
-        # 2026-09-17, corrected same day: originally pinned to GPU 1 on the
-        # wrong assumption that schwerz occupies GPU 0 (the compose file's
-        # *default* for GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES -- this
-        # deployment's untracked .env actually overrides it to 1). Real
-        # contention from that mistake surfaced when an orphaned schwerz
-        # subprocess sat on GPU 1 for 28 minutes after its session ended and
-        # blocked unrelated GPU-1-pinned loads. Re-pinned to GPU 0, the
-        # actually-free card -- verify the running container's own env
-        # before pinning "to avoid" another service, not the compose default.
-        - id: gpt-oss-20b-F16-1gpu
-          contextWindow: 131072
         # 2026-09-17: four MoE models moved here from the 16GB/32GB schwerz
         # services after those were trimmed to a strict >32 GiB last-resort
-        # catalogue (see models-preset.ini). Single-GPU-pinned to GPU 0,
-        # using this build's stock `--n-cpu-moe` offload (not the schwerz
-        # fork's expert cache). contextWindow=16384 matches the currently
-        # deployed, real-load-verified ctx-size -- all four confirmed
-        # working (Ornith-1.5-35B, the largest, used 11,357/16,311 MiB on
-        # GPU 0). Native context is 262144 for all four; ctx-size has real
-        # verified headroom to raise but that hasn't been done yet, so
-        # contextWindow should be raised to match if/when it is.
+        # catalogue (see models-preset.ini), using this build's stock
+        # `--n-cpu-moe` offload (not the schwerz fork's expert cache).
+        # contextWindow=16384 matches the currently deployed, real-load-
+        # verified ctx-size -- all four confirmed working (Ornith-1.5-35B,
+        # the largest, used 11,357/16,311 MiB). Native context is 262144 for
+        # all four; ctx-size has real verified headroom to raise but that
+        # hasn't been done yet, so contextWindow should be raised to match
+        # if/when it is.
+        #
+        # 2026-09-18: no longer single-GPU-pinned at the model-config level
+        # (see models-preset.ini) -- reachable via this provider (all-gpus)
+        # same as before, and also via the gpu-0/gpu-1 providers below.
         - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
           contextWindow: 16384
         - id: Qwen3.6-35B-A3B-Q4_K_M
@@ -97,6 +91,16 @@ llm-pi-ai:
           contextWindow: 16384
         - id: Ornith-1.5-35B-Q4_K_M
           contextWindow: 16384
+        # 2026-09-18: two real 3-bit Unsloth Dynamic v3.0 quants of
+        # Qwen3.8-27B (no literal "Q3_K_M" exists for this model). Real
+        # load-tested ctx-size per quant -- see performance-findings.md;
+        # each quant's own ceiling differs (IQ3_S fits more context than
+        # Q3_K_XL at the same VRAM budget), so contextWindow intentionally
+        # differs between them rather than using one shared value.
+        - id: Qwen3.8-27B-UD-IQ3_S
+          contextWindow: 98304
+        - id: Qwen3.8-27B-UD-Q3_K_XL
+          contextWindow: 65536
         # 2026-09-17: added for amiga-ui coding-agent use. Runs split-mode=layer
         # across both GPUs (NOT tensor -- confirmed via a real failed load that
         # this stock build's tensor-split doesn't support the deepseek2
@@ -121,6 +125,62 @@ llm-pi-ai:
         - id: GLM-4.7-Flash-Q4_K_M
           contextWindow: 202752
           maxTokens: 24576
+    # 2026-09-18: added after the llama.cpp services were rebuilt into a
+    # per-GPU-locked architecture (see llama-cpp/README.md) -- llama-cpp-gpu-0
+    # and llama-cpp-gpu-1 each reserve exactly one physical GPU at the Docker
+    # level and share the same models-preset.ini as the `llama-cpp` (all-gpus)
+    # provider above, so every model there is technically reachable here too.
+    # Catalogue intentionally limited to models that make sense run alone on
+    # one 16 GiB card (dense <30B-ish, the four n-cpu-moe MoEs, the two Q3
+    # Qwen3.8-27B quants) -- the dual-GPU-only entries (Nemotron, the tensor-
+    # split 27B quants, GLM-4.7-Flash's layer split, the two 46 GiB CPU-only
+    # MoEs, the two partial-offload 70B/72B models) are deliberately not
+    # duplicated here; use the `llama-cpp` provider for those. Picking gpu-0
+    # vs gpu-1 vs llama-cpp is a real choice about which physical GPU (or
+    # both) a session occupies -- e.g. gpu-0 to run alongside the 16GB
+    # schwerz service, which defaults to GPU 1 (verify with `docker exec
+    # <container> env`, not this comment, since that default is overridden
+    # in this deployment's untracked .env -- see performance-findings.md).
+    llama-cpp-gpu-0:
+      apiKeyEnv: LLAMA_CPP_GPU_0_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-gpu-0:8080/v1
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: gpt-oss-20b-F16
+          contextWindow: 131072
+        - id: Qwen3.8-27B-UD-IQ3_S
+          contextWindow: 98304
+        - id: Qwen3.8-27B-UD-Q3_K_XL
+          contextWindow: 65536
+        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+          contextWindow: 16384
+        - id: Qwen3.6-35B-A3B-Q4_K_M
+          contextWindow: 16384
+        - id: Qwen3.5-35B-A3B-Q4_K_M
+          contextWindow: 16384
+        - id: Ornith-1.5-35B-Q4_K_M
+          contextWindow: 16384
+    llama-cpp-gpu-1:
+      apiKeyEnv: LLAMA_CPP_GPU_1_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-gpu-1:8080/v1
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: gpt-oss-20b-F16
+          contextWindow: 131072
+        - id: Qwen3.8-27B-UD-IQ3_S
+          contextWindow: 98304
+        - id: Qwen3.8-27B-UD-Q3_K_XL
+          contextWindow: 65536
+        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+          contextWindow: 16384
+        - id: Qwen3.6-35B-A3B-Q4_K_M
+          contextWindow: 16384
+        - id: Qwen3.5-35B-A3B-Q4_K_M
+          contextWindow: 16384
+        - id: Ornith-1.5-35B-Q4_K_M
+          contextWindow: 16384
     # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
     # decode rates in prior testing. Their router presets intentionally use 8K.
     llama-cpp-cpu:
@@ -146,9 +206,10 @@ llm-pi-ai:
     # Its friendly IDs are defined by its service preset, not directory
     # names under /models. 2026-09-17: this service is a last resort for
     # MoE models too large for a plain 32 GiB dual-GPU split -- its preset
-    # was trimmed to just those models (see models-preset-16gb.ini), so this
-    # list is trimmed to match. GLM-4.5-Air/gpt-oss-120b/Llama-4-Scout were
-    # already declared on the router but had never been added here.
+    # was trimmed to just those models (see llama-cpp-generel-schwerz-16gb's
+    # models-preset.ini), so this list is trimmed to match. GLM-4.5-Air/
+    # gpt-oss-120b/Llama-4-Scout were already declared on the router but had
+    # never been added here.
     llama-cpp-moe-16gb:
       apiKeyEnv: LLAMA_CPP_MOE_16GB_API_KEY
       api: openai-completions
@@ -192,15 +253,52 @@ llm-pi-ai:
           contextWindow: 65536
         - id: Llama-4-Scout-17B-16E-Instruct-Q4_K_M
           contextWindow: 65536
+    # 2026-09-18: added for the new llama-cpp-generel-schwerz-16gb-gpu-0
+    # service -- a second instance of the same 16GB MoE-cache fork, pinned to
+    # GPU 0 instead of GPU 1, sharing the exact same models-preset.ini/
+    # config.ini as llama-cpp-moe-16gb above (see llama-cpp/README.md), so
+    # the catalogue here is an exact copy of that provider's. Exists so a
+    # schwerz-style session can run on GPU 0 while GPU 1 is occupied (by the
+    # original 16gb instance, or anything else), or vice versa -- the two are
+    # mutually exclusive on the *same* physical GPU only if both happen to
+    # target it; the shared lock volume (see performance-findings.md) rejects
+    # that specific conflict rather than colliding silently.
+    llama-cpp-moe-16gb-gpu-0:
+      apiKeyEnv: LLAMA_CPP_MOE_16GB_GPU_0_API_KEY
+      api: openai-completions
+      baseURL: http://llama-cpp-generel-schwerz-16gb-gpu-0:8080/v1
+      streamIdleTimeoutMs: 1800000
+      models:
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 98304
+          maxTokens: 12288
+          reasoning: true
+          thinkingLevelMap:
+            off: low
+            minimal: low
+            max: xhigh
+        - id: Qwen3-Coder-Next-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
+          contextWindow: 65536
+          maxTokens: 16384
+        - id: GLM-4.5-Air-UD-Q4_K_XL
+          contextWindow: 65536
+        - id: gpt-oss-120b-Q4_K_M
+          contextWindow: 65536
+        - id: Llama-4-Scout-17B-16E-Instruct-Q4_K_M
+          contextWindow: 65536
     # The two-GPU service exposes the same explicit MoE catalogue, minus
     # Flash Next -- that service's own preset deliberately excludes it (its
     # PLE table needs mmap, which the codex/moe-grouped-multigpu pin here
-    # does not support; see models-preset-32gb.ini). It stays separate from
-    # the 16GB service so choosing it is an intentional decision to occupy
-    # both cards. 2026-09-17: trimmed to match models-preset-32gb.ini for the
-    # same reason as llama-cpp-moe-16gb above; the dangling Flash Next entry
-    # that was listed here despite never being declared on this router (a
-    # pre-existing gap, unrelated to today's trim) is also removed.
+    # does not support; see llama-cpp-generel-schwerz-32gb's models-preset.ini).
+    # It stays separate from the 16GB service(s) so choosing it is an
+    # intentional decision to occupy both cards. 2026-09-17: trimmed to match
+    # that preset for the same reason as llama-cpp-moe-16gb above; the
+    # dangling Flash Next entry that was listed here despite never being
+    # declared on this router (a pre-existing gap, unrelated to today's trim)
+    # is also removed.
     llama-cpp-moe-32gb:
       apiKeyEnv: LLAMA_CPP_MOE_32GB_API_KEY
       api: openai-completions
@@ -221,7 +319,7 @@ llm-pi-ai:
           contextWindow: 65536
     # Independent csantiago78/llama.cpp MoE expert cache: an alternative to
     # llama-cpp-moe-32gb for the same two GPUs, using a different fork's
-    # expert-cache implementation (see docker-compose.yml and
+    # expert-cache implementation (see compose.ai.yml and
     # llama-cpp/config/llama-cpp-csantiago78/config.ini). Not yet build- or run-tested
     # in this deployment; contextWindow/maxTokens and the Flash Next
     # reasoning/idle-timeout handling below are carried over from

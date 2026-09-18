@@ -5,8 +5,9 @@ x-defaults: &defaults
     CADDY_USER: "admin"
     CADDY_HASH: ${CADDY_HASH}
 
-# These three services deliberately share a catalogue but not GPU visibility.
-# The image entrypoint takes non-blocking locks in the named volume below.
+# The one-card services share the 16GB catalogue; the all-GPU service uses a
+# separate 32GB catalogue. The image entrypoint takes non-blocking locks in
+# the named volume below.
 # GPU-profile services are deliberately started/stopped explicitly, so a lock
 # conflict remains an exited error instead of an automatic restart loop.
 x-llama-cpp-common: &llama-cpp-common
@@ -14,7 +15,7 @@ x-llama-cpp-common: &llama-cpp-common
   restart: "no"
   volumes:
     - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-    - ${LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp/models-preset.ini}:/models-preset.ini:ro
+    - ${LLAMA_CPP_32GB_CONFIG:-/mnt/work/llama/llama-cpp-32gb/models-preset.ini}:/models-preset.ini:ro
     - llama-gpu-locks:/var/lock/llama-gpu
   command:
     - --models-preset
@@ -128,6 +129,10 @@ services:
     container_name: llama-cpp-gpu-0-c
     environment:
       LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_GPU_0_DEVICE_ID:-0}
+    volumes:
+      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-16gb/models-preset.ini}:/models-preset.ini:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
     gpus:
       - driver: nvidia
         device_ids: ["${LLAMA_CPP_GPU_0_DEVICE_ID:-0}"]
@@ -151,6 +156,10 @@ services:
     container_name: llama-cpp-gpu-1-c
     environment:
       LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_GPU_1_DEVICE_ID:-1}
+    volumes:
+      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
+      - ${LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-16gb/models-preset.ini}:/models-preset.ini:ro
+      - llama-gpu-locks:/var/lock/llama-gpu
     gpus:
       - driver: nvidia
         device_ids: ["${LLAMA_CPP_GPU_1_DEVICE_ID:-1}"]
