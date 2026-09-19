@@ -103,3 +103,43 @@ comment at the top of `compose.ai.yml`.
 The GGUF library defaults to `/mnt/data/models/gguf` and is mounted read-only
 at `/models`. See [GenerelSchwerz build notes](generel-schwerz-README.md) for
 the fork-specific runtime constraints.
+
+## Long-context benchmark matrix
+
+`benchmark-long-context.py` reads the main resource-usage table in
+`performance-findings.md`, then tests every reproducible model/profile row
+except the GenerelSchwerz 32GB service, Qwen3.8-Flash-Next on physical GPU 0,
+and rows whose ordinary low-context `Decode` result is below 10 tok/s. The
+upstream 32GB service is included.
+It starts one generated service at a time, waits for both Docker health and the
+router HTTP endpoint, tests every model available through that profile, then
+stops and removes that generated service before moving to the next profile.
+It does not build images.
+
+Run it from `tmux` as follows:
+
+```sh
+./llama-cpp/benchmark-long-context.py
+```
+
+The runner writes detailed command output, request timings, JSON result lines,
+and its final failure summary to one timestamped
+`llama-cpp/long-context-*.log` file. The terminal shows only timestamped
+profile/test progress plus a concise final failure count and log path. A
+supplied `--output PATH` selects the one log file explicitly.
+
+The input target is one eighth of the model's configured context window,
+clamped to approximately 4,096--8,192 tokens; the request records the
+server's actual prompt-token count, so tokenizer differences remain visible.
+Every request has a deterministic neutral context and a 128-token completion
+cap. This gives a useful 4K point for 32K-context models and a common 8K point
+for 64K-and-larger models without approaching capacity or making CPU and
+expert-cache runs unnecessarily long.
+
+The script removes profile services that it starts, including an already
+running service with the same name. Do not run it while DeepSeek, Pi, or another
+client needs one of those llama endpoints. Historical `standalone` table rows
+without a current generated Compose profile are not substituted with a different
+configuration; they appear in the final failure summary. Use `--dry-run` to
+inspect the derived matrix without Docker, or repeat `--profile` to test only
+named profile groups (for example `--profile upstream-gpu-1`).

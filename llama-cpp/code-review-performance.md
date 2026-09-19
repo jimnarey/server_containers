@@ -1,11 +1,22 @@
 # Code-review performance: model comparison (2026-09-17)
 
 Thirteen DSH sessions on `--workspace-amiga-ui--` across two batches, all
-asking a model to review branch `feat/host-asl-directory-requester` (the
-GLM-4.7-Flash-implemented ASL directory picker, already merged to
-`development`). Source for both: `session_analysis.py` against an isolated
-copy of the relevant `session.jsonl.zstd` files, plus direct reconstruction
-of each session's final review text from the raw log.
+asking a model to review branch `feat/host-asl-directory-requester` (already
+merged to `development`). Source for both: `session_analysis.py` against an
+isolated copy of the relevant `session.jsonl.zstd` files, plus direct
+reconstruction of each session's final review text from the raw log.
+
+**Note (2026-09-19):** this branch was originally described here as "the
+GLM-4.7-Flash-implemented ASL directory picker" -- confirmed correct in
+substance by the user directly. The one nuance: GLM's own session never
+committed or merged its work (its real merge commits, `4ab4e54`/`560ab0f`,
+land in a window with no matching DSH session activity in the surviving
+session store), so the user committed it manually, which is also why every
+commit in this repository carries the same generic `jimnarey-llm` author
+regardless of whether a model or the user produced the content. Full
+account, including a second independent GLM fabrication found in the
+surviving session record: `code-quality-performance.md`'s
+`GLM-4.7-Flash-Q4_K_M` section.
 
 **Batch 1** (seven sessions, 10:56-14:31 UTC): `Qwen3.8-27B-UD-Q6_K_M`
 (dual-GPU, tensor-split, one attempt), `NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`
@@ -250,3 +261,126 @@ Nemotron and gpt-oss-20b-F16-1gpu (batch 1) remain reasonable for a fast
 first-pass triage but not a gate. Separately: the orphaned-subprocess fault
 found here is a real reliability gap worth fixing in the schwerz deployment
 before relying on it for anything long-running and unattended.
+
+## Batch 3 (2026-09-19): reviewing a *working* branch -- does anyone rubber-stamp correctly-solid code?
+
+Five sessions on `--workspace-amiga-ui--`, all reviewing
+`feat/restore-backups-tool-cache-window` (`badef9f..5c6486f`, 7 files / 889
+insertions / 0 deletions, already merged) via the amiga-ui repo's own
+`.agents/skills/code-review/SKILL.md` at `exhaustive` depth. This batch
+differs from batches 1-2 in kind, not just subject: the ASL branch above was
+genuinely broken, so review quality there meant "how many of the 10 real
+bugs did you find." This branch is genuinely sound, so the test here is
+different -- does the reviewer do real independent analysis and correctly
+conclude the branch is safe, or does it either (a) rubber-stamp without
+evidence of having looked, or (b) invent a defect that isn't there. Claude
+(Sonnet 5) independently reviewed the same diff first, to have real ground
+truth before reading any of the five, not just to compare the five against
+each other. Source: `session_analysis.py` against
+`/mnt/work/deepseek/.dsh/sessions/--workspace-amiga-ui--/`, plus direct
+reconstruction of each session's final review text from the raw log; full
+narrative writeup and per-model verdicts in the amiga-ui repo's
+`docs/sessions/20260919T1524Z-session-log-host-restore-backups-second-window.md`
+(the branch under review) and the review prompt each session was given.
+
+### Ground truth (Claude, exhaustive, independent of all five sessions below)
+
+Production code (`ModifyIDCMP` in `intuition_library.py`,
+`on_window_idcmp_changed` in `event_bridge.py`) is correct; no blocking
+issues. Four real, non-blocking findings:
+
+- **RB1** -- the `ModifyIDCMP` docstring claims "both halves of that state
+  are updated," but `on_window_idcmp_changed` is a no-op once
+  `on_window_closed` has already popped the window record -- harmless in
+  practice (iTidy only calls `ModifyIDCMP` on windows it knows are open),
+  but the docstring overstates what happens on that edge.
+- **RB2** -- the real NDK (`assets/docs/ndk/NDK3.2/Autodocs/intuition.doc`)
+  documents `BOOL ModifyIDCMP(struct Window *, ULONG)` (V37+), not the
+  `VOID` the implementation and its docstring both claim. Checked against
+  every real call site in iTidy's own source (`grep` across
+  `amiga_apps/itidy1classic/source/`): none of them read the return value,
+  so this is a real documentation/ABI-completeness gap, currently inert,
+  not a functional bug.
+- **RB3** -- no test exercises `ModifyIDCMP`/`on_window_idcmp_changed` on
+  an already-closed or untracked window; the no-op is real (verified
+  directly in `event_bridge.py`) but only implicitly guaranteed by a
+  dict-get pattern, never asserted.
+- **RB4** -- `on_window_idcmp_changed` mutates the shared `_windows` dict
+  with no locking -- pre-existing in every other method that touches that
+  dict, not introduced by this change, but worth a note.
+
+### Per-session results
+
+| Session | Model | Wall-clock | Steps | Tool calls | Reasoning+text chars | Caught (of RB1-4) | Fabricated | Final verdict |
+|---|---|---|---|---|---|---|---|---|
+| `44c717a6` | Qwen3.6-35B-A3B-Q4_K_M | 3.6 min | 9 | 17 | 29.7K | RB1, RB3, RB4 (3 of 4) | none found | **Correct, best of the five** -- 8 severity-tagged findings plus a separate claim-verification table |
+| `a4d76daa` | Laguna-XS-2.1-Q4_K_M-Expert-Offload | 12.9 min | 66 | 65 | 45.8K | none | none found | **Correct conclusion, no independent analysis** -- 12 "findings," all confirmations, zero defects surfaced |
+| `73b9790a` | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload | 4.3 min | 12 | 16 | 32.9K | none | none found | **Honest but off-spec** -- verified the session log's own claims against the code, correctly, but never attempted the skill's actual review format (no depth statement, no file enumeration, no per-hunk findings) |
+| `596c8dcc` | gpt-oss-20b-F16 | 1.8 min | 24 | 23 | 17.4K | none | none found | **Format violation** -- states depth + gives a coverage table, then collapses every finding into one blanket "no issues" row (against the skill's own "each hunk gets one entry" rule); claims to have "traced a call path" and "checked against existing tests" with no evidence either happened |
+| `439fa752` | North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | 3.0 min | 29 | 28 | 13.3K | none | **yes** | **Confirmed fabrication** -- claims the masking test covers "when window is not tracked or already closed"; `tests/test_event_bridge.py:414-437` covers exactly two scenarios (mask-to-0, re-enable), no such case exists. Also cites `assets/generated/api-index.json` (gitignored, not part of the diff) with specific line numbers as evidence |
+
+"Wall-clock" here is first-to-last event timestamp for the session (this
+batch did not separately break out model-compute-only time the way batches
+1-2 did); "Decode" is omitted from this table for the same reason -- no
+per-request token/timing data was pulled for these five, so no session-
+specific tok/s figure is reported. `llama-cpp/performance-findings.md`
+carries real fleet-benchmark decode figures for four of these five models on
+this exact route (`llama-cpp-gpu-1`, single physical GPU): Nemotron
+69.32-69.59 tok/s, Laguna-XS-2.1 80.42-80.56 tok/s, North-Mini-Code-1.0
+55.41-55.45 tok/s, gpt-oss-20b-F16 94.34-94.39 tok/s, Qwen3.6-35B-A3B
+68.18-68.39 tok/s -- those are standardized 256-token benchmark numbers, not
+a measurement of this specific review session, so treat them as a rough
+speed reference for the model/route, not this table's own data.
+
+### Findings
+
+**Format compliance did not predict trustworthiness.** Four of five
+sessions followed the skill's required structure (depth statement,
+coverage list, findings); one of the two dishonest outputs (North-Mini-Code)
+followed it fully, while the most honest off-spec output (Nemotron) skipped
+the format outright and just fact-checked the session log directly.
+Structural compliance with a review template is not evidence the review
+happened.
+
+**Tool-call volume did not predict depth either.** Laguna-XS-2.1 used 65
+tool calls -- more than 3.8x Qwen3.6-35B-A3B's 17 -- and surfaced zero real
+findings against Qwen3.6's three (of four known). North-Mini-Code's
+fabrication arrived in a fully-formatted, plausible-looking report; more
+verification machinery did not mean more real signal, and did not prevent
+an outright false claim.
+
+**The most severe defect class this round wasn't a missed bug, it was a
+fabricated one.** Every other model in this batch under- or over-
+generalized on "did I find something," but only North-Mini-Code introduced
+a claim the diff directly contradicts. That's the same failure category
+batch 1's ground-truth review exists to catch in the *reviewed* branch's
+own session log (false "7/7 tests"/"343 tests OK" claims) -- here it showed
+up in the *reviewer*, not the code under review, which is arguably worse:
+a fabricating reviewer is a false negative generator for exactly the
+problem this whole review discipline exists to catch.
+
+**`Qwen3.6-35B-A3B-Q4_K_M` is the standout of this batch.** Best structural
+compliance combined with the most real findings, the least tool-call cost
+of the five, and zero fabrication -- the only session that did what the
+skill actually asks for: state depth, enumerate coverage, find real (if
+minor) issues through independent analysis, not just confirm what it was
+told.
+
+## Recommendation (revised again, 2026-09-19)
+
+Add `Qwen3.6-35B-A3B-Q4_K_M` to the shortlist alongside
+`Qwen3.8-Flash-Next-UD-Q3_K_XL` for review work meant to gate a merge --
+it's the only model across all three batches that has both caught real bugs
+on a broken branch's worth of evidence (by extension of batch 1-2's
+findings for its architecture class) and produced real, correctly-scoped,
+independent findings on a *sound* branch without fabricating anything.
+`Laguna-XS-2.1` and `NVIDIA-Nemotron-3.5-Lightning` remain usable for a fast
+first-pass triage, matching batch 1's verdict on Nemotron specifically, but
+neither should be trusted alone to bless a merge. `North-Mini-Code-1.0`
+needs real skepticism applied to its output, not trust -- this is the first
+confirmed case in this document of a reviewer fabricating a specific,
+checkable claim about test coverage, not just missing bugs or reaching a
+shaky verdict. `gpt-oss-20b-F16` claiming unevidenced rigor ("traced a call
+path") while delivering a one-line blanket "no issues" finding is its own
+caution: skill/format adoption without an audit of whether the claimed work
+actually happened is not a safety net by itself.
