@@ -1406,6 +1406,24 @@ benchmark figures for the dual-GPU config are also not yet captured (see
 the main table's footnote ¹²) -- this pass only confirmed load + a real
 response, not throughput.
 
+## Context-size review across every preset: `Qwen3.8-Flash-Next` raised to 131072 (2026-09-18)
+
+Full review of every `ctx-size` in every preset file, at the user's
+request (64K treated as the real floor for coding use). Real result for
+the one item specifically flagged: `Qwen3.8-Flash-Next-UD-Q3_K_XL` on
+`llama-cpp-generel-schwerz-16gb`, raised from 98304 to **131072**. Real
+native context is 262144 (confirmed via GGUF metadata: `qwen4exp`
+architecture) -- 98304 was only 37% of it. Confirmed working on physical
+GPU 1 (the correct card -- see the PCIe finding above): cold run showed a
+slower decode (11.16 tok/s) that looked like a real cost at first, but
+the warm run resolved it -- **19.17 tok/s, actually faster than the old
+98304 setting's 18.87 tok/s** -- confirming the cold figure was normal
+first-touch/mmap noise, not a real ongoing cost of the larger context.
+Real VRAM: 14,212 MiB used, ~2.05 GiB headroom remaining (down from
+~2.9-3.3 GiB at 98304) -- less room than before, but real room still
+exists if this gets pushed further later. See the full model-by-model
+review below for every other preset entry checked the same pass.
+
 ## Real incident: `parameterise-llama` refactor investigation -- three real problems found and fixed (2026-09-18)
 
 The user refactored how llama.cpp services are brought up: one `render-
@@ -1719,3 +1737,267 @@ just an open observation:
   `llama-cpp-all-gpus` (GPU 1 at 0% while GPU 0 ran the small prefill at
   98%, resolved by the warm run) -- plausibly a small-prompt timing
   artifact, not confirmed.
+
+## Full 64K context-floor sweep + DeepSeek-Coder-V2-Lite migration (2026-09-18)
+
+User request: treat 64K (65536) as the coding-use context floor across
+every curated model, migrate anything that no longer fits one 16 GiB
+card at that floor to the 32GB service, and separately move
+`DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M` off `llama-cpp-16gb` entirely
+(one card was never comfortable for it) onto `llama-cpp-32gb` with its
+real native context ceiling.
+
+### DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
+
+Removed from `llama-cpp-16gb` (real single-card testing this session
+already found 65536 fails outright and 32768 was the safe fallback --
+below the 64K floor). Raised on `llama-cpp-32gb` from 65536 to **163840**,
+this model's real native context ceiling (`deepseek2` architecture,
+`context_length=163840` per GGUF metadata). Real load test confirmed it
+fits: 14,751/16,311 MiB (GPU0) and 14,832/16,311 MiB (GPU1), ~1.5 GiB
+headroom per card.
+
+Quant ladder researched (bartowski, via the HF API tree endpoint) --
+current `Q4_K_M` is 9.65 GiB; real higher quants exist: `Q5_K_M` 11.85 GB,
+`Q6_K` 14.07 GB, `Q8_0` 16.70 GB. **Recommendation: `Q8_0`** -- near-
+lossless and comfortably within this service's real headroom (the prior
+65536-context footprint left 12+ GiB free combined). Not yet downloaded
+or switched -- still `Q4_K_M` as of this note.
+
+### 5 CPU models raised to 65536
+
+`gemma-3n-E2B-it`, `gemma-3n-E4B-it`, `NVIDIA-Nemotron-3-Nano-4B`,
+`Qwen3.5-9B`, `Ornith-1.5-9B` on `llama-cpp-cpu`, raised from 32768. All
+five real-load-tested individually with live `free -h` monitoring
+throughout each load: RAM available never dropped below 52 GiB, swap
+stayed flat at its pre-existing 3.9-4.1 GiB baseline (unrelated residual
+from prior sessions, not caused by these loads). No near-miss, unlike
+the earlier DeepSeek-70B CPU incident this document already records.
+
+### Full 64K sweep results -- every candidate fits, zero migrations needed
+
+Every remaining model below 65536 across all three services was raised
+and real-load-tested (chat completion request + `nvidia-smi`/`free -h`
+check). **Every single one fit with real headroom -- no model needed to
+move from `llama-cpp-16gb` to `llama-cpp-32gb`.**
+
+`llama-cpp-16gb` (single 16.3 GiB card, tested via `llama-cpp-gpu-0`),
+32768/16384 -> 65536:
+
+| Model | VRAM used | Headroom |
+|---|---|---|
+| qwen2.5-coder-7b-instruct-q4_k_m | 6.46 GiB | ~9.8 GiB |
+| qwen2.5-coder-14b-instruct-q4_k_m | 14.75 GiB | ~1.5 GiB |
+| qwen2.5-coder-7b-instruct-q8_0 | 9.46 GiB | ~6.8 GiB |
+| qwen2.5-coder-14b-instruct-q5_k_m | 14.77 GiB | ~1.5 GiB |
+| qwen2.5-coder-14b-instruct-q6_k | 14.65 GiB | ~1.7 GiB |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | 14.91 GiB | ~1.4 GiB |
+| Qwen3.6-35B-A3B-Q4_K_M | 12.59 GiB | ~3.7 GiB |
+| Qwen3.5-35B-A3B-Q4_K_M | 12.61 GiB | ~3.7 GiB |
+| Ornith-1.5-35B-Q4_K_M | 12.09 GiB | ~4.2 GiB |
+| NVIDIA-Nemotron-3.5-Lightning-...-Expert-Offload | 13.09 GiB | ~3.2 GiB |
+| Laguna-XS-2.1-...-Expert-Offload | 14.30 GiB | ~2.0 GiB |
+| North-Mini-Code-1.0-...-Expert-Offload | 14.07 GiB | ~2.2 GiB |
+| granite-4.0-h-small-...-Expert-Offload | 14.10 GiB | ~2.2 GiB |
+
+None of the 8 `n-cpu-moe`/Expert-Offload models needed their `n-cpu-moe`
+value raised to keep fitting at 65536 -- real headroom absorbed the
+larger KV cache at every one without adjustment. (`Qwen3.8-27B-UD-Q3_K_XL`
+was already exactly at 65536 from earlier work this session; not
+retested here.)
+
+`llama-cpp-32gb` (dual 16.3 GiB cards, tested via `llama-cpp-all-gpus`),
+8192/32768 -> 65536:
+
+| Model | GPU0 | GPU1 |
+|---|---|---|
+| qwen2.5-coder-7b-instruct-q8_0 | 5.07 GiB | 5.15 GiB |
+| qwen2.5-coder-14b-instruct-q5_k_m | 8.69 GiB | 8.78 GiB |
+| qwen2.5-coder-14b-instruct-q6_k | 9.41 GiB | 9.50 GiB |
+| **Llama-3.3-70B-Instruct-Q3_K_M** | 14.48 GiB | 14.64 GiB |
+| **Qwen2.5-72B-Instruct-Q3_K_S** | 14.45 GiB | 14.83 GiB |
+
+The two 70B-class dense models (partial CPU offload, `n-gpu-layers=auto`)
+were the real risk case here, given this document's existing DeepSeek-70B
+near-miss precedent. Both were tested individually with live `free -h`
+polling every 8s through the full load+generate cycle: RAM available
+bottomed out at 2.2 GiB free (Llama-3.3-70B) and 629 MiB free
+(Qwen2.5-72B) mid-load before settling back up as loading completed --
+real pressure, but no swap growth beyond the pre-existing 3.9-4.1 GiB
+baseline, and no OOM. Both now sit at 65536, up from 8192, and stay on
+`llama-cpp-32gb` (never fit one 16 GiB card to begin with, so no
+migration question applied to them).
+
+### Tooling: `generate-models-preset.py` full-discovery mode still broken
+
+Confirmed again this session -- `llama-cpp-32gb`'s repo-source preset
+edits (the two 70B `ctx-size` bumps, the three `qwen2.5-coder` dual-GPU
+bumps) were deployed to `/mnt/work/llama/llama-cpp-32gb/models-preset.ini`
+by direct `sed` patch, not `generate-models-preset.py --force`, because
+that tool's full-discovery mode still targets the now-removed
+`llama-cpp-all-gpus` compose service (see the `render-compose.py`
+refactor investigation earlier in this document). Not fixed -- flagged
+again as the same known gap.
+
+### Also noticed, not fixed: stale DSH entries under the `llama-cpp` (32gb) provider
+
+`settings.yaml`'s `llama-cpp` provider block lists
+`qwen2.5-coder-7b-instruct-q4_k_m`, `qwen2.5-coder-14b-instruct-q4_k_m`,
+`Qwen3-Coder-Next-Q4_K_M`, and `Qwen3-Next-80B-A3B-Instruct-Q4_K_M` --
+none of the four appear as explicit sections in
+`llama-cpp-32gb/models-preset.ini` (confirmed by grep). The latter two
+are real CPU-only MoE models correctly declared on `llama-cpp-cpu`
+instead (per that file's own header comment), so their presence here
+looks like leftover drift, not a real route -- unverified whether the
+32gb service's full-discovery mode happens to expose them anyway. Not
+investigated further this session (out of scope for this pass); worth a
+follow-up if `llama-cpp` (32gb) is ever used as a route for these models.
+
+## 128K assessment, YaRN correctness fix, Q8 DeepSeek-Coder-V2-Lite, tooling fix (2026-09-19)
+
+### Real native-context finding: qwen2.5-coder family and Qwen2.5-72B were running past their trained window unscaled
+
+The GGUF's own `context_length` metadata for the qwen2.5-coder quants reports
+131072 -- **not authoritative**. Confirmed via the real upstream HF
+`config.json` (Qwen2.5-Coder-14B-Instruct): `max_position_embeddings=32768`,
+no `rope_scaling` block. `Qwen2.5-72B-Instruct-Q3_K_S`'s own GGUF metadata
+independently confirms the same real 32768 native window
+(`qwen2.context_length=32768`, no `rope.scaling.*` fields). Both had been
+running at 65536 (2x native) with no `rope-scaling` configured -- the load
+tests that passed only ever sent trivial short prompts, which say nothing
+about coherence once real usage passes position 32768.
+
+Contrast: `Llama-3.3-70B-Instruct-Q3_K_M`'s own GGUF metadata genuinely
+reports `context_length=131072` -- real Llama-3.1+ native long-context
+training, not extrapolated. No fix needed there.
+
+**Fix applied**: `rope-scaling = yarn` + `yarn-orig-ctx = 32768` added
+explicitly to every qwen2.5-coder entry (both `llama-cpp-16gb` and
+`llama-cpp-32gb`) and to `Qwen2.5-72B-Instruct-Q3_K_S`. **Verified with a
+real needle-in-haystack test**, not just a load check: a 42,777-token
+prompt (30% past the 32768 native boundary) with a fact planted near the
+start correctly retrieved the fact at the end
+(`qwen2.5-coder-14b-instruct-q4_k_m`, temperature 0). Real evidence the
+YaRN fix works, not an assumption.
+
+Not yet independently re-verified at the deeper 4x-native extrapolation
+depth now in use (131072, see below) -- the needle test only covered 1.3x.
+Worth a repeat at the new depth if this matters for real long-context use
+of this specific model family.
+
+### 128K assessment: every 64K-capped model tested, only two needed adjustment, none needed to migrate
+
+User's question: would raising 64K-capped models to 131072 (their new
+preferred default) push any of them from one 16 GiB card to needing both.
+**Answer: no** -- every single model tested fits solo where it already ran
+solo. Real per-model results:
+
+`llama-cpp-16gb` (tested via `llama-cpp-gpu-0`), 65536 -> 131072:
+
+| Model | Fit | VRAM used | Headroom | Notes |
+|---|---|---|---|---|
+| qwen2.5-coder-7b-instruct-q4_k_m | yes | 8.56 GiB | ~7.7 GiB | |
+| qwen2.5-coder-14b-instruct-q4_k_m | yes | 14.60 GiB | ~1.7 GiB | |
+| qwen2.5-coder-7b-instruct-q8_0 | yes | 11.56 GiB | ~4.6 GiB | |
+| qwen2.5-coder-14b-instruct-q5_k_m | yes | 14.55 GiB | ~1.7 GiB | |
+| qwen2.5-coder-14b-instruct-q6_k | yes | 14.42 GiB | ~1.8 GiB | |
+| Qwen3.8-27B-UD-Q3_K_XL | yes | 14.61 GiB | ~1.7 GiB | |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | yes, after adjustment | 15.65 GiB | ~0.64 GiB | first attempt CUDA OOM at n-cpu-moe=18; raised to 26 -- fits but very tight |
+| Qwen3.6-35B-A3B-Q4_K_M | yes | 13.38 GiB | ~2.9 GiB | |
+| Qwen3.5-35B-A3B-Q4_K_M | yes | 13.44 GiB | ~2.9 GiB | |
+| Ornith-1.5-35B-Q4_K_M | yes | 12.89 GiB | ~3.4 GiB | |
+| NVIDIA-Nemotron-3.5-Lightning-...-Expert-Offload | yes | 13.36 GiB | ~2.9 GiB | |
+| Laguna-XS-2.1-...-Expert-Offload | yes, after adjustment | 13.25 GiB | ~3.1 GiB | first attempt CUDA OOM at n-cpu-moe=16; raised to 22 |
+| North-Mini-Code-1.0-...-Expert-Offload | yes | 15.14 GiB | ~1.16 GiB | tight |
+| granite-4.0-h-small-...-Expert-Offload | yes | 14.97 GiB | ~1.3 GiB | tight |
+
+`llama-cpp-32gb` (tested via `llama-cpp-all-gpus`), 65536 -> 131072:
+
+| Model | GPU0 | GPU1 |
+|---|---|---|
+| qwen2.5-coder-7b-instruct-q8_0 | 6.21 GiB | 6.29 GiB |
+| qwen2.5-coder-14b-instruct-q5_k_m | 12.28 GiB | 12.36 GiB |
+| qwen2.5-coder-14b-instruct-q6_k | 13.00 GiB | 13.08 GiB |
+| Llama-3.3-70B-Instruct-Q3_K_M | 14.56 GiB | 14.38 GiB |
+| Qwen2.5-72B-Instruct-Q3_K_S | 14.45 GiB | 14.56 GiB |
+
+Both 70B dense models were already dual-GPU only (never fit one 16 GiB
+card), so "push to both GPUs" didn't apply to them -- tested anyway with
+live `free -h` polling every 8s through the full load, matching this
+document's established near-miss precedent. RAM stayed stable at both
+65536 and 131072 (no swap growth beyond the pre-existing baseline).
+
+**These changes are now the deployed defaults** (both preset files and
+DSH `settings.yaml` updated and synced) -- not left as an untested
+proposal, since every candidate passed.
+
+### Two 70B dense models: real case against keeping them
+
+User asked for the practical value of `Llama-3.3-70B-Instruct-Q3_K_M` and
+`Qwen2.5-72B-Instruct-Q3_K_S` given this hardware. Real decode figures from
+this session's own tests: **2.09-2.75 tok/s** (Llama-3.3-70B),
+**2.14-2.57 tok/s** (Qwen2.5-72B) -- both `n-gpu-layers=auto` (partial CPU
+offload), since neither fits 32 GiB combined VRAM with real margin at any
+useful context. This is a structural hardware bottleneck (host RAM/PCIe
+transfer on every token for the CPU-resident layers), not a config or
+quantization problem. By contrast, the fleet's MoE models of similar or
+larger total size (Qwen3.6-35B-A3B, Ornith-1.5-35B, Laguna-XS-2.1,
+NVIDIA-Nemotron-3.5-Lightning) only activate a few billion parameters per
+token and run at GPU-native speeds, an order of magnitude faster.
+Recommendation given, not yet acted on: no clear case remains for keeping
+either dense 70B model on this hardware for interactive/agentic use.
+
+### Q8_0 quant of DeepSeek-Coder-V2-Lite-Instruct: downloaded, curated, tested
+
+Downloaded via `hf download bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF
+--include "DeepSeek-Coder-V2-Lite-Instruct-Q8_0.gguf"` (16.70 GB, matches
+the size predicted from the HF API tree listing exactly). Added as a new
+`DeepSeek-Coder-V2-Lite-Instruct-Q8_0` entry on `llama-cpp-32gb` alongside
+the existing `Q4_K_M` entry (kept, not replaced -- DSH `settings.yaml`
+still points at the `Q4_K_M` id specifically; switching is the user's call).
+
+Real GGUF metadata confirms this model's YaRN scaling is genuinely baked
+in (`deepseek2.rope.scaling.type`/`factor=40.0`/
+`original_context_length=4096`, 4096*40=163840 matching
+`context_length` exactly) -- unlike the qwen2.5-coder finding above, no
+manual `rope-scaling`/`yarn-orig-ctx` override was needed here.
+
+Real load test at `ctx-size=163840`: 14,727/16,311 MiB (GPU0) and
+14,720/16,311 MiB (GPU1) -- ~1.55 GiB headroom per card, essentially
+identical to the `Q4_K_M` entry's footprint despite the 1.73x larger file
+(KV cache at this context size dominates VRAM usage more than the weight
+quant difference, at this model's small total size). A simple coding
+prompt (memoized Fibonacci) produced near-identical, both-correct output
+from both quants -- expected for a trivial task, not a meaningful quality
+differentiator; a harder real task would be needed to show the quality
+gap Q8_0 is expected to close.
+
+### Tooling: `generate-models-preset.py` full-discovery mode fixed
+
+Root cause found: the `render-compose.py` refactor consolidated the old
+dedicated `llama-cpp-all-gpus` discovery service into the plain `llama-cpp`
+template service in `compose.ai.yml` (the same one every profile renders
+FROM) -- it already reads the exact `LLAMA_CPP_MODELS`/
+`LLAMA_CPP_32GB_CONFIG` env vars `discover_models()` sets, just under a
+different service name. Fixed with a two-line change: `COMPOSE_FILE` now
+points at `compose.ai.yml` directly (not the six-file `docker-compose.yml`
+includes-file), and the service name in the `docker compose run` command
+changed from `llama-cpp-all-gpus` to `llama-cpp`. **Verified working**:
+a real `--force` (non-`--preset-only`) run against `llama-cpp-32gb`
+discovered 28 models and wrote the preset correctly, no more manual `sed`
+patching needed going forward.
+
+### DSH `settings.yaml` cleanup
+
+Removed four dead entries under the `llama-cpp` (32gb) provider block that
+referenced model IDs unreachable on that service (confirmed against a real
+full-discovery listing): `qwen2.5-coder-7b-instruct-q4_k_m`,
+`qwen2.5-coder-14b-instruct-q4_k_m` (only exist as curated entries on
+`llama-cpp-16gb`), `Qwen3-Coder-Next-Q4_K_M`,
+`Qwen3-Next-80B-A3B-Instruct-Q4_K_M` (genuinely CPU-only, real homes are
+`llama-cpp-cpu` and the 16GB schwerz service). Also found and fixed the
+inverse gap: `qwen2.5-coder-7b-instruct-q4_k_m`/`-14b-instruct-q4_k_m` are
+real, working entries on `llama-cpp-16gb`'s own preset (confirmed via live
+load) but had no DSH route on `llama-cpp-gpu-0`/`llama-cpp-gpu-1` at all --
+added. All `contextWindow` values updated to match today's 128K changes.
+Synced via `sync-config.py`.

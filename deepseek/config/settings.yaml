@@ -25,18 +25,34 @@ llm-pi-ai:
         # was already removed from the preset earlier the same day
         # (unsupported tokenizer, real load failure) -- this entry was
         # already dead before today's cleanup, just not yet caught here.
+        # 2026-09-19: raised to 131072 (128K), the user's new preferred
+        # default -- real load test confirmed both fit (~1.7-1.9 GiB free
+        # per card, same headroom as at 65536) with stable host RAM
+        # throughout (partial CPU offload, monitored live per the
+        # established near-miss precedent). Llama-3.3-70B is now at its own
+        # real native ceiling (confirmed via GGUF metadata: 131072, genuine
+        # Llama-3.1+ long-context training, not extrapolated). Qwen2.5-72B
+        # is running with explicit YaRN scaling (yarn-orig-ctx=32768) since
+        # its own real native window is only 32768 -- see
+        # models-preset.ini's own comment and performance-findings.md.
         - id: Llama-3.3-70B-Instruct-Q3_K_M
-          contextWindow: 8192
+          contextWindow: 131072
         - id: Qwen2.5-72B-Instruct-Q3_K_S
-          contextWindow: 8192
-        - id: qwen2.5-coder-7b-instruct-q4_k_m
-          contextWindow: 32768
-        - id: qwen2.5-coder-14b-instruct-q4_k_m
-          contextWindow: 32768
-        - id: Qwen3-Coder-Next-Q4_K_M
-          contextWindow: 8192
-        - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M
-          contextWindow: 8192
+          contextWindow: 131072
+        # 2026-09-19: removed four entries that referenced model IDs not
+        # actually reachable on this service -- confirmed by inspecting a
+        # real full-discovery run of llama-cpp-32gb/models-preset.ini:
+        # qwen2.5-coder-7b-instruct-q4_k_m and -14b-instruct-q4_k_m have no
+        # curated section here (only the higher-quant siblings below do,
+        # plus the Q4_K_M pair exists solely on llama-cpp-16gb), and
+        # Qwen3-Coder-Next-Q4_K_M/Qwen3-Next-80B-A3B-Instruct-Q4_K_M are
+        # genuinely CPU-only models (n-gpu-layers=0 wherever declared) whose
+        # real homes are llama-cpp-cpu and the 16GB schwerz service -- see
+        # models-preset.ini's own 2026-09-18 comment on this exact point.
+        # None of the four appear even under discovery's raw directory-based
+        # catch-all IDs (which use a different naming scheme entirely, e.g.
+        # "qwen--Qwen3-Coder-Next--Q4_K_M"), so these were dead routes with
+        # no matching model at all, not just stale numbers.
         # 2026-09-17: contextWindow corrected from 65536 (stale, predates the
         # model even being tested) to 262144, the real dual-GPU ctx-size
         # confirmed by a real load + request (GPU0 10495/16311 MiB, GPU1
@@ -49,10 +65,15 @@ llm-pi-ai:
         # weight file deleted, dense and redundant with the two 70B-class
         # entries above, never real-load-tested. See llama-cpp-32gb's
         # preset comment.
-        # 2026-09-18: added -- real MoE (deepseek2, 27 layers, 64/6
-        # active), fits one card, not yet load-tested.
+        # 2026-09-18: raised to 163840, this model's real native context
+        # ceiling (confirmed via GGUF metadata). Now dual-GPU only -- the
+        # llama-cpp-gpu-0/llama-cpp-gpu-1 entries that used to match this one
+        # at 65536 were removed entirely (single-card testing found it needs
+        # more context than one card can give it with real margin; see
+        # models-preset.ini's own comment). Real load test at 163840
+        # confirmed working: ~1.5 GiB headroom free per card.
         - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
-          contextWindow: 65536
+          contextWindow: 163840
         - id: Qwen3.8-27B-UD-Q4_K_M
           contextWindow: 131072
         - id: Qwen3.8-27B-UD-Q5_K_M
@@ -122,15 +143,18 @@ llm-pi-ai:
           contextWindow: 131072
         - id: Devstral-Small-2505-Q6_K
           contextWindow: 131072
-        # 2026-09-18: higher quants of the two Qwen2.5-Coder models, forced
-        # dual-GPU tensor-split, contextWindow matches the existing 16GB
-        # entries (32768). Not yet load-tested.
+        # 2026-09-19: higher quants of the two Qwen2.5-Coder models, forced
+        # dual-GPU tensor-split, raised to 131072 (128K) -- real load test
+        # confirmed all three fit with large headroom (~3-4 GiB free per
+        # card). Same real 32768 native-context/YaRN caveat as Qwen2.5-72B
+        # above applies to this whole model family -- rope-scaling=yarn +
+        # yarn-orig-ctx=32768 now set explicitly in models-preset.ini.
         - id: qwen2.5-coder-7b-instruct-q8_0
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q5_k_m
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q6_k
-          contextWindow: 32768
+          contextWindow: 131072
         # 2026-09-18: new model, Qwen3.6-generation dense 27B (distinct
         # from the existing Qwen3.6-35B-A3B MoE entry on llama-cpp-16gb).
         # contextWindow=163840 is an estimate carried over from the
@@ -152,43 +176,72 @@ llm-pi-ai:
       models:
         - id: gpt-oss-20b-F16
           contextWindow: 131072
+        # 2026-09-19: added -- these two were real, working entries on this
+        # service's own models-preset.ini (llama-cpp-16gb) the whole time,
+        # confirmed by a real load + request at both 65536 and 131072, but
+        # had no DSH route at all until now (only the higher-quant q8_0/
+        # q5_k_m/q6_k siblings below were ever added here). Both are
+        # real Qwen2.5-generation models with a confirmed 32768 native
+        # training context (see models-preset.ini's own comment) --
+        # rope-scaling=yarn/yarn-orig-ctx=32768 now set explicitly there.
+        - id: qwen2.5-coder-7b-instruct-q4_k_m
+          contextWindow: 131072
+        - id: qwen2.5-coder-14b-instruct-q4_k_m
+          contextWindow: 131072
         - id: Qwen3.8-27B-UD-IQ3_S
           contextWindow: 98304
+        # 2026-09-19: raised to 131072 -- real load test confirmed it fits
+        # (~1.7 GiB free).
         - id: Qwen3.8-27B-UD-Q3_K_XL
-          contextWindow: 65536
+          contextWindow: 131072
+        # 2026-09-19: all four raised from 65536 to 131072 (128K), the
+        # user's new preferred default -- real load test confirmed
+        # Qwen3.6-35B-A3B/Qwen3.5-35B-A3B/Ornith-1.5-35B fit comfortably
+        # (~2.9-3.4 GiB free). Qwen3-Coder-30B-A3B-Instruct only fits after
+        # raising n-cpu-moe from 18 to 26 (more experts pushed to host RAM
+        # to make room for the larger KV cache) -- even then headroom is
+        # very tight (~0.64 GiB free), the tightest of everything tested
+        # this session. See models-preset.ini and performance-findings.md.
         - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Qwen3.6-35B-A3B-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Qwen3.5-35B-A3B-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Ornith-1.5-35B-Q4_K_M
-          contextWindow: 16384
-        # 2026-09-18: added with the preset entries, real GGUF metadata
-        # (block_count/expert_count) but n-cpu-moe values computed, not yet
-        # load-tested -- see the preset's own comment.
+          contextWindow: 131072
+        # 2026-09-19: raised from 65536 to 131072. NVIDIA-Nemotron-3.5-
+        # Lightning fit as-is (~2.9 GiB free). Laguna-XS-2.1 only fits after
+        # raising n-cpu-moe from 16 to 22 (~3 GiB free once raised).
+        # North-Mini-Code-1.0 and granite-4.0-h-small both fit unchanged but
+        # tight (~1.2-1.3 GiB free each) -- worth watching if either starts
+        # failing under real concurrent load.
         - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Laguna-XS-2.1-Q4_K_M-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: granite-4.0-h-small-Q4_K_M-Expert-Offload
-          contextWindow: 16384
-        # 2026-09-18: added with the preset entry, contextWindow matches
-        # the llama-cpp entry (65536) for a clean single-vs-dual
-        # comparison -- see performance-findings.md. Not yet load-tested.
-        - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
-          contextWindow: 65536
-        # 2026-09-18: higher quants of the two Qwen2.5-Coder models,
-        # contextWindow matches the existing Q4_K_M entries (32768). Not
-        # yet load-tested.
+          contextWindow: 131072
+        # 2026-09-18: removed -- real single-GPU testing at the user's 64K
+        # floor found this model needs more context than one card can give
+        # it with real margin (65536 failed outright on this service; 32768
+        # was the safe single-card fallback, still under the 64K floor).
+        # Moved entirely to the llama-cpp (32gb) provider, now at 163840 (its
+        # real native ceiling) -- see models-preset.ini's own comment.
+        #
+        # 2026-09-19: higher quants of the two Qwen2.5-Coder models, raised
+        # from 65536 to 131072 -- real load test confirmed all three fit
+        # with real headroom (1.7-4.6 GiB free). Same real 32768
+        # native-context/YaRN caveat noted on the llama-cpp (32gb) provider's
+        # entries above applies here too.
         - id: qwen2.5-coder-7b-instruct-q8_0
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q5_k_m
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q6_k
-          contextWindow: 32768
+          contextWindow: 131072
     llama-cpp-gpu-1:
       apiKeyEnv: LLAMA_CPP_GPU_1_API_KEY
       api: openai-completions
@@ -197,43 +250,47 @@ llm-pi-ai:
       models:
         - id: gpt-oss-20b-F16
           contextWindow: 131072
+        # 2026-09-19: added -- see the identical note on llama-cpp-gpu-0.
+        - id: qwen2.5-coder-7b-instruct-q4_k_m
+          contextWindow: 131072
+        - id: qwen2.5-coder-14b-instruct-q4_k_m
+          contextWindow: 131072
         - id: Qwen3.8-27B-UD-IQ3_S
           contextWindow: 98304
         - id: Qwen3.8-27B-UD-Q3_K_XL
-          contextWindow: 65536
+          contextWindow: 131072
+        # 2026-09-19: all four raised from 65536 to 131072 -- see the
+        # identical note on llama-cpp-gpu-0.
         - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Qwen3.6-35B-A3B-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Qwen3.5-35B-A3B-Q4_K_M
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Ornith-1.5-35B-Q4_K_M
-          contextWindow: 16384
-        # 2026-09-18: added with the preset entries, real GGUF metadata
-        # (block_count/expert_count) but n-cpu-moe values computed, not yet
-        # load-tested -- see the preset's own comment.
+          contextWindow: 131072
         - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: Laguna-XS-2.1-Q4_K_M-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload
-          contextWindow: 16384
+          contextWindow: 131072
         - id: granite-4.0-h-small-Q4_K_M-Expert-Offload
-          contextWindow: 16384
-        # 2026-09-18: added with the preset entry, contextWindow matches
-        # the llama-cpp entry (65536) for a clean single-vs-dual
-        # comparison -- see performance-findings.md. Not yet load-tested.
-        - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
-          contextWindow: 65536
-        # 2026-09-18: higher quants of the two Qwen2.5-Coder models,
-        # contextWindow matches the existing Q4_K_M entries (32768). Not
-        # yet load-tested.
+          contextWindow: 131072
+        # 2026-09-18: removed -- real single-GPU testing at the user's 64K
+        # floor found this model needs more context than one card can give
+        # it with real margin. Moved entirely to the llama-cpp (32gb)
+        # provider, now at 163840 -- see models-preset.ini's own comment.
+        #
+        # 2026-09-19: higher quants of the two Qwen2.5-Coder models, raised
+        # from 65536 to 131072 -- real load test confirmed all three fit
+        # with real headroom (1.7-4.6 GiB free).
         - id: qwen2.5-coder-7b-instruct-q8_0
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q5_k_m
-          contextWindow: 32768
+          contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q6_k
-          contextWindow: 32768
+          contextWindow: 131072
     # CPU-only experimentation: these are the >32 GiB MoEs that gave usable
     # decode rates in prior testing. Their router presets intentionally use 8K.
     llama-cpp-cpu:

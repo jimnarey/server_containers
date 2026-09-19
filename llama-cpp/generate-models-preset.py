@@ -38,7 +38,11 @@ from typing import Iterable
 MODEL_ROOT = Path(os.environ.get("LLAMA_CPP_MODEL_ROOT", "/mnt/data/models/gguf"))
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-COMPOSE_FILE = PROJECT_DIR / "docker-compose.yml"
+# 2026-09-19: points at compose.ai.yml directly, not docker-compose.yml (an
+# includes-only file pulling in compose.ai.yml plus five unrelated compose
+# files) -- matches render-compose.py's own AI_COMPOSE_FILE and avoids
+# depending on files this discovery step has nothing to do with.
+COMPOSE_FILE = PROJECT_DIR / "compose.ai.yml"
 DEFAULT_CTX_SIZE = "65536"
 DEFAULT_PARALLEL = "1"
 DISCOVERY_TIMEOUT_SECONDS = 90
@@ -265,7 +269,14 @@ def discover_models() -> list[Model]:
         name,
         "--publish",
         f"127.0.0.1:{port}:8080",
-        "llama-cpp-all-gpus",
+        # 2026-09-19: was "llama-cpp-all-gpus", a dedicated discovery service
+        # in the old docker-compose.yml. The render-compose.py refactor
+        # removed it; the template service every profile now renders FROM is
+        # named plainly "llama-cpp" in compose.ai.yml, and already reads the
+        # same LLAMA_CPP_MODELS/LLAMA_CPP_32GB_CONFIG env vars this function
+        # sets below -- it's the same discovery target under its new name,
+        # not a different mechanism.
+        "llama-cpp",
         "--models-dir",
         "/models",
         "--models-max",
