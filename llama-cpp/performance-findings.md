@@ -159,18 +159,23 @@ combinations appears as consecutive rows rather than scattered by service.
 | DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU, `ctx-size=32768`)¹⁹ | 14.3 GiB | not exposed | baseline only | idle | 168.44 tok/s | -- (load-confirmed only) |
 | DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)¹⁹ | 10.6 GiB | 9.1 GiB | baseline only | idle | 170.51 tok/s | 51.20 tok/s cold, 52.35 tok/s warm |
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 13.4 GiB | 12.8 GiB | baseline only | idle | 84.69 tok/s | 139.09 tok/s cold, 139.63 tok/s warm |
 | Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s¹³ | 68.39 tok/s cold, 68.18 tok/s warm¹³ |
+| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.0 GiB | 11.5 GiB | baseline only | idle | 78.67 tok/s | 122.55 tok/s cold, 123.44 tok/s warm |
 | Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm |
+| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.3 GiB | 11.8 GiB | baseline only | idle | 71.10 tok/s | 101.96 tok/s cold, 102.30 tok/s warm |
 | Ornith-1.5-35B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.2 GiB | not exposed | baseline only | idle | 92.14 tok/s | 65.11 tok/s cold, 66.52 tok/s warm |
+| Ornith-1.5-35B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.4 GiB | 11.1 GiB | baseline only | idle | 105.04 tok/s | 122.96 tok/s cold, 123.21 tok/s warm |
 | Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
 | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 12.7 GiB | not exposed | baseline only | idle | 122.90 tok/s | 69.32 tok/s cold, 69.59 tok/s warm |
 | Laguna-XS-2.1-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 144.99 tok/s | 80.42 tok/s cold, 80.56 tok/s warm |
+| Laguna-XS-2.1-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.7 GiB | 12.0 GiB | baseline only | idle | 145.35 tok/s | 128.71 tok/s cold, 128.06 tok/s warm |
 | North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 147.28 tok/s | 55.45 tok/s cold, 55.41 tok/s warm |
+| North-Mini-Code-1.0-UD-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.4 GiB | 11.2 GiB | baseline only | idle | 446.31 tok/s | 105.02 tok/s cold, 105.16 tok/s warm |
 | granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm |
+| granite-4.0-h-small-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.5 GiB | 11.0 GiB | baseline only | idle | 85.92 tok/s | 57.28 tok/s cold, 57.32 tok/s warm |
 | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | `llama-cpp-all-gpus` (MoE, dual-GPU, MTP speculative decode)²¹ | 10.3 GiB | 13.3 GiB | baseline only | idle | 275.30 tok/s | 166.62 tok/s cold, 167.64 tok/s warm |
 | GLM-4.7-Flash-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)²² | 12.8 GiB | 12.2 GiB | baseline only | idle | 279.26 tok/s | 103.98 tok/s cold, 104.16 tok/s warm |
-| Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload)²³ | partial (auto) | partial (auto) | some (partial offload) | some | 20.85 tok/s | 4.78 tok/s (load-confirmed only) |
-| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus` (dense, `n-gpu-layers=auto` partial offload)²³ | partial (auto) | partial (auto) | some (partial offload) | some | 16.83 tok/s | 4.57 tok/s (load-confirmed only) |
 | Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 1²⁴ | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
 | Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 0²⁴ | 13.0 GiB | not exposed | baseline only | idle | -- | 6.34 tok/s cold, 6.60 tok/s warm |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
@@ -427,6 +432,47 @@ so this hits Flash Next especially hard. Identical image, config, model,
 and request on both cards -- the only variable is which physical GPU.
 See "Real incident: `parameterise-llama` refactor investigation" below
 for the full topology data and why this isn't a software problem.
+²⁵ 2026-09-19, real 256-token cold/warm benchmark (same prompt shape as
+every other row in this table), `llama-cpp-all-gpus`, no `n-cpu-moe` (full
+GPU residency, both cards, no `split-mode` forced -- matching
+`NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0`'s already-working entry
+rather than assuming tensor-split support). Closes "outstanding MoE
+performance questions" item 14 below, for all seven `n-cpu-moe`-offloaded
+30-35B models in the fleet, not just the one (Ornith) it was originally
+raised for. Real speedup range: 1.6x (Laguna-XS-2.1, smallest gain) to
+2.3x (Qwen3-Coder-30B-A3B-Instruct, largest gain) over the single-GPU
+`n-cpu-moe`-offloaded figure for the same model/quant/context. All seven
+fit with real headroom (11.0-13.4 GiB per card of 16.3 GiB). Three of the
+seven needed a new model ID distinct from their `llama-cpp-16gb`
+`-Expert-Offload` sibling (`Laguna-XS-2.1-Q4_K_M`, `North-Mini-Code-1.0-
+UD-Q4_K_M`, `granite-4.0-h-small-Q4_K_M`), since `n-cpu-moe` isn't set
+here and the suffix would misdescribe the config; the other four
+(`Qwen3-Coder-30B-A3B-Instruct-Q4_K_M`, `Qwen3.6-35B-A3B-Q4_K_M`,
+`Qwen3.5-35B-A3B-Q4_K_M`, `Ornith-1.5-35B-Q4_K_M`) reuse their existing
+ID, matching the convention already used for the qwen2.5-coder pairs
+above (same ID, different service, config differs by placement).
+
+## Rejected models
+
+Models removed entirely from the deployment -- weight files deleted from
+disk, not just unlisted from a preset. Kept here as a record of what was
+tried and why it didn't earn a place, not as an active comparison target.
+
+| Model | Service tried | Decode | Reason rejected |
+|---|---|---|---|
+| Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus`, `n-gpu-layers=auto` partial offload | 4.78 tok/s (small ctx, load-confirmed only) -> 2.09-2.75 tok/s (ctx-size 65536-131072)²⁶ | Structurally bottlenecked on this hardware: doesn't fit 32 GiB combined VRAM with real margin at any useful context, so every token touches host RAM/PCIe transfer. An order of magnitude slower than the fleet's MoE models of similar or larger total size (Qwen3.6-35B-A3B, Ornith-1.5-35B, etc.), which only activate a few billion parameters per token. Removed 2026-09-19, ~32 GiB freed. |
+| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus`, `n-gpu-layers=auto` partial offload | 4.57 tok/s (small ctx, load-confirmed only) -> 2.14-2.57 tok/s (ctx-size 65536-131072)²⁶ | Same as above -- same partial-offload bottleneck, same order-of-magnitude gap to the fleet's MoE models. Removed 2026-09-19, ~32 GiB freed. |
+
+²⁶ The two figures per model are real measurements from two different
+sessions, not a range or noise: 4.78/4.57 tok/s was the original
+load-confirmed-only smoke test right after the `render-compose.py`
+`n-gpu-layers` bug was fixed (see footnote 23 above), at whatever smaller
+`ctx-size` was configured then; 2.09-2.75/2.14-2.57 tok/s are real
+256-token-request-equivalent decode figures from the 2026-09-19 session
+that raised both models to `ctx-size=65536` then `131072` before removing
+them -- decode drops as KV-cache depth grows, so the lower figures at
+higher context are expected, not a regression. Both data points are real;
+neither supersedes the other, they're at different context depths.
 
 ## GPU-resident, single card, no host offload
 
@@ -1656,12 +1702,14 @@ VRAM OOM, just an immediate "failed to load"). Real per-item outcomes:
     it **failed to load at all** (footnote ¹⁹). So the real finding isn't
     a bandwidth comparison, it's that this specific model/config combination
     has a hard single-GPU placement problem, cause not yet confirmed.
-14. **Does dual-GPU placement help an `n-cpu-moe`-*offloaded* model? --
-    Still genuinely untested.** Not part of today's run (needs a new
-    `llama-cpp-32gb` entry for `Ornith-1.5-35B-Q4_K_M` with `n-cpu-moe`
-    forced across both GPUs, which doesn't exist yet). Real comparison
-    point ready and waiting once that entry exists: 65.11-66.52 tok/s
-    single-GPU.
+14. ~~Does dual-GPU placement help an `n-cpu-moe`-*offloaded* model?~~ --
+    **Resolved 2026-09-19.** Yes, substantially -- and not just for
+    Ornith, the answer generalizes across all seven `n-cpu-moe`-offloaded
+    30-35B models in the fleet (all fit fully GPU-resident, no offload,
+    18-21 GiB weight-only). Real speedup range 1.6x-2.3x over the
+    single-GPU `n-cpu-moe`-offloaded figure; Ornith itself went
+    65.11-66.52 -> 122.96-123.21 tok/s. See the main table (footnote ²⁵)
+    for all seven real cold/warm pairs.
 15. **Does schwerz's `moe-cache` actually outperform plain `--n-cpu-moe`
     for the same large (>32 GiB) model? -- Still genuinely untested.**
     Blocked on the same prerequisite as the `gpt-oss-120b` test above --
@@ -2001,3 +2049,17 @@ real, working entries on `llama-cpp-16gb`'s own preset (confirmed via live
 load) but had no DSH route on `llama-cpp-gpu-0`/`llama-cpp-gpu-1` at all --
 added. All `contextWindow` values updated to match today's 128K changes.
 Synced via `sync-config.py`.
+
+## Two 70B dense models removed (2026-09-19)
+
+`Llama-3.3-70B-Instruct-Q3_K_M` and `Qwen2.5-72B-Instruct-Q3_K_S` removed
+entirely -- entries deleted from `llama-cpp-32gb/models-preset.ini` (repo
+source and deployed), weight files deleted from disk (~64 GiB freed),
+`settings.yaml` entries removed and synced. Rationale (from this session's
+own real measurements): 2.09-2.75 tok/s and 2.14-2.57 tok/s decode
+respectively, both `n-gpu-layers=auto` (partial CPU offload) -- neither
+fits 32 GiB combined VRAM with real margin at any useful context, so every
+token touches host RAM/PCIe transfer, a structural bottleneck this hardware
+can't quantize its way out of. An order of magnitude slower than the
+fleet's MoE models of similar or larger total size. No migration needed --
+this is a deletion, not a move.

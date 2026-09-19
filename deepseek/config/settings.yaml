@@ -25,20 +25,14 @@ llm-pi-ai:
         # was already removed from the preset earlier the same day
         # (unsupported tokenizer, real load failure) -- this entry was
         # already dead before today's cleanup, just not yet caught here.
-        # 2026-09-19: raised to 131072 (128K), the user's new preferred
-        # default -- real load test confirmed both fit (~1.7-1.9 GiB free
-        # per card, same headroom as at 65536) with stable host RAM
-        # throughout (partial CPU offload, monitored live per the
-        # established near-miss precedent). Llama-3.3-70B is now at its own
-        # real native ceiling (confirmed via GGUF metadata: 131072, genuine
-        # Llama-3.1+ long-context training, not extrapolated). Qwen2.5-72B
-        # is running with explicit YaRN scaling (yarn-orig-ctx=32768) since
-        # its own real native window is only 32768 -- see
-        # models-preset.ini's own comment and performance-findings.md.
-        - id: Llama-3.3-70B-Instruct-Q3_K_M
-          contextWindow: 131072
-        - id: Qwen2.5-72B-Instruct-Q3_K_S
-          contextWindow: 131072
+        # 2026-09-19: Llama-3.3-70B-Instruct-Q3_K_M and Qwen2.5-72B-Instruct-Q3_K_S
+        # removed -- weight files deleted from disk (~64 GiB). Real decode
+        # was 2.09-2.75 tok/s and 2.14-2.57 tok/s respectively, both
+        # n-gpu-layers=auto (partial CPU offload, structurally bottlenecked
+        # on this hardware) -- an order of magnitude slower than the fleet's
+        # MoE models of similar or larger total size. No real case remained
+        # for keeping either. See models-preset.ini's own comment and
+        # performance-findings.md.
         # 2026-09-19: removed four entries that referenced model IDs not
         # actually reachable on this service -- confirmed by inspecting a
         # real full-discovery run of llama-cpp-32gb/models-preset.ini:
@@ -61,6 +55,28 @@ llm-pi-ai:
         # window this model actually has.
         - id: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
           contextWindow: 262144
+        # 2026-09-19: seven full-GPU-resident (no n-cpu-moe offload)
+        # counterparts to their llama-cpp-gpu-0/llama-cpp-gpu-1
+        # n-cpu-moe-offloaded siblings, added and real-load-tested the
+        # same day (1.6x-2.3x real decode speedup over the offloaded
+        # figure -- see performance-findings.md). Three use a distinct id
+        # without the "-Expert-Offload" suffix (n-cpu-moe isn't set here);
+        # the other four reuse their existing id, matching the
+        # qwen2.5-coder convention below.
+        - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
+          contextWindow: 131072
+        - id: Qwen3.6-35B-A3B-Q4_K_M
+          contextWindow: 131072
+        - id: Qwen3.5-35B-A3B-Q4_K_M
+          contextWindow: 131072
+        - id: Ornith-1.5-35B-Q4_K_M
+          contextWindow: 131072
+        - id: Laguna-XS-2.1-Q4_K_M
+          contextWindow: 131072
+        - id: North-Mini-Code-1.0-UD-Q4_K_M
+          contextWindow: 131072
+        - id: granite-4.0-h-small-Q4_K_M
+          contextWindow: 131072
         # 2026-09-18: DeepSeek-R1-Distill-Llama-70B-Q4_K_M removed --
         # weight file deleted, dense and redundant with the two 70B-class
         # entries above, never real-load-tested. See llama-cpp-32gb's
