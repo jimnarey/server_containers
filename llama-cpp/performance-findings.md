@@ -23,9 +23,10 @@ shoehorning in.
 
 - **`llama-cpp-cpu`** (no GPU passthrough -- architecturally cannot see a
   GPU, not just configured not to use one). Two real use cases: (a) small
-  dense chat models, comfortably under 10 GiB, kept here deliberately and
-  never added to a GPU preset (`gemma-3n-E2B-it`, `gemma-3n-E4B-it`,
-  `NVIDIA-Nemotron-3-Nano-4B`, `Qwen3.5-9B`, `Ornith-1.5-9B`); (b) MoE
+  dense chat models, comfortably under 10 GiB, tested on CPU and both GPU
+  placements
+  `gemma-3n-E2B-it`, `gemma-3n-E4B-it`, `NVIDIA-Nemotron-3-Nano-4B`,
+  `Qwen3.5-9B`, `Ornith-1.5-9B`); (b) MoE
   models too large to fit combined 32 GiB VRAM even with `n-cpu-moe`/
   tensor-split, where CPU-only sparse-expert-activation decode is still
   genuinely usable (`Qwen3-Coder-Next`, `Qwen3-Next-80B-A3B-Instruct`, both
@@ -123,76 +124,86 @@ passthrough in `compose.ai.yml` -- it's not "0% used", it architecturally
 cannot see a GPU); "not used" means the GPU is visible to the container but
 the model didn't touch it.
 
-Rows are grouped by model, so a model with several tested resource
-combinations appears as consecutive rows rather than scattered by service.
+Rows are sorted alphabetically by model, then by service. A model with
+several tested resource combinations therefore appears as consecutive rows.
 
 | Model | Service | GPU 1 | GPU 2 | RAM | CPU | Prefill | Decode |
 |---|---|---|---|---|---|---|---|
-| gpt-oss-20b-F16 | standalone, 1 GPU pinned | ~13.3 GiB | not exposed | baseline only | idle | 3,802 tok/s | 63.76 tok/s |
-| gpt-oss-20b-F16 | `llama-cpp-gpu-1` (MoE, single physical GPU)¹⁴ | 14.1 GiB | not exposed | baseline only | idle | 580.26 tok/s | 94.34 tok/s cold, 94.39 tok/s warm |
-| gpt-oss-20b-F16 | `llama-cpp-all-gpus` (forced dual-GPU tensor-split)⁹ | 7.4 GiB | 7.5 GiB | baseline only | idle | 557.97 tok/s (cold) | 141.38 tok/s cold, 142.33 tok/s warm |
-| gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
-| Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split)⁷ | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
-| Qwen3.8-27B-UD-Q5_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 12.0 GiB | 12.0 GiB | baseline only | idle | -- | 34.92 tok/s cold, 34.94 tok/s warm |
-| Qwen3.8-27B-UD-Q6_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s⁶ | 30.16-31.05 tok/s |
-| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.5 GiB | not exposed | baseline only | idle | -- | 30.64 tok/s cold, 30.69 tok/s warm |
-| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.1 GiB | 9.2 GiB | baseline only | idle | 202.25 tok/s (cold) | 47.50 tok/s cold, 47.55 tok/s warm |
-| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm |
-| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm |
-| Qwen3.6-27B-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split, new model)¹⁵ | 14.0 GiB | 14.0 GiB | baseline only | idle | 167.97 tok/s | 31.47 tok/s cold, 31.50 tok/s warm |
-| qwen2.5-coder-7b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 5.4 GiB | not exposed | baseline only | idle | 1,797.27 tok/s | 80.81 tok/s cold, 81.04 tok/s warm |
-| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 8.3 GiB | not exposed | baseline only | idle | 1,870.13 tok/s | 52.91 tok/s cold, 53.06 tok/s warm |
-| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 4.4 GiB | 4.5 GiB | baseline only | idle | 1,342.20 tok/s | 90.27 tok/s cold, 90.62 tok/s warm |
-| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 11.6 GiB | not exposed | baseline only | idle | 1,300.84 tok/s | 40.92 tok/s cold, 41.02 tok/s warm |
-| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 12.9 GiB | not exposed | baseline only | idle | 1,140.48 tok/s | 38.09 tok/s cold, 38.14 tok/s warm |
-| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 6.8 GiB | 6.8 GiB | baseline only | idle | 761.79 tok/s | 62.99 tok/s cold, 63.41 tok/s warm |
-| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 14.3 GiB | not exposed | baseline only | idle | 1,182.33 tok/s | 33.06 tok/s cold, 33.07 tok/s warm |
-| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 7.5 GiB | 7.5 GiB | baseline only | idle | 627.89 tok/s | 55.47 tok/s cold, 56.49 tok/s warm |
+| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)¹⁹ | 10.6 GiB | 9.1 GiB | baseline only | idle | 170.51 tok/s | 51.20 tok/s cold, 52.35 tok/s warm |
+| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU, `ctx-size=32768`)¹⁹ | 14.3 GiB | not exposed | baseline only | idle | 168.44 tok/s | -- (load-confirmed only) |
+| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.998 tok/s | 2.76 tok/s cold, 2.76 tok/s warm |
 | Devstral-Small-2-24B-Instruct-2512-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 12.8 GiB | 12.9 GiB | baseline only | idle | 784.07 tok/s | 42.49 tok/s cold, 42.53 tok/s warm |
 | Devstral-Small-2-24B-Instruct-2512-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 13.9 GiB | 14.0 GiB | baseline only | idle | 981.03 tok/s | 39.44 tok/s cold, 39.53 tok/s warm |
 | Devstral-Small-2-24B-Instruct-2512-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 15.1 GiB | 15.1 GiB | baseline only | idle | 913.35 tok/s | 33.97 tok/s cold, 35.22 tok/s warm |
-| Devstral-Small-2-24B-Instruct-2512-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.998 tok/s | 2.76 tok/s cold, 2.76 tok/s warm |
+| Devstral-Small-2505-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.316 tok/s | 2.69 tok/s cold, 2.69 tok/s warm |
 | Devstral-Small-2505-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 12.8 GiB | 12.9 GiB | baseline only | idle | 1,040.28 tok/s | 47.02 tok/s cold, 47.06 tok/s warm |
 | Devstral-Small-2505-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 13.9 GiB | 14.0 GiB | baseline only | idle | 1,020.88 tok/s | 43.14 tok/s cold, 43.30 tok/s warm |
 | Devstral-Small-2505-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁷ | 15.1 GiB | 15.1 GiB | baseline only | idle | 950.21 tok/s | 37.26 tok/s cold, 38.13 tok/s warm |
-| Devstral-Small-2505-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁸ | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.316 tok/s | 2.69 tok/s cold, 2.69 tok/s warm |
-| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU, `ctx-size=32768`)¹⁹ | 14.3 GiB | not exposed | baseline only | idle | 168.44 tok/s | -- (load-confirmed only) |
-| DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)¹⁹ | 10.6 GiB | 9.1 GiB | baseline only | idle | 170.51 tok/s | 51.20 tok/s cold, 52.35 tok/s warm |
-| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
-| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 13.4 GiB | 12.8 GiB | baseline only | idle | 84.69 tok/s | 139.09 tok/s cold, 139.63 tok/s warm |
-| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s¹³ | 68.39 tok/s cold, 68.18 tok/s warm¹³ |
-| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.0 GiB | 11.5 GiB | baseline only | idle | 78.67 tok/s | 122.55 tok/s cold, 123.44 tok/s warm |
-| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm |
-| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.3 GiB | 11.8 GiB | baseline only | idle | 71.10 tok/s | 101.96 tok/s cold, 102.30 tok/s warm |
-| Ornith-1.5-35B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.2 GiB | not exposed | baseline only | idle | 92.14 tok/s | 65.11 tok/s cold, 66.52 tok/s warm |
-| Ornith-1.5-35B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.4 GiB | 11.1 GiB | baseline only | idle | 105.04 tok/s | 122.96 tok/s cold, 123.21 tok/s warm |
-| Ornith-1.5-35B-A3B | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
-| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 12.7 GiB | not exposed | baseline only | idle | 122.90 tok/s | 69.32 tok/s cold, 69.59 tok/s warm |
-| Laguna-XS-2.1-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 144.99 tok/s | 80.42 tok/s cold, 80.56 tok/s warm |
-| Laguna-XS-2.1-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.7 GiB | 12.0 GiB | baseline only | idle | 145.35 tok/s | 128.71 tok/s cold, 128.06 tok/s warm |
-| North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 147.28 tok/s | 55.45 tok/s cold, 55.41 tok/s warm |
-| North-Mini-Code-1.0-UD-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.4 GiB | 11.2 GiB | baseline only | idle | 446.31 tok/s | 105.02 tok/s cold, 105.16 tok/s warm |
-| granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm |
-| granite-4.0-h-small-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.5 GiB | 11.0 GiB | baseline only | idle | 85.92 tok/s | 57.28 tok/s cold, 57.32 tok/s warm |
-| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | `llama-cpp-all-gpus` (MoE, dual-GPU, MTP speculative decode)²¹ | 10.3 GiB | 13.3 GiB | baseline only | idle | 275.30 tok/s | 166.62 tok/s cold, 167.64 tok/s warm |
+| gemma-3n-E2B-it-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 5.1 GiB | **compute (8 threads)** | 145.26 tok/s | 21.72-21.85 tok/s |
+| gemma-3n-E2B-it-Q4_K_M | `llama-cpp-all-gpus` (dense, dual-GPU layer-split)²⁷ | 1.7 GiB | 1.9 GiB | baseline only | idle | 1,116.95 tok/s | 134.78 tok/s cold, 134.84 tok/s warm |
+| gemma-3n-E2B-it-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU)²⁷ | 2.2 GiB | not exposed | baseline only | idle | 1,249.85 tok/s | 148.15 tok/s cold, 148.50 tok/s warm |
+| gemma-3n-E4B-it-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 6.0 GiB | **compute (8 threads)** | 77.51 tok/s | 12.72-12.73 tok/s |
+| gemma-3n-E4B-it-Q4_K_M | `llama-cpp-all-gpus` (dense, dual-GPU layer-split)²⁷ | 2.4 GiB | 2.5 GiB | baseline only | idle | 855.86 tok/s | 76.35 tok/s cold, 76.40 tok/s warm |
+| gemma-3n-E4B-it-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU)²⁷ | 3.4 GiB | not exposed | baseline only | idle | 914.06 tok/s | 97.65 tok/s cold, 97.80 tok/s warm |
+| GLM-4.5-Air | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
+| GLM-4.5-Air | 32GB schwerz (grouped-multigpu) | 10.1 GiB | 10.1 GiB | 60/60 GiB (swap-maxed) | some (swap I/O), 0% GPU compute | 1.68 tok/s⁴ | 1.01-1.39 tok/s⁴ |
 | GLM-4.7-Flash-Q4_K_M | `llama-cpp-all-gpus` (MoE, forced dual-GPU layer-split)²² | 12.8 GiB | 12.2 GiB | baseline only | idle | 279.26 tok/s | 103.98 tok/s cold, 104.16 tok/s warm |
-| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 1²⁴ | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
-| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 0²⁴ | 13.0 GiB | not exposed | baseline only | idle | -- | 6.34 tok/s cold, 6.60 tok/s warm |
+| gpt-oss-120b | 16GB schwerz | 7.1 GiB | not exposed | 4.0 GiB + 54 GiB mmap cache | idle | 11.06 tok/s | 8.11-8.80 tok/s |
+| gpt-oss-120b | 32GB schwerz (grouped-multigpu) | 3.8 GiB | 4.0 GiB | 60/60 GiB (swap-maxed) | some (swap I/O) | 2.20 tok/s⁴ | 2.36-3.01 tok/s⁴ |
+| gpt-oss-20b-F16 | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 19 GiB | **compute (8 threads)** | 68.06 tok/s | 10.42-10.43 tok/s |
+| gpt-oss-20b-F16 | standalone, 1 GPU pinned | ~13.3 GiB | not exposed | baseline only | idle | 3,802 tok/s | 63.76 tok/s |
+| gpt-oss-20b-F16 | `llama-cpp-all-gpus` (forced dual-GPU tensor-split)⁹ | 7.4 GiB | 7.5 GiB | baseline only | idle | 557.97 tok/s (cold) | 141.38 tok/s cold, 142.33 tok/s warm |
+| gpt-oss-20b-F16 | `llama-cpp-gpu-1` (MoE, single physical GPU)¹⁴ | 14.1 GiB | not exposed | baseline only | idle | 580.26 tok/s | 94.34 tok/s cold, 94.39 tok/s warm |
+| granite-4.0-h-small-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.5 GiB | 11.0 GiB | baseline only | idle | 85.92 tok/s | 57.28 tok/s cold, 57.32 tok/s warm |
+| granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm |
+| Laguna-XS-2.1-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.7 GiB | 12.0 GiB | baseline only | idle | 145.35 tok/s | 128.71 tok/s cold, 128.06 tok/s warm |
+| Laguna-XS-2.1-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 144.99 tok/s | 80.42 tok/s cold, 80.56 tok/s warm |
+| Llama-4-Scout-17B-16E | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
+| North-Mini-Code-1.0-UD-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 11.4 GiB | 11.2 GiB | baseline only | idle | 446.31 tok/s | 105.02 tok/s cold, 105.16 tok/s warm |
+| North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 13.0 GiB | not exposed | baseline only | idle | 147.28 tok/s | 55.45 tok/s cold, 55.41 tok/s warm |
+| NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 4.5-4.8 GiB | **compute (8 threads)** | 55.47 tok/s | 12.67-12.71 tok/s |
+| NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | `llama-cpp-all-gpus` (dense, dual-GPU layer-split)²⁷ | 2.2 GiB | 2.6 GiB | baseline only | idle | 551.39 tok/s | 125.61 tok/s cold, 125.73 tok/s warm |
+| NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU)²⁷ | 3.7 GiB | not exposed | baseline only | idle | 424.58 tok/s | 127.61 tok/s cold, 127.70 tok/s warm |
+| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | `llama-cpp-all-gpus` (MoE, dual-GPU, MTP speculative decode)²¹ | 10.3 GiB | 13.3 GiB | baseline only | idle | 275.30 tok/s | 166.62 tok/s cold, 167.64 tok/s warm |
+| NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)²⁰ | 12.7 GiB | not exposed | baseline only | idle | 122.90 tok/s | 69.32 tok/s cold, 69.59 tok/s warm |
+| Ornith-1.5-35B-A3B-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 22 GiB | **compute (8 threads)** | 82.26 tok/s | 16.09-16.22 tok/s |
+| Ornith-1.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.4 GiB | 11.1 GiB | baseline only | idle | 105.04 tok/s | 122.96 tok/s cold, 123.21 tok/s warm |
+| Ornith-1.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.2 GiB | not exposed | baseline only | idle | 92.14 tok/s | 65.11 tok/s cold, 66.52 tok/s warm |
+| Ornith-1.5-9B-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.4-7.5 GiB | **compute (8 threads)** | 45.29 tok/s | 7.36-7.35 tok/s |
+| Ornith-1.5-9B-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)²⁷ | 3.7 GiB | 3.8 GiB | baseline only | idle | 608.19 tok/s | 105.35 tok/s cold, 105.81 tok/s warm |
+| Ornith-1.5-9B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU)²⁷ | 6.6 GiB | not exposed | baseline only | idle | 383.61 tok/s | 69.78 tok/s cold, 69.90 tok/s warm |
+| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 11.6 GiB | not exposed | baseline only | idle | 1,300.84 tok/s | 40.92 tok/s cold, 41.02 tok/s warm |
+| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 6.8 GiB | 6.8 GiB | baseline only | idle | 761.79 tok/s | 62.99 tok/s cold, 63.41 tok/s warm |
+| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 12.9 GiB | not exposed | baseline only | idle | 1,140.48 tok/s | 38.09 tok/s cold, 38.14 tok/s warm |
+| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 7.5 GiB | 7.5 GiB | baseline only | idle | 627.89 tok/s | 55.47 tok/s cold, 56.49 tok/s warm |
+| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 14.3 GiB | not exposed | baseline only | idle | 1,182.33 tok/s | 33.06 tok/s cold, 33.07 tok/s warm |
+| qwen2.5-coder-7b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)¹¹ | 5.4 GiB | not exposed | baseline only | idle | 1,797.27 tok/s | 80.81 tok/s cold, 81.04 tok/s warm |
+| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)¹⁶ | 4.4 GiB | 4.5 GiB | baseline only | idle | 1,342.20 tok/s | 90.27 tok/s cold, 90.62 tok/s warm |
+| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-gpu-1` (dense, single physical GPU)¹⁶ | 8.3 GiB | not exposed | baseline only | idle | 1,870.13 tok/s | 52.91 tok/s cold, 53.06 tok/s warm |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 13.4 GiB | 12.8 GiB | baseline only | idle | 84.69 tok/s | 139.09 tok/s cold, 139.63 tok/s warm |
+| Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache³ | idle | 58.72 tok/s | 31.12-31.29 tok/s |
 | Qwen3-Coder-Next | 32GB schwerz (grouped-multigpu) | 2.7 GiB | 2.8 GiB | 48 GiB (partial swap) | some (swap I/O) | 19.87 tok/s | 7.43-7.44 tok/s |
 | Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
 | Qwen3-Next-80B-A3B-Instruct | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 55 GiB mmap cache³ | idle | 62.98 tok/s | 31.81-32.00 tok/s |
 | Qwen3-Next-80B-A3B-Instruct | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 9.23 tok/s | 9.98-13.24 tok/s |
-| gpt-oss-120b | 16GB schwerz | 7.1 GiB | not exposed | 4.0 GiB + 54 GiB mmap cache | idle | 11.06 tok/s | 8.11-8.80 tok/s |
-| gpt-oss-120b | 32GB schwerz (grouped-multigpu) | 3.8 GiB | 4.0 GiB | 60/60 GiB (swap-maxed) | some (swap I/O) | 2.20 tok/s⁴ | 2.36-3.01 tok/s⁴ |
-| Llama-4-Scout-17B-16E | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
-| GLM-4.5-Air | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load |
-| GLM-4.5-Air | 32GB schwerz (grouped-multigpu) | 10.1 GiB | 10.1 GiB | 60/60 GiB (swap-maxed) | some (swap I/O), 0% GPU compute | 1.68 tok/s⁴ | 1.01-1.39 tok/s⁴ |
-| gemma-3n-E2B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 5.1 GiB | **compute (8 threads)** | 145.26 tok/s | 21.72-21.85 tok/s |
-| gemma-3n-E4B-it | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 6.0 GiB | **compute (8 threads)** | 77.51 tok/s | 12.72-12.73 tok/s |
-| NVIDIA-Nemotron-3-Nano-4B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 4.5-4.8 GiB | **compute (8 threads)** | 55.47 tok/s | 12.67-12.71 tok/s |
-| Qwen3.5-9B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.0-7.1 GiB | **compute (8 threads)** | 42.23 tok/s | 7.29-7.30 tok/s |
-| Ornith-1.5-9B | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.4-7.5 GiB | **compute (8 threads)** | 45.29 tok/s | 7.36-7.35 tok/s |
+| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.3 GiB | 11.8 GiB | baseline only | idle | 71.10 tok/s | 101.96 tok/s cold, 102.30 tok/s warm |
+| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm |
+| Qwen3.5-9B-Q4_K_M | CPU-only (`llama-cpp-cpu`)¹⁰ | not exposed | not exposed | 7.0-7.1 GiB | **compute (8 threads)** | 42.23 tok/s | 7.29-7.30 tok/s |
+| Qwen3.5-9B-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)²⁷ | 3.7 GiB | 3.8 GiB | baseline only | idle | 578.38 tok/s | 105.11 tok/s cold, 105.76 tok/s warm |
+| Qwen3.5-9B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU)²⁷ | 6.6 GiB | not exposed | baseline only | idle | 930.51 tok/s | 69.48 tok/s cold, 69.50 tok/s warm |
+| Qwen3.6-27B-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split, new model)¹⁵ | 14.0 GiB | 14.0 GiB | baseline only | idle | 167.97 tok/s | 31.47 tok/s cold, 31.50 tok/s warm |
+| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU)²⁵ | 12.0 GiB | 11.5 GiB | baseline only | idle | 78.67 tok/s | 122.55 tok/s cold, 123.44 tok/s warm |
+| Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload)¹¹ | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s¹³ | 68.39 tok/s cold, 68.18 tok/s warm¹³ |
+| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.1 GiB | 9.2 GiB | baseline only | idle | 202.25 tok/s (cold) | 47.50 tok/s cold, 47.55 tok/s warm |
+| Qwen3.8-27B-UD-IQ3_S | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.5 GiB | not exposed | baseline only | idle | -- | 30.64 tok/s cold, 30.69 tok/s warm |
+| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split)⁹ | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm |
+| Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm |
+| Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split)⁷ | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s⁷ | 39.11-40.62 tok/s⁷ |
+| Qwen3.8-27B-UD-Q5_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 12.0 GiB | 12.0 GiB | baseline only | idle | -- | 34.92 tok/s cold, 34.94 tok/s warm |
+| Qwen3.8-27B-UD-Q6_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s⁶ | 30.16-31.05 tok/s |
+| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 0²⁴ | 13.0 GiB | not exposed | baseline only | idle | -- | 6.34 tok/s cold, 6.60 tok/s warm |
+| Qwen3.8-Flash-Next (tuned cfg) | 16GB schwerz, physical GPU 1²⁴ | 13.4 GiB¹ | not exposed | 4.8 GiB + 56 GiB mmap cache¹ | idle | 196.00 tok/s² | 12.67-18.38 tok/s⁵ |
 
 ¹ From this session's six-model 16GB run (same deployed config as the tuned
 benchmark, different prompt) -- see footnote 2.
@@ -448,9 +459,17 @@ seven needed a new model ID distinct from their `llama-cpp-16gb`
 UD-Q4_K_M`, `granite-4.0-h-small-Q4_K_M`), since `n-cpu-moe` isn't set
 here and the suffix would misdescribe the config; the other four
 (`Qwen3-Coder-30B-A3B-Instruct-Q4_K_M`, `Qwen3.6-35B-A3B-Q4_K_M`,
-`Qwen3.5-35B-A3B-Q4_K_M`, `Ornith-1.5-35B-Q4_K_M`) reuse their existing
+`Qwen3.5-35B-A3B-Q4_K_M`, `Ornith-1.5-35B-A3B-Q4_K_M`) reuse their existing
 ID, matching the convention already used for the qwen2.5-coder pairs
 above (same ID, different service, config differs by placement).
+
+²⁷ 2026-09-19, real 256-token cold/warm five-topic benchmark of the five
+small models newly added to the one- and two-GPU catalogues. The one-GPU
+service exposes only physical GPU 1. Gemma 3n and Nemotron Nano use
+`split-mode=layer`: this llama.cpp build rejects tensor splitting for their
+`gemma3n` and `nemotron_h` architectures. Ornith 9B and Qwen3.5 9B use
+tensor split. Both Gemma variants report a 32768-token training context and
+silently capped the prior 65536 request, so their presets now state 32768.
 
 ## Rejected models
 
@@ -735,8 +754,8 @@ wall, not produce a useful CPU-speed number.
 |---|---|---|---|---|---|---|
 | gpt-oss-20b-F16 | 13 GiB | cold | 68.06 tok/s | 10.42 tok/s | 19 GiB | 0 B |
 | gpt-oss-20b-F16 | 13 GiB | warm | -- | 10.43 tok/s | 19 GiB | 0 B |
-| Ornith-1.5-35B-A3B | 21 GiB | cold | 82.26 tok/s | **16.22 tok/s** | 22 GiB | 930 MiB |
-| Ornith-1.5-35B-A3B | 21 GiB | warm | -- | 16.09 tok/s | 22 GiB | 969 MiB |
+| Ornith-1.5-35B-A3B-Q4_K_M | 21 GiB | cold | 82.26 tok/s | **16.22 tok/s** | 22 GiB | 930 MiB |
+| Ornith-1.5-35B-A3B-Q4_K_M | 21 GiB | warm | -- | 16.09 tok/s | 22 GiB | 969 MiB |
 | Qwen3-Coder-Next-Q4_K_M | 46 GiB | cold | 11.18 tok/s | 9.17 tok/s | 37 GiB | 6.3 GiB |
 | Qwen3-Coder-Next-Q4_K_M | 46 GiB | warm | -- | 13.33 tok/s | 37 GiB | 6.3 GiB |
 | Qwen3-Next-80B-A3B-Instruct | 46 GiB | cold | 9.23 tok/s | 9.98 tok/s | 37 GiB | 6.1 GiB |
@@ -1842,7 +1861,7 @@ move from `llama-cpp-16gb` to `llama-cpp-32gb`.**
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | 14.91 GiB | ~1.4 GiB |
 | Qwen3.6-35B-A3B-Q4_K_M | 12.59 GiB | ~3.7 GiB |
 | Qwen3.5-35B-A3B-Q4_K_M | 12.61 GiB | ~3.7 GiB |
-| Ornith-1.5-35B-Q4_K_M | 12.09 GiB | ~4.2 GiB |
+| Ornith-1.5-35B-A3B-Q4_K_M | 12.09 GiB | ~4.2 GiB |
 | NVIDIA-Nemotron-3.5-Lightning-...-Expert-Offload | 13.09 GiB | ~3.2 GiB |
 | Laguna-XS-2.1-...-Expert-Offload | 14.30 GiB | ~2.0 GiB |
 | North-Mini-Code-1.0-...-Expert-Offload | 14.07 GiB | ~2.2 GiB |
@@ -1953,7 +1972,7 @@ solo. Real per-model results:
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | yes, after adjustment | 15.65 GiB | ~0.64 GiB | first attempt CUDA OOM at n-cpu-moe=18; raised to 26 -- fits but very tight |
 | Qwen3.6-35B-A3B-Q4_K_M | yes | 13.38 GiB | ~2.9 GiB | |
 | Qwen3.5-35B-A3B-Q4_K_M | yes | 13.44 GiB | ~2.9 GiB | |
-| Ornith-1.5-35B-Q4_K_M | yes | 12.89 GiB | ~3.4 GiB | |
+| Ornith-1.5-35B-A3B-Q4_K_M | yes | 12.89 GiB | ~3.4 GiB | |
 | NVIDIA-Nemotron-3.5-Lightning-...-Expert-Offload | yes | 13.36 GiB | ~2.9 GiB | |
 | Laguna-XS-2.1-...-Expert-Offload | yes, after adjustment | 13.25 GiB | ~3.1 GiB | first attempt CUDA OOM at n-cpu-moe=16; raised to 22 |
 | North-Mini-Code-1.0-...-Expert-Offload | yes | 15.14 GiB | ~1.16 GiB | tight |
