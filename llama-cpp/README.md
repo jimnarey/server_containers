@@ -17,6 +17,23 @@ with its source template.
 
 ## Launching a profile
 
+For the usual one-profile operation, `launch.py` resolves the literal
+`SERVICE_NAME` declared in an env file under `config/`:
+
+```sh
+./llama-cpp/launch.py llama-cpp-gpu-0
+```
+
+Stop just the selected generated service with `--down`; this deliberately does
+not run project-wide `docker compose down`:
+
+```sh
+./llama-cpp/launch.py --down llama-cpp-generel-schwerz-16gb-gpu-1
+```
+
+Use `--dry-run` to inspect the rendered Compose invocation without executing
+Docker. The explicit command remains useful for advanced overrides:
+
 ```sh
 docker compose -f compose.ai.yml \
   -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
