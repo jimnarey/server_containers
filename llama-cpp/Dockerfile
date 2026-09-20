@@ -77,7 +77,11 @@ RUN source_dir="${LLAMA_SOURCES}/${LLAMA_SOURCE_NAME}" && \
         -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
     ) && \
     if [ "${LLAMA_CUDA}" = ON ]; then \
-        cmake_args+=("-DCMAKE_CUDA_ARCHITECTURES=${CUDA_DOCKER_ARCH}"); \
+        cmake_args+=( \
+            "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_DOCKER_ARCH}" \
+            -DGGML_CUDA_FA_ALL_QUANTS=ON \
+            -DGGML_CUDA_GRAPHS=ON \
+        ); \
     fi && \
     cmake -S "${build_dir}" -B "${build_dir}/build" "${cmake_args[@]}" && \
     cmake --build "${build_dir}/build" --config Release --target llama-server --parallel "${BUILD_JOBS}" && \
