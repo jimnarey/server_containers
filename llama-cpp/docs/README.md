@@ -7,9 +7,9 @@ GenerelSchwerz builds, and `llama-cpp-csantiago78`. Each uses the former
 shared Docker build context, source repository, pin, CUDA setting, image tag,
 and default runtime configuration for profile overlays.
 
-`render-compose.py` reads exactly one profile env file and emits a deterministic
+`tools/render-compose.py` reads exactly one profile env file and emits a deterministic
 Compose file containing one fully materialised service. It loads the selected
-source service from the script's fixed absolute `AI_COMPOSE_FILE` constant,
+source service from this repository's `compose.ai.yml`,
 makes a copy, and replaces all profile-owned runtime settings on that copy.
 The output contains neither `extends` nor Compose `!override` tags, so a
 generated service with a distinct `SERVICE_NAME` does not inherit from or merge
@@ -17,18 +17,18 @@ with its source template.
 
 ## Launching a profile
 
-For the usual one-profile operation, `launch.py` resolves the literal
+For the usual one-profile operation, `tools/launch.py` resolves the literal
 `SERVICE_NAME` declared in an env file under `config/`:
 
 ```sh
-./llama-cpp/launch.py llama-cpp-gpu-0
+./llama-cpp/tools/launch.py llama-cpp-gpu-0
 ```
 
 Stop just the selected generated service with `--down`; this deliberately does
 not run project-wide `docker compose down`:
 
 ```sh
-./llama-cpp/launch.py --down llama-cpp-generel-schwerz-16gb-gpu-1
+./llama-cpp/tools/launch.py --down llama-cpp-generel-schwerz-16gb-gpu-1
 ```
 
 Use `--dry-run` to inspect the rendered Compose invocation without executing
@@ -36,7 +36,7 @@ Docker. The explicit command remains useful for advanced overrides:
 
 ```sh
 docker compose -f compose.ai.yml \
-  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
+  -f "$(./llama-cpp/tools/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
   up -d --build llama-cpp-gpu-1
 ```
 
@@ -47,7 +47,7 @@ random, network, or host-state input, so the same profile and overrides always
 produce byte-identical YAML. Inspect YAML before a launch with:
 
 ```sh
-./llama-cpp/render-compose.py --stdout llama-cpp/config/llama-cpp-16gb/gpu-1.env
+./llama-cpp/tools/render-compose.py --stdout llama-cpp/config/llama-cpp-16gb/gpu-1.env
 ```
 
 Set `LLAMA_GPU_IDS` to replace a profile's GPU selection without modifying its
@@ -56,7 +56,7 @@ this starts the GPU-1 profile on GPU 0 instead:
 
 ```sh
 LLAMA_GPU_IDS=0 docker compose -f compose.ai.yml \
-  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
+  -f "$(./llama-cpp/tools/render-compose.py llama-cpp/config/llama-cpp-16gb/gpu-1.env)" \
   up -d --build llama-cpp-gpu-1
 ```
 
@@ -93,7 +93,10 @@ work. Their source templates remain directly runnable with their former `.env`
 defaults.
 
 Every profile explicitly supplies its service name, source service, port,
-bind address, GPU IDs, restart policy, and runtime model/config mounts. The
+bind address, GPU IDs, restart policy, and repository-relative model/config
+sources. The renderer resolves those sources to absolute paths before writing
+its `/tmp` overlay, so Compose never interprets them relative to that overlay.
+The
 source service supplies the reproducible build arguments and image, which are
 copied into the generated service before profile values replace their matching
 runtime settings. The Dockerfile still verifies the pinned immutable commit
@@ -102,15 +105,10 @@ uses `llama-cpp` while overriding CUDA and image, retaining its
 original `unless-stopped` restart policy rather than needing a handwritten
 Compose service.
 
-The tracked runtime templates remain below `config/`. Copy fork `config.ini`
-files to the matching `/mnt/work/llama/...` directory before launch, and
-generate the model presets as before:
-
-```sh
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-16gb/models-preset.ini \
-  /mnt/work/llama/llama-cpp-16gb
-```
+All model presets and fork `config.ini` files are mounted read-only directly
+from `llama-cpp/config/`. There is no runtime copy to synchronise. Edit the
+tracked source, validate the rendered profile, and recreate the affected
+service for a change to take effect.
 
 `llama-cpp-all-gpus` retains the `llama-cpp` network alias, preserving the
 existing DeepSeek and Pi endpoint `http://llama-cpp:8080/v1` when that profile
@@ -123,8 +121,8 @@ the fork-specific runtime constraints.
 
 ## Long-context benchmark matrix
 
-`benchmark-long-context.py` reads the main resource-usage table in
-`performance-findings.md`, then tests every reproducible model/profile row
+`tools/benchmark-long-context.py` reads the main resource-usage table in
+`docs/performance-findings.md`, then tests every reproducible model/profile row
 except the GenerelSchwerz 32GB service, Qwen3.8-Flash-Next on physical GPU 0,
 and rows whose ordinary low-context `Decode` result is below 10 tok/s. The
 upstream 32GB service is included.
@@ -136,7 +134,7 @@ It does not build images.
 Run it from `tmux` as follows:
 
 ```sh
-./llama-cpp/benchmark-long-context.py
+./llama-cpp/tools/benchmark-long-context.py
 ```
 
 The runner writes detailed command output, request timings, JSON result lines,

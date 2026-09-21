@@ -3,8 +3,8 @@
 
 Examples:
 
-    ./llama-cpp/launch.py llama-cpp-gpu-1
-    ./llama-cpp/launch.py --down llama-cpp-generel-schwerz-16gb-gpu-1
+    ./llama-cpp/tools/launch.py llama-cpp-gpu-1
+    ./llama-cpp/tools/launch.py --down llama-cpp-generel-schwerz-16gb-gpu-1
 
 The supplied service name must match ``SERVICE_NAME`` in exactly one env file
 under ``llama-cpp/config``.
@@ -20,8 +20,9 @@ import sys
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
-PROJECT_DIRECTORY = SCRIPT_DIRECTORY.parent
-CONFIG_DIRECTORY = SCRIPT_DIRECTORY / "config"
+LLAMA_DIRECTORY = SCRIPT_DIRECTORY.parent
+PROJECT_DIRECTORY = LLAMA_DIRECTORY.parent
+CONFIG_DIRECTORY = LLAMA_DIRECTORY / "config"
 RENDERER = SCRIPT_DIRECTORY / "render-compose.py"
 COMPOSE_FILE = PROJECT_DIRECTORY / "compose.ai.yml"
 

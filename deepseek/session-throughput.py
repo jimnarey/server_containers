@@ -8,7 +8,7 @@ prefill and decode timing without needing a live benchmark request:
 - ``step/start`` / ``step/end`` bound the step's wall-clock time.
 - ``reasoning-chunks`` / ``text-chunks`` / ``tool-call-chunks`` each carry a
   ``dt`` array of millisecond deltas between generated chunks -- summing
-  these gives the decode-only span, the same split ``llama-cpp/request.py``
+  these gives the decode-only span, the same split ``llama-cpp/tools/request.py``
   reports as "stream duration" versus "time to first text".
 - ``assistant/message`` carries ``usage.outputTokens`` and
   ``source.{provider,model}``, so every step is already tagged with which

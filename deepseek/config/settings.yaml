@@ -1,5 +1,5 @@
 # Repository-owned DeepSeek Harness settings for the local Qwen workflow.
-# `sync-config.py` mirrors this file to $DEEPSEEK_HOME/.dsh/settings.yaml.
+# Compose mounts this file read-only at $DSH_HOME/settings.yaml.
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
 llm-pi-ai:
@@ -396,7 +396,7 @@ llm-pi-ai:
     # 2026-09-18: added for the new llama-cpp-generel-schwerz-16gb-gpu-0
     # service -- a second instance of the same 16GB MoE-cache fork, pinned to
     # GPU 0 instead of GPU 1, sharing the exact same models-preset.ini/
-    # config.ini as llama-cpp-moe-16gb above (see llama-cpp/README.md), so
+    # config.ini as llama-cpp-moe-16gb above (see llama-cpp/docs/README.md), so
     # the catalogue here is an exact copy of that provider's. Exists so a
     # schwerz-style session can run on GPU 0 while GPU 1 is occupied (by the
     # original 16gb instance, or anything else), or vice versa -- the two are
@@ -486,9 +486,8 @@ llm-pi-ai:
           maxTokens: 16384
 # 2026-09-15 reliability review: the deployed runtime settings.yaml had
 # already been changed to this (Flash Next is what every recent session has
-# actually used) but this source template was never updated to match, so the
-# next `sync-config.py` run would have silently reverted the default back to
-# a model/provider that isn't even running. Updated to match reality.
+# actually used). Source and deployed configuration now match through the
+# read-only repository bind mount.
 agent-default-model:
   provider: llama-cpp-moe-16gb
   model: Qwen3.8-Flash-Next-UD-Q3_K_XL

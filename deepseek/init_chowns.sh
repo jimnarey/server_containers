@@ -13,6 +13,7 @@ find /home/runuser -mindepth 1 -maxdepth 1 \
 if [ -d /home/runuser/.dsh ]; then
     find /home/runuser/.dsh \
         -path /home/runuser/.dsh/profiles -prune -o \
+        -path /home/runuser/.dsh/settings.yaml -prune -o \
         -exec chown runuser:runuser {} +
 fi
 

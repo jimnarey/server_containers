@@ -136,7 +136,7 @@ Use a non-secret placeholder if the form requires an API key; the current llama.
 
 Model discovery can query llama.cpp's `/v1/models` endpoint. Selecting the model sets it as the default for new sessions; existing sessions retain their saved model selection.
 
-At present, the provider form can save the catalogue without saving a default for the headless profile. Check `/home/runuser/.dsh/settings.yaml` and add this shared selection if `agent-default-model` is absent:
+At present, the provider form can save the catalogue without saving a default for the headless profile. Edit `deepseek/config/settings.yaml` and add this shared selection if `agent-default-model` is absent, then recreate the service:
 
 ```yaml
 agent-default-model:
@@ -146,22 +146,13 @@ agent-default-model:
 
 Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
 
-### Synchronised local model configuration
+### Repository-mounted local model configuration
 
-[`config`](./config/) is the repository-owned source for persistent Harness
-configuration. Install every file below it with the generic synchroniser:
-
-```bash
-python3 deepseek/sync-config.py --dry-run
-python3 deepseek/sync-config.py
-```
-
-The destination defaults to `/mnt/work/deepseek/.dsh`; change that single
-installation-specific default near the top of the script, pass
-`--deepseek-home /other/path`, or set `DEEPSEEK_HOME`. The synchroniser walks
-the source tree, so new ordinary configuration files are copied without adding
-them to Python. It never deletes credentials, sessions, or other Harness
-state.
+[`config`](./config/) is the repository-owned source for Harness configuration.
+`compose.ai.yml` mounts `deepseek/config/settings.yaml` read-only at
+`/home/runuser/.dsh/settings.yaml`. Edit the repository source and recreate
+the service; credentials, sessions, package state, and other Harness data stay
+in the writable `DEEPSEEK_HOME` mount.
 
 This installation keeps every session on the built-in `standard` preset, with
 model-specific policy (including compaction) expressed as `modelPolicies` in

@@ -45,37 +45,22 @@ supply only runtime placement/configuration values.
 
 ## Runtime configuration
 
-Create the separate runtime configurations before first start:
-
-```sh
-install -D -m 0644 llama-cpp/config/llama-cpp-generel-schwerz-16gb/config.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini
-install -D -m 0644 llama-cpp/config/llama-cpp-generel-schwerz-32gb/config.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-32gb/config.ini
-
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-16gb
-./llama-cpp/generate-models-preset.py --preset-only --force \
-  --preset llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini \
-  /mnt/work/llama/llama-cpp-generel-schwerz-32gb
-```
-
-2026-09-16: these are now two genuinely different files, not one shared
+The services mount their `config.ini` and `models-preset.ini` files read-only
+and directly from `llama-cpp/config/`; no runtime copy is created or synced.
+2026-09-16: these are two genuinely different configurations, not one shared
 template installed twice. The two services build from different fork commits
 (see below) with different real constraints, so their catalogues differ --
 notably, Flash Next is only in the 16GB one.
 
-The config files are mounted at `/etc/llama.cpp/config.ini` and are deliberately
-outside this repository. The separate `models-preset.ini` copies are mounted at
+The repository config files are mounted at `/etc/llama.cpp/config.ini` and
 `/etc/llama.cpp/models-preset.ini`. Both services mount the shared model
 library, `/mnt/data/models/gguf`, read-only at `/models`.
 
 The router deliberately has no `--models-dir`. It exposes only the explicit,
 large-MoE entries in its model preset, so a raw publisher/directory ID cannot
 appear as a duplicate or bypass a profile. Add a direct `model = /models/...`
-section to the repository template, install it to each runtime location, then
-recreate the service when deliberately making another model available.
+section to the repository template, then recreate the service when deliberately
+making another model available.
 
 The established 16GB service is exposed on port 11438 and limits CUDA
 visibility to physical GPU 1. Its companion is on port 11443 and limits CUDA
@@ -258,17 +243,17 @@ the first shard and it automatically opens its siblings.
 
 ```sh
 docker compose -f compose.ai.yml \
-  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-1.env)" \
+  -f "$(./llama-cpp/tools/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-1.env)" \
   up -d --build llama-cpp-generel-schwerz-16gb-gpu-1
 
 # The companion has the same model catalogue, on the other physical GPU.
 docker compose -f compose.ai.yml \
-  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-0.env)" \
+  -f "$(./llama-cpp/tools/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-16gb/gpu-0.env)" \
   up -d --build llama-cpp-generel-schwerz-16gb-gpu-0
 
 # Stop both one-GPU profiles before the two-GPU profile.
 docker compose -f compose.ai.yml \
-  -f "$(./llama-cpp/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-32gb/all-gpus.env)" \
+  -f "$(./llama-cpp/tools/render-compose.py llama-cpp/config/llama-cpp-generel-schwerz-32gb/all-gpus.env)" \
   up -d --build llama-cpp-generel-schwerz-32gb-all-gpus
 ```
 

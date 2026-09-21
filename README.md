@@ -179,7 +179,8 @@ These are the main services currently defined in `docker-compose.yml`:
 - Media/library tools: `calibre`, `clrmamepro`, `nkit`, `jrom-manager`, `simple-arcade-multifilter`
 - Design / maker tools: `inkscape`, `laserweb`, `lightburn`, `lightburn-win`, `lightburn-win-install`, `lasergrbl`, `lasergrbl-install`
 - Network / download tools: `transmission`, `expressvpn`
-- Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`
+- Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`; see the
+  [`llama.cpp profile documentation`](./llama-cpp/docs/README.md)
 - Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
 - Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness and Pi's web-search extension; see [`searxng/README.md`](./searxng/README.md)

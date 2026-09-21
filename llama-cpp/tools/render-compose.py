@@ -8,7 +8,7 @@ import os
 import re
 import sys
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -17,7 +17,10 @@ import yaml
 # The generated service is intentionally tied to this repository's AI Compose
 # file. The file is read to materialise the selected source template before the
 # standalone service is written below /tmp for use with ``docker compose -f``.
-AI_COMPOSE_FILE = "/home/ai/server_containers/compose.ai.yml"
+TOOL_DIRECTORY = Path(__file__).resolve().parent
+LLAMA_DIRECTORY = TOOL_DIRECTORY.parent
+PROJECT_DIRECTORY = LLAMA_DIRECTORY.parent
+AI_COMPOSE_FILE = PROJECT_DIRECTORY / "compose.ai.yml"
 OVERLAY_DIRECTORY = Path("/tmp")
 
 # Compose/runtime values shared by every renderer path. Keeping these here
@@ -144,6 +147,12 @@ def port(value: str) -> int | None:
 
 def gpu_ids(value: str) -> list[str]:
     return [] if not value else value.split(",")
+
+
+def bind_source(value: str) -> str:
+    """Resolve repository-relative bind sources before writing an overlay in /tmp."""
+    path = Path(value)
+    return str(path if path.is_absolute() else PROJECT_DIRECTORY / path)
 
 
 # Attribute names are internal Python names; env names remain the public,
@@ -329,10 +338,15 @@ def parse_env(path: Path) -> Profile:
         },
         str(path),
     )
-    return Profile(**{
+    profile = Profile(**{
         attribute: spec.parser(values.get(spec.env_name, spec.default or ""))
         for attribute, spec in PROFILE_FIELDS.items()
     })
+    return replace(
+        profile,
+        models_preset=bind_source(profile.models_preset),
+        config_file=bind_source(profile.config_file) if profile.config_file else None,
+    )
 
 
 def validate(profile: Profile) -> SourceTemplate:

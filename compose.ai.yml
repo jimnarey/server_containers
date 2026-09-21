@@ -98,7 +98,7 @@ services:
       NCCL_CUMEM_ENABLE: "0"
     volumes:
       - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_32GB_CONFIG:-/mnt/work/llama/llama-cpp-32gb/models-preset.ini}:/models-preset.ini:ro
+      - ${LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-32gb/models-preset.ini}:/models-preset.ini:ro
       - llama-gpu-locks:/var/lock/llama-gpu
     command:
       - --models-preset
@@ -151,8 +151,8 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
-      - ${GS_LLAMA_CPP_16GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_16GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -189,8 +189,8 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
-      - ${GS_LLAMA_CPP_32GB_CONFIG:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-/mnt/work/llama/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${GS_LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -227,8 +227,8 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
-      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-/mnt/work/llama/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-/mnt/work/llama/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-./llama-cpp/config/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
+      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-./llama-cpp/config/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
       - --models-preset
       - /etc/llama.cpp/models-preset.ini
@@ -329,6 +329,9 @@ services:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
       - /container-ssh:/home/runuser/.ssh:ro
+      # Repository-owned configuration is read-only. The persisted home keeps
+      # credentials, sessions, package state, and other mutable DSH data.
+      - ./deepseek/config/settings.yaml:/home/runuser/.dsh/settings.yaml:ro
       # These overlays select local SearXNG search and the guarded fetch
       # provider without replacing persisted models, credentials, sessions, or
       # agent presets under DEEPSEEK_HOME. They are configuration, not state.

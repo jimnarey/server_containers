@@ -37,7 +37,8 @@ from typing import Iterable
 # container as /models, matching docker-compose.yml.
 MODEL_ROOT = Path(os.environ.get("LLAMA_CPP_MODEL_ROOT", "/mnt/data/models/gguf"))
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+TOOLS_DIRECTORY = Path(__file__).resolve().parent
+PROJECT_DIR = TOOLS_DIRECTORY.parent.parent
 # 2026-09-19: points at compose.ai.yml directly, not docker-compose.yml (an
 # includes-only file pulling in compose.ai.yml plus five unrelated compose
 # files) -- matches render-compose.py's own AI_COMPOSE_FILE and avoids
