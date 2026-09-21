@@ -132,7 +132,7 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | Ornith-1.5-9B-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 7.4-7.5 GiB | **compute (8 threads)** | 45.29 tok/s | 7.36-7.35 tok/s |
 | Ornith-1.5-9B-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 3.7 GiB | 3.8 GiB | baseline only | idle | 608.19 tok/s | 105.35 tok/s cold, 105.81 tok/s warm | 8,256-token prompt: 1,795.95 / 102.23 tok/s⁵ |
 | Ornith-1.5-9B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU) | 6.6 GiB | not exposed | baseline only | idle | 383.61 tok/s | 69.78 tok/s cold, 69.90 tok/s warm | 8,256-token prompt: 2,986.99 / 67.01 tok/s⁵ |
-| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 14.7 GiB | not exposed | baseline only | idle | not measured | 10.5-11.0 tok/s (was 40.92-41.02 tok/s pre-rebuild) | 8,273-token prompt: 904.70 / 6.15 tok/s⁵ (pre-rebuild figure, not re-measured) |
+| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 11.9 GiB | not exposed | baseline only | idle | not measured | 40.92-41.12 tok/s | 8,273-token prompt: 904.70 / 6.15 tok/s⁵ (historical 32K all-GPU figure; not re-measured) |
 | qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 6.8 GiB | 6.8 GiB | baseline only | idle | 761.79 tok/s | 62.99 tok/s cold, 63.41 tok/s warm | 8,273-token prompt: 1,019.55 / 52.96 tok/s⁵ |
 | qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-gpu-1` (dense, single physical GPU) | 12.9 GiB | not exposed | baseline only | idle | 1,140.48 tok/s | 38.09 tok/s cold, 38.14 tok/s warm | 8,273-token prompt: 794.56 / 5.24 tok/s⁵ |
 | qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 7.5 GiB | 7.5 GiB | baseline only | idle | 627.89 tok/s | 55.47 tok/s cold, 56.49 tok/s warm | 8,273-token prompt: 992.46 / 49.18 tok/s⁵ |
@@ -226,14 +226,13 @@ for either model at `ctx-size=65536`, and not needed for Solar-Open-100B on
 instead) -- see "Second batch" and "Two new downloads" below for the full
 figures and the models this did and didn't affect.
 
-⁸ Real, current regression, not a one-off -- reproduced across multiple
-runs. Same config, same service, same model as the pre-rebuild figures in
-this row, decode dropped ~75% after the 2026-09-20/21
-`GGML_CUDA_FA_ALL_QUANTS`/`GGML_CUDA_GRAPHS` rebuild; VRAM usage grew from
-a documented ~11.6 GiB to ~14.7 GiB at this exact config. Not root-caused
--- see "A real regression found alongside GGML_CUDA_GRAPHS testing:
-qwen2.5-coder-14b" below for the full investigation, what's been ruled
-out, and the open questions for a follow-up session.
+⁸ This is the native `ctx-size=32768`, `n-gpu-layers=all` single-GPU
+configuration. The 40.92--41.02 tok/s historical result and the 41.12 tok/s
+post-fix verification are fully GPU-resident (11,874 MiB in the latter).
+The previously tabled 10.5--11.0 tok/s figure used the later 128K YaRN/Q8-KV
+configuration with automatic `--fit`, which CPU-mapped model layers; it was
+not a compiler-build regression and is intentionally not a current-table
+performance figure.
 
 ## Long-context sweep (2026-09-19)
 
@@ -423,67 +422,129 @@ more for a small/fast model where per-token compute is already cheap, and
 barely registers for a large compute-bound one. Real and worth keeping,
 but a small effect, not a large one, and MoE models get none of it.
 
-## A real regression found alongside GGML_CUDA_GRAPHS testing: qwen2.5-coder-14b (2026-09-21)
+## Resolved Qwen2.5-Coder-14B apparent regression (2026-09-21)
 
-A third model in the same A/B batch, `qwen2.5-coder-14b-instruct-q4_k_m`
-at its real deployed config (`ctx-size=131072`, `rope-scaling=yarn`,
-`yarn-orig-ctx=32768`), came back at **10.5-11.0 tok/s regardless of the
-graphs setting** -- both conditions equally slow, which rules out
-`GGML_CUDA_GRAPHS` as the cause. Compared to this model's own documented
-baseline (40.92-41.02 tok/s, same config, measured before the rebuild
-above): a ~75% drop.
+The 10.5--11.0 tok/s observation was real, but it was not a build
+regression. The historical 40.92--41.02 tok/s baseline was a native-32K,
+forced-all-GPU run. The 16GB preset was later raised to 128K with YaRN and,
+after the renderer stopped forcing all layers globally, `--fit` correctly
+kept the oversized load alive by CPU-mapping model layers. The detailed
+follow-up below verifies that the CUDA build options do not change that
+outcome, identifies the layer placement, and records the supported fix:
+native 32K plus per-model `n-gpu-layers=all`.
 
-Ruled out so far: a mistake in the test config (compared directly against
-the real deployed preset entry -- identical); thermal throttling (GPU 1
-was at full clock, P1 state, 2932 MHz during the slow run, confirmed via
-`nvidia-smi`); `GGML_CUDA_GRAPHS` itself (both on and off conditions were
-equally slow).
+## Follow-up: Qwen2.5-Coder-14B placement bisection (resolved, 2026-09-21)
 
-Backing off to the `[*]` default config on the same rebuilt image
-(`ctx-size=65536`, no `rope-scaling`/`yarn-orig-ctx`) recovered *some* of
-it -- 30.33-31.34 tok/s over two clean re-tests (99-token sample, low
-variance) -- but that's still a real ~24% shortfall from the 41 tok/s
-baseline even without the yarn/128K factor. Two stacked effects, not one:
-a moderate general regression, and a much larger one specific to the
-yarn/large-context config.
+The two one-card Qwen3.8 3-bit control models are **not** affected on the
+rebuilt upstream image at their deployed `ctx-size=65536`. Real 8,256-token
+requests on `llama-cpp-gpu-1` measured 29.12 tok/s for
+`Qwen3.8-27B-UD-IQ3_S` (previous 28.46) and 27.57 tok/s for
+`Qwen3.8-27B-UD-Q3_K_XL` (previous 27.07); real post-load VRAM was 13,622 MiB
+and 14,674 MiB respectively. Their short-prompt figures (30.69 / 28.92 tok/s)
+also match the pre-rebuild record. This is not a general thin-headroom failure
+for the two closest control models.
 
-Neither `NVIDIA-Nemotron-3-Nano-4B` nor `Qwen3.8-27B-UD-Q6_K_M` (both
-tested in the same rebuilt image, same session) showed any regression --
-both matched their pre-rebuild baselines cleanly. So this is not a
-blanket rebuild-wide problem; it's specific to something about
-`qwen2.5-coder-14b` or its yarn/large-context config. `GGML_CUDA_FA_ALL_QUANTS`
-(many more compiled FlashAttention kernel variants, changing which one
-gets selected at runtime) is the more likely remaining suspect given
-graphs are ruled out, but that's a hypothesis, not a confirmed cause.
+`llama-server --help` on the rebuilt image confirms that the explicit vendor
+YaRN setting is `--rope-scale N` (preset spelling `rope-scale = N`), not
+`rope-scale-factor`. An isolated router preset changing only
+`rope-scale = 4` for `qwen2.5-coder-14b-instruct-q4_k_m` demonstrably passed
+`--rope-scale 4` to the spawned server. Its real 256-token decode was 10.97
+tok/s at 14,684 MiB, indistinguishable from the otherwise identical implicit
+case (10.96 tok/s, 14,684 MiB). The implicit configuration is already
+performance-equivalent here; no deployed preset value was changed.
 
-**Real VRAM evidence, gathered after the table above**: checked actual
-`nvidia-smi` usage on the rebuilt image for this exact model, not just
-inferred from decode speed. At `ctx-size=131072` + yarn (the regressed
-config): **14,684 MiB used**, vs. this model's own documented pre-rebuild
-figure of ~11.6 GiB (11,878 MiB) at the identical config -- a real ~2.8
-GiB growth, leaving only ~1.6 GiB headroom instead of the previous ~4.7
-GiB. That thin-headroom range is exactly where this deployment has
-already found real decode collapse for other models (the `Qwen3.8-27B`
-3-bit quant `ctx-size` cliff earlier in this file) -- **memory pressure is
-not ruled out; this new measurement points toward it being a real
-contributor, not away from it**, contradicting this section's earlier,
-more cautious framing before this measurement existed. Odder still: at
-`ctx-size=65536` with no yarn (the "recovered most of it" config), VRAM
-usage was **14,838 MiB -- essentially the same, if anything slightly
-higher**, despite the much smaller configured context. If the extra ~3
-GiB were coming from KV-cache scaling with `ctx-size`, the smaller config
-should show meaningfully less; it doesn't. That points toward the growth
-being closer to fixed overhead (weights load and/or compute/workspace
-buffer size) rather than context-dependent KV allocation -- consistent
-with a "more compiled kernel variants need more workspace" explanation
-for `GGML_CUDA_FA_ALL_QUANTS`, but still not confirmed as the actual
-mechanism. **Open investigation -- see a follow-up session for the real
-next steps**, including whether the two Q3 `Qwen3.8-27B` quants (also
-large-context, though not yarn-scaled, and already known to have thin
-single-GPU headroom) are similarly affected, and whether an explicit yarn
-scale factor (vendor guidance recommends factor 4 at 128K context; this
-deployment has never set one explicitly, relying on llama.cpp's implicit
-calculation from `ctx-size`/`yarn-orig-ctx`) changes anything.
+The compile-flag hypothesis is now directly **refuted** for this model/config.
+Three separately tagged images were built from the same pinned source and
+tested with the same isolated router, full real load, and 256-token decode:
+
+| CUDA build | Decode | VRAM |
+|---|---:|---:|
+| Current (`FA_ALL_QUANTS=ON`, `GRAPHS=ON`) | 10.96 tok/s | 14,684 MiB |
+| FA only (`FA_ALL_QUANTS=ON`, `GRAPHS=OFF`) | 10.95 tok/s | 14,682 MiB |
+| Neither (`FA_ALL_QUANTS=OFF`, `GRAPHS=OFF`) | 10.94 tok/s | 14,682 MiB |
+
+The `neither` image is materially smaller (2,221,597,624 bytes versus
+2,236,160,366 for the current image), so this is a real build difference,
+not a failed flag override. Neither flag changes the observed VRAM or decode
+collapse. `GGML_CUDA_GRAPHS` remains useful for the small dense-model effect
+above; this result only rules it out, and rules out `FA_ALL_QUANTS`, as the
+cause of this regression.
+
+High-verbosity allocation logs provide the missing direct mechanism for the
+slow case. With `--fit on --fit-target 1024`, the 128K Coder-14B load plans
+only 31 of 49 layers on CUDA: 5,302 MiB CUDA model buffer, 8,160 MiB CUDA KV,
+4,896 MiB CPU KV, and 962 MiB CUDA compute buffer. The measured 14,682 MiB
+matches that plan. The remaining model layers are CPU-mapped, so every decode
+crosses the CPU/GPU boundary; that is consistent with ~11 tok/s. This is a
+direct explanation of the current slow run, not a workspace-growth inference.
+Repository history resolves the apparent build regression. The 40.92--41.02
+tok/s result was recorded in `b8a0887` (2026-09-18 20:19) with this Q4 model
+at `ctx-size=32768` and a renderer that forced `--n-gpu-layers all`. Commit
+`7f80c94` (2026-09-18 23:16) removed that global GPU override from every
+upstream GPU profile so per-model/default `auto` could let `--fit` choose
+partial CPU offload. The Qwen-specific configuration change that made the
+problem material is `75a736f` (2026-09-19 11:47): it changed all five 16GB
+Qwen2.5-Coder entries from 32K to 128K and added YaRN. Thus `7f80c94` is the
+generic enabling change, while `75a736f` is when the slow Qwen configuration
+was introduced. A later performance-table edit incorrectly described the old
+41 tok/s number as the same configuration.
+
+The current fit planner projects a full-GPU Q4 128K load at 21,884 MiB, above
+the 15,613 MiB it found free on this card, so the 32K all-GPU result cannot
+establish that 128K was safely usable at depth. A follow-up live audit of all
+five current 16GB Qwen2.5-Coder entries found the precise boundary:
+
+| Preset | Decode | VRAM | Classification |
+|---|---:|---:|---|
+| 7B Q4_K_M | 80.43 tok/s | 8,646 MiB | healthy GPU-resident load |
+| 7B Q8_0 | 52.71 tok/s | 11,642 MiB | healthy GPU-resident load |
+| 14B Q4_K_M | 10.96 tok/s | 14,684 MiB | auto-fit partial CPU placement |
+| 14B Q5_K_M | 7.97 tok/s | 14,634 MiB | auto-fit partial CPU placement |
+| 14B Q6_K | 6.51 tok/s | 14,500 MiB | auto-fit partial CPU placement |
+
+The Q4 layer count was verified directly at high verbosity (31 of 49 layers
+on CUDA). The Q5/Q6 VRAM plateau and still lower decode rates show the same
+fit-limited placement outcome. No preset value was altered by this audit.
+
+### GPU-1 context boundary check (64K and 92K)
+
+The same isolated, real-load/decode audit was then run on physical GPU 1
+(`cache-type-k/v=q8_0`, `--fit-target 1024`) at 65,536 and 94,208 tokens
+("92K" as 92 * 1024). Neither setting is a valid single-card long-context
+fix for the Coder-14B family:
+
+| Context | Preset | Decode | VRAM |
+|---:|---|---:|---:|
+| 65,536 | 14B Q4_K_M | 31.06 tok/s | 14,838 MiB |
+| 65,536 | 14B Q5_K_M | 17.48 tok/s | 14,536 MiB |
+| 65,536 | 14B Q6_K | 12.36 tok/s | 14,730 MiB |
+| 94,208 | 14B Q4_K_M | 15.34 tok/s | 14,590 MiB |
+| 94,208 | 14B Q5_K_M | 11.43 tok/s | 14,514 MiB |
+| 94,208 | 14B Q6_K | 8.99 tok/s | 14,722 MiB |
+
+At 64K, Q4 still leaves two layers (750 MiB) CPU-mapped under the 1 GiB
+fit reserve; Q5/Q6 are further from full residency. At 92K the respective
+final CUDA placements are 38/49, 35/49, and 33/49 layers, with 2,246 MiB,
+3,115 MiB, and 4,055 MiB CPU-mapped model buffers. The original GPU-1
+router was restored healthy after the temporary audit was removed.
+
+### Corrective 16GB preset deployment
+
+The source and deployed 16GB presets now set the three Coder-14B entries to
+their native `ctx-size=32768`, remove the unnecessary YaRN settings, and set
+`n-gpu-layers = all`. The latter is an intentional guardrail: a later setting
+that exceeds one-card VRAM now exits conspicuously instead of accepting a
+slow CPU-mapped placement. After restarting `llama-cpp-gpu-1`, real 128-token
+decodes verified the resulting GPU-only loads:
+
+| Preset | Decode | VRAM |
+|---|---:|---:|
+| 14B Q4_K_M | 41.12 tok/s | 11,874 MiB |
+| 14B Q5_K_M | 38.25 tok/s | 13,230 MiB |
+| 14B Q6_K | 33.17 tok/s | 14,674 MiB |
+
+The spawned instances logged both `--ctx-size 32768` and
+`--n-gpu-layers all`; GPU utilization was 99% during each decode.
 
 ## `llama-cpp-all-gpus` service (dense, both GPUs via `split-mode=tensor`)
 

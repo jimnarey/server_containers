@@ -44,6 +44,8 @@ ARG LLAMA_SERVICE_NAME
 ARG LLAMA_BRANCH
 ARG LLAMA_COMMIT
 ARG LLAMA_CUDA=ON
+ARG GGML_CUDA_FA_ALL_QUANTS=ON
+ARG GGML_CUDA_GRAPHS=ON
 
 RUN test -n "${LLAMA_SERVICE_NAME}" && \
     test -n "${LLAMA_BRANCH}" && \
@@ -79,8 +81,8 @@ RUN source_dir="${LLAMA_SOURCES}/${LLAMA_SOURCE_NAME}" && \
     if [ "${LLAMA_CUDA}" = ON ]; then \
         cmake_args+=( \
             "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_DOCKER_ARCH}" \
-            -DGGML_CUDA_FA_ALL_QUANTS=ON \
-            -DGGML_CUDA_GRAPHS=ON \
+            "-DGGML_CUDA_FA_ALL_QUANTS=${GGML_CUDA_FA_ALL_QUANTS}" \
+            "-DGGML_CUDA_GRAPHS=${GGML_CUDA_GRAPHS}" \
         ); \
     fi && \
     cmake -S "${build_dir}" -B "${build_dir}/build" "${cmake_args[@]}" && \
