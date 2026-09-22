@@ -63,12 +63,12 @@ Do not install a leaf certificate from a browser warning page.
 
 ### Temporary client download
 
-For a short, one-client transfer from the gateway host, first extract the root
-as below, then run the standard-library HTTP exporter:
+For a short, one-client transfer from the gateway host, run the
+standard-library HTTP exporter. It reads the root directly from the running
+`https-gateway-c` container and keeps it only in memory:
 
 ```sh
-python3 serve-root-cert.py ./caddy-ai-local-root.crt \
-  --port 8080
+python3 serve-root-cert.py --port 8080
 ```
 
 It exposes only `GET /root.crt`, prints the SHA-256 fingerprint, and exits
@@ -80,6 +80,9 @@ and in that command. Pass `--address 192.168.x.y` to override detection. Send
 that command, or at least the fingerprint, to the client through a trusted
 channel. Use `--installer-url` when testing an unpublished branch or another
 repository fork.
+
+Pass `--container NAME` only if the gateway container uses a name other than
+`https-gateway-c`.
 
 The installer updates the Debian/Ubuntu system trust bundle and both legacy
 and current Chrome/Chromium NSS database locations. It creates or replaces

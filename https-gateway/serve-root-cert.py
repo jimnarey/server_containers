@@ -12,16 +12,18 @@ import hashlib
 import http.server
 import ipaddress
 import shlex
+import shutil
 import socket
 import ssl
+import subprocess
 import threading
-from pathlib import Path
 
 
 DEFAULT_INSTALLER_URL = (
     "https://raw.githubusercontent.com/jimnarey/server_containers/master/"
     "https-gateway/install-root-cert.py"
 )
+ROOT_CERTIFICATE_PATH = "/data/caddy/pki/authorities/local/root.crt"
 
 
 class RootCertificateHandler(http.server.BaseHTTPRequestHandler):
@@ -47,13 +49,28 @@ class RootCertificateHandler(http.server.BaseHTTPRequestHandler):
         print(f"{self.client_address[0]} - {format % args}")
 
 
-def read_certificate(path: Path) -> tuple[bytes, str]:
-    certificate = path.read_bytes()
+def read_container_certificate(container: str) -> bytes:
+    docker = shutil.which("docker")
+    if docker is None:
+        raise SystemExit("Docker is required to read the gateway root certificate.")
+    completed = subprocess.run(
+        [docker, "exec", container, "cat", ROOT_CERTIFICATE_PATH],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.decode("utf-8", "replace").strip()
+        raise SystemExit(f"Could not read {ROOT_CERTIFICATE_PATH} from {container}: {message}")
+    return completed.stdout
+
+
+def certificate_fingerprint(certificate: bytes, source: str) -> str:
     try:
         der = ssl.PEM_cert_to_DER_cert(certificate.decode("ascii"))
     except (UnicodeDecodeError, ValueError) as error:
-        raise SystemExit(f"{path} is not a PEM-encoded certificate: {error}") from error
-    return certificate, hashlib.sha256(der).hexdigest().upper()
+        raise SystemExit(f"Certificate from {source} is not PEM-encoded: {error}") from error
+    return hashlib.sha256(der).hexdigest().upper()
 
 
 def lan_address() -> str:
@@ -80,7 +97,11 @@ def lan_address() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("certificate", type=Path, help="path to Caddy root.crt")
+    parser.add_argument(
+        "--container",
+        default="https-gateway-c",
+        help="running HTTPS gateway container name (default: https-gateway-c)",
+    )
     parser.add_argument(
         "--address",
         help="192.168.*.* address to bind and advertise (autodetected when omitted)",
@@ -104,7 +125,8 @@ def main() -> None:
     except ValueError:
         parser.error("--address must be a valid IPv4 address")
 
-    certificate, fingerprint = read_certificate(arguments.certificate)
+    certificate = read_container_certificate(arguments.container)
+    fingerprint = certificate_fingerprint(certificate, arguments.container)
     RootCertificateHandler.certificate = certificate
     RootCertificateHandler.single_use = not arguments.keep_serving
 
