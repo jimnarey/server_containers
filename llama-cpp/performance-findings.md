@@ -205,11 +205,14 @@ Full-context validation (2026-09-22), using a real repeated-token prompt
 and a 64-token completion: `Qwen3.8-27B-UD-Q4_K_M` completed 192,105 prompt
 tokens at 519.36 tok/s; `Qwen3.6-35B-A3B-Q4_K_M` completed 256,066 at
 1,943.83 tok/s; and the new `Qwen3.6-27B-Q4_K_M` completed 192,065 at
-514.21 tok/s. All three generated the requested completion without
-truncation. The first two were temporary capacity tests, not changes to
-their deployed preset contexts. For the new dense Q4, allocation testing
-also passed at 229,376 but left only about 0.6 GiB per GPU, and 262,144
-failed to load; its deployed setting is therefore the conservative 196,608.
+514.21 tok/s. `Qwen3.8-Flash-Next-UD-Q3_K_XL` on normal `llama-cpp-gpu-1`
+completed 256,086 at 185.43 tok/s (then decoded 64 tokens at 6.17 tok/s).
+All four generated the requested completion without truncation. The first
+two settings were promoted to their tested 196,608/262,144 contexts. For
+the new dense Q4, allocation testing also passed at 229,376 but left only
+about 0.6 GiB per GPU, and 262,144 failed to load; its deployed setting is
+therefore the conservative 196,608. Flash Next's 262,144 setting applies
+only to normal upstream GPU 1, not its separately constrained schwerz route.
 
 ⁶ The 500 response is the router's presentation of the existing CUDA-OOM
 load failure; the entry uses `ctx-size=65536`, `n-gpu-layers=all`, and

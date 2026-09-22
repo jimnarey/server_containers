@@ -1,4 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+// SearXNG is a trusted, fixed Compose-internal destination (no SSRF concern),
+// so only guarded-fetch's response-bounding helper is used for web_search,
+// not its destination-validating fetch wrapper (used for web_fetch below).
+import { readBodyAsText } from "guarded-fetch";
 import { Type } from "typebox";
 
 const gatewayUrl =
@@ -6,6 +10,7 @@ const gatewayUrl =
 const searxngUrl = process.env.SEARXNG_URL ?? "http://searxng:8080";
 
 const MAX_SEARCH_RESPONSE_BYTES = 1_048_576;
+const SEARCH_RESPONSE_TIMEOUT_MS = 15_000;
 const MAX_SEARCH_RESULTS = 8;
 const MAX_RESULT_TEXT_CHARS = 1_200;
 
@@ -40,54 +45,6 @@ function truncate(value: string, maximum: number): string {
     : normalized;
 }
 
-async function readTextLimited(
-  response: Response,
-  maximumBytes: number,
-): Promise<string> {
-  const contentLength = Number.parseInt(
-    response.headers.get("content-length") ?? "",
-    10,
-  );
-  if (Number.isSafeInteger(contentLength) && contentLength > maximumBytes) {
-    throw new Error("Search response exceeded the configured size limit.");
-  }
-
-  if (!response.body) {
-    return "";
-  }
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      if (!value) {
-        continue;
-      }
-      received += value.byteLength;
-      if (received > maximumBytes) {
-        await reader.cancel();
-        throw new Error("Search response exceeded the configured size limit.");
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const body = new Uint8Array(received);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder("utf-8").decode(body);
-}
-
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "web_search",
@@ -115,6 +72,7 @@ export default function (pi: ExtensionAPI) {
           q: params.query,
           safesearch: "1",
         }).toString();
+        const startedAt = Date.now();
         const response = await fetch(searchUrl, { signal });
         if (!response.ok) {
           return {
@@ -128,7 +86,11 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        const raw = await readTextLimited(response, MAX_SEARCH_RESPONSE_BYTES);
+        const raw = await readBodyAsText(response, {
+          deadlineAt: startedAt + SEARCH_RESPONSE_TIMEOUT_MS,
+          maxResponseBytes: MAX_SEARCH_RESPONSE_BYTES,
+          opaqueErrors: true,
+        });
         const payload = JSON.parse(raw) as SearchPayload;
         const results = Array.isArray(payload.results) ? payload.results : [];
         const formattedResults = results

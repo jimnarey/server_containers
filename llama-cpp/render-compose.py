@@ -171,7 +171,6 @@ PROFILE_FIELDS = {
 def upstream_command(profile: Profile) -> list[str]:
     command = [
         "--models-preset", UPSTREAM_PRESET_TARGET,
-        "--reasoning-format", "deepseek",
         *COMMON_SERVER_ARGS,
         "--parallel", profile.parallel or "1",
     ]

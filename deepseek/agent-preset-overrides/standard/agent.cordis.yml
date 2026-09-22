@@ -256,6 +256,16 @@
             maxTokens: 12288
             compactionRetries: 2
             maxOverflowRetries: 2
+          # The normal upstream GPU-1 route is distinct from schwerz. It has
+          # a populated 256K validation, so compact at the same conservative
+          # 80% threshold while preserving the proven 16K working tail.
+          - provider: llama-cpp-gpu-1
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+            thresholdRatio: 0.80
+            retainTokens: 16384
+            maxTokens: 12288
+            compactionRetries: 2
+            maxOverflowRetries: 2
           # llama-cpp-csantiago78 is a separate provider route (see
           # settings.yaml), so modelPolicies matching on {provider, model}
           # does not pick it up from the entries above by itself — without
