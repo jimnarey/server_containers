@@ -24,12 +24,11 @@ DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
 DESKTOP_XFCE_GATEWAY_HOSTNAME=xfce.ai.home.arpa
 ```
 
-The Compose host environment must also provide `HOSTNAME`, normally supplied
-by the operating system. The gateway passes that machine hostname into Caddy
-and derives its local CA name from it. For example, a host named `ai` creates
-the `Caddy ai Local Authority` CA. This makes roots from different gateway
-machines distinguishable in Chrome/NSS even though they are all Caddy internal
-CAs. Do not set `HOSTNAME` to a Docker container ID or an ephemeral value.
+The gateway reads the host's `/etc/hostname` through a read-only bind mount and
+derives its local CA name from it. No `HOSTNAME` environment variable is
+needed. For example, a host named `ai` creates the `Caddy ai Local Authority`
+CA. This makes roots from different gateway machines distinguishable in
+Chrome/NSS even though they are all Caddy internal CAs.
 
 Use [`lan-dns/README.md`](../lan-dns/README.md) to configure the included
 resolver. It returns the gateway address for every `*.ai.home.arpa` name, so

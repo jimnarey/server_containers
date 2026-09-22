@@ -3,9 +3,9 @@
 {
 	admin off
 
-	# Each host gets a distinct root subject.  Docker supplies HOSTNAME from the
-	# machine hostname (see compose.network.yml), rather than its ephemeral
-	# container hostname.
+	# Each host gets a distinct root subject. Compose reads HOSTNAME from the
+	# gateway machine's /etc/hostname, rather than Docker's ephemeral container
+	# hostname.
 	pki {
 		ca local {
 			name "Caddy {$HOSTNAME} Local Authority"
