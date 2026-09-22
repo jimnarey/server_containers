@@ -3,6 +3,10 @@ services:
   https-gateway:
     image: caddy:2.8.4-alpine
     container_name: https-gateway-c
+    # Preserve the machine hostname inside Caddy.  Its local CA name is
+    # derived from this, so roots from separate gateway hosts have distinct
+    # X.509 subjects and are unambiguous in NSS/Chrome.
+    hostname: ${HOSTNAME:?HOSTNAME is required to name the gateway CA}
     restart: unless-stopped
     ports:
       # Default to loopback so a missing machine-specific setting cannot

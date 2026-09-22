@@ -2,6 +2,15 @@
 # Service-level authentication stays in the service, not in this gateway.
 {
 	admin off
+
+	# Each host gets a distinct root subject.  Docker supplies HOSTNAME from the
+	# machine hostname (see compose.network.yml), rather than its ephemeral
+	# container hostname.
+	pki {
+		ca local {
+			name "Caddy {$HOSTNAME} Local Authority"
+		}
+	}
 }
 
 https://{$HTTPS_GATEWAY_HOSTNAME} {
