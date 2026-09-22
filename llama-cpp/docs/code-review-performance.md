@@ -40,8 +40,8 @@ orphaned. Those do not measure model capability.
 | Ornith-1.5-35B-A3B-Q4_K_M | Supervisor review | Coherent moderate-depth analysis, but missed important lifecycle risks | 5.7 min | Fast triage only |
 | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | Broken and sound-code reviews | Some useful observations, but wrong or self-contradictory verdicts and one off-spec review | Fast; one failure was a known DSH configuration bug | Triage only; never sole approver |
 | Laguna-XS-2.1-Q4_K_M-Expert-Offload | Sound-code review | Correct safe-code conclusion, but no independent defects despite 65 calls | 12.9 min, high exploration cost | Low-value corroboration only |
-| gpt-oss-20b-F16 | All three evidence streams | Repeatedly generic, wrong, incomplete, or unevidenced | Fast, but inconsistent | Do not use as a gate |
-| gpt-oss-120b-Q4_K_M | Supervisor review | Generic or truncated; missed concrete operational issues | 5.2 min completed attempt | Do not use as a gate |
+| gpt-oss-20b (F16 / MXFP4) | All three evidence streams; revised MXFP4 supervisor review | Revised setup completes and finds the lack of subprocess timeouts, but remains generic, internally inconsistent, and misses the material lifecycle risks | MXFP4 run: 41.7 s, one call; prior results inconsistent | Do not use as a gate |
+| gpt-oss-120b (Q4_K_M / MXFP4) | Supervisor reviews before and after revised configuration | MXFP4/Harmony run fixes prior truncation but remains a broad, speculative source review rather than an operational review | MXFP4 run: 7.2 min, one call; prior completed attempt 5.2 min | Do not use as a gate |
 | Qwen3.8-27B-UD-IQ3_S | Supervisor review | Found a real restart hazard, but promoted a false systemd claim to critical | 13.3 min | Require independent verification of every finding |
 | Qwen3-Coder-Next-Q4_K_M | Broken-code review | Incorrect conclusion and a fabricated claim | One external disruption; one short completed but wrong run | Avoid for review work |
 | North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | Sound-code review | Confirmed fabrication of specific test coverage | 3.0 min | Avoid for review work |
@@ -143,24 +143,53 @@ but should never bless a merge by itself.
 
 ### gpt-oss models
 
-The observations below predate the 2026-09-22 GPT-OSS configuration correction:
-the models previously inherited llama.cpp's generic sampling defaults and the
-embedded template's `medium` reasoning default. They are useful historical
-evidence, but are not a verdict on the newly configured `high`-effort Harmony
-setup; re-evaluate it before using either model as a review gate.
+The early observations used the F16 20B and Q4_K_M 120B files with inherited
+generic sampling and the embedded template's `medium` reasoning default. On
+2026-09-22 both were reconfigured to use the official ggml-org MXFP4 files,
+the embedded Harmony template with `reasoning-format=auto`, `high` reasoning
+effort, a 131K context, and OpenAI's full-distribution sampling settings
+(`temperature=1`, `top-p=1`, `top-k=0`, `min-p=0`, no repeat penalty). The
+following MXFP4 sessions therefore test the bundle of format, template,
+reasoning, and sampler changes rather than isolating the effect of MXFP4.
+They also used the supervisor after its move to another repository and a
+slightly shorter prompt; the target was materially the same, but this is not a
+blind, perfectly controlled comparison.
 
-`gpt-oss-20b-F16` has no dependable review pattern. Its ASL attempts were,
+`gpt-oss-20b-F16` had no dependable earlier pattern. Its ASL attempts were,
 respectively, an incorrect approval, no output, and a list of useful fixes
 without a pass/fail verdict. The sound-code review claimed activities such as
 tracing a call path without evidence, then collapsed the result into a blanket
-“no issues.” Its supervisor review was generic and made unnecessary secret
-permission recommendations. Fast decoding did not translate into reliable
-synthesis or evidence discipline.
+“no issues.” Its earlier supervisor review was generic and made unnecessary
+secret-permission recommendations.
 
-`gpt-oss-120b-Q4_K_M` is not rescued by its larger size in the available
-supervisor evidence. One attempt stopped after 384 characters; another
-delivered a generic review that missed the meaningful recovery and lifecycle
-risks. Neither model should be used as a code-review gate.
+The revised `gpt-oss-20b-MXFP4` session did complete cleanly in 41.7 seconds:
+after one successful `read_file` call it returned a structured 1,553-token
+report. It is an improvement in delivery, but not in review depth. It noted
+the absence of subprocess timeouts and the serial server, yet treated the
+latter as adequate and missed the render-before-every-operation recovery
+failure, stale file-bind-mounted socket after restart, inherited renderer
+environment, and configuration/documentation drift. Several recommendations
+were speculative or confused--for example, treating the intentionally
+single-line protocol as an arbitrary multi-line payload limitation, proposing
+streaming despite the stated bounded-result protocol, and saying no changes
+were recommended after listing five changes. It is still not a review gate.
+
+`gpt-oss-120b-Q4_K_M` previously either stopped after 384 characters or
+returned a generic supervisor review that missed the meaningful recovery and
+lifecycle risks. The new `gpt-oss-120b-MXFP4` run removes the truncation
+failure: after one `read_file` call it produced a complete, 3,023-token report
+in 7.2 minutes. That is a real operational improvement, but the extra length
+was mostly broad style and hypothetical-hardening advice. It noticed the
+single-threaded server but explicitly downplayed its consequence, and missed
+the same recovery, socket-inode, renderer-environment, and configuration-drift
+risks. Its secret-whitespace, socket-race, symlink, service-name, and
+multi-thread nonce suggestions were either contingent on designs the service
+does not use or did not establish a defect. This is more fluent than the old
+120B output, not materially more accurate as an in-depth code review.
+
+The corrected Harmony configuration is worth retaining because it produces
+complete answers and removes the earlier 120B truncation. It has not, on these
+two sessions, turned either gpt-oss model into a reliable code-review gate.
 
 ### Qwen3-Coder-Next-Q4_K_M and North-Mini-Code-1.0
 
