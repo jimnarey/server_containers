@@ -246,10 +246,9 @@ def discover_models() -> list[Model]:
     environment = os.environ.copy()
     environment["LLAMA_CPP_MODELS"] = str(MODEL_ROOT)
 
-    # The all-GPU service normally mounts the generated 32GB preset. During
-    # generation that destination may not exist yet; Docker would then create
-    # a directory at the intended file path for the bind mount. Give the
-    # disposable discovery container its own valid temporary preset instead.
+    # The all-GPU service normally mounts the tracked 32GB preset directly.
+    # Discovery needs its own valid temporary preset because it deliberately
+    # starts with --models-dir and must not alter the repository source file.
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
