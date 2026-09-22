@@ -7,5 +7,8 @@
   "private": true,
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "guarded-fetch": "0.1.4"
   }
 }

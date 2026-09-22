@@ -66,7 +66,7 @@ llm-pi-ai:
         - id: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M
           contextWindow: 131072
         - id: Qwen3.6-35B-A3B-Q4_K_M
-          contextWindow: 131072
+          contextWindow: 262144
         - id: Qwen3.5-35B-A3B-Q4_K_M
           contextWindow: 131072
         - id: Ornith-1.5-35B-Q4_K_M
@@ -91,7 +91,7 @@ llm-pi-ai:
         - id: DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M
           contextWindow: 163840
         - id: Qwen3.8-27B-UD-Q4_K_M
-          contextWindow: 131072
+          contextWindow: 196608
         - id: Qwen3.8-27B-UD-Q5_K_M
           contextWindow: 131072
         - id: Qwen3.8-27B-UD-Q6_K_M
@@ -179,6 +179,8 @@ llm-pi-ai:
         # load-tested.
         - id: Qwen3.6-27B-Q6_K
           contextWindow: 163840
+        - id: Qwen3.6-27B-Q4_K_M
+          contextWindow: 196608
     # These services mount the shared 16GB catalogue. It contains only models
     # whose one-card placement and context settings are selected for a 16 GiB
     # GPU. The all-GPU `llama-cpp` provider uses a separate 32GB catalogue for
@@ -210,6 +212,11 @@ llm-pi-ai:
         # (~1.7 GiB free).
         - id: Qwen3.8-27B-UD-Q3_K_XL
           contextWindow: 131072
+        # Full native-context validation: 256,086 prompt tokens plus a
+        # 64-token completion completed on GPU 1 without truncation.
+        - id: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          contextWindow: 262144
+          maxTokens: 12288
         # 2026-09-19: all four raised from 65536 to 131072 (128K), the
         # user's new preferred default -- real load test confirmed
         # Qwen3.6-35B-A3B/Qwen3.5-35B-A3B/Ornith-1.5-35B fit comfortably

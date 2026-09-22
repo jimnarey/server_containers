@@ -143,6 +143,12 @@ but should never bless a merge by itself.
 
 ### gpt-oss models
 
+The observations below predate the 2026-09-22 GPT-OSS configuration correction:
+the models previously inherited llama.cpp's generic sampling defaults and the
+embedded template's `medium` reasoning default. They are useful historical
+evidence, but are not a verdict on the newly configured `high`-effort Harmony
+setup; re-evaluate it before using either model as a review gate.
+
 `gpt-oss-20b-F16` has no dependable review pattern. Its ASL attempts were,
 respectively, an incorrect approval, no output, and a list of useful fixes
 without a pass/fail verdict. The sound-code review claimed activities such as

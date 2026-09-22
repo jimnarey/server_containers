@@ -67,7 +67,10 @@ RUN npm install --global --ignore-scripts \
 RUN mv /usr/local/bin/pi /usr/local/bin/pi-real
 COPY extensions/ /opt/pi-extensions/
 COPY bin/pi /usr/local/bin/pi
-RUN chmod 0444 /opt/pi-extensions/guarded-fetch.ts && \
+RUN cd /opt/pi-extensions && \
+    npm install --omit=dev --ignore-scripts && \
+    npm cache clean --force && \
+    chmod -R a-w /opt/pi-extensions && \
     chmod 0755 /usr/local/bin/pi
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | \

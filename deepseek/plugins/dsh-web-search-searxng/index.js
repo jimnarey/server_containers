@@ -4,11 +4,18 @@
  * has no vendor credentials and no model call in its search path.
  */
 
+import { readBodyAsText } from 'guarded-fetch';
+
 export const name = 'web-search-searxng';
 export const inject = ['web'];
 
 const PROVIDER_ID = 'searxng';
 const DEFAULT_BASE_URL = 'http://searxng:8080';
+// SearXNG is a trusted, fixed Compose-internal destination (no SSRF concern),
+// so only guarded-fetch's response-bounding helper is used here, not its
+// destination-validating fetch wrapper.
+const RESPONSE_TIMEOUT_MS = 15_000;
+const MAX_RESPONSE_BYTES = 1_048_576;
 
 function normaliseBaseUrl(value) {
   const baseUrl = new URL(value ?? DEFAULT_BASE_URL);
@@ -46,6 +53,7 @@ class SearxngSearchProvider {
     endpoint.searchParams.set('q', request.query);
     endpoint.searchParams.set('format', 'json');
 
+    const startedAt = Date.now();
     let response;
     try {
       response = await fetch(endpoint, {
@@ -60,9 +68,20 @@ class SearxngSearchProvider {
       throw new Error(`SearXNG search failed with HTTP ${response.status}`);
     }
 
+    let text;
+    try {
+      text = await readBodyAsText(response, {
+        deadlineAt: startedAt + RESPONSE_TIMEOUT_MS,
+        maxResponseBytes: MAX_RESPONSE_BYTES,
+        opaqueErrors: true,
+      });
+    } catch (error) {
+      throw new Error(`SearXNG response exceeded the configured limits: ${String(error)}`, { cause: error });
+    }
+
     let payload;
     try {
-      payload = await response.json();
+      payload = JSON.parse(text);
     } catch (error) {
       throw new Error(`SearXNG returned invalid JSON: ${String(error)}`, { cause: error });
     }
