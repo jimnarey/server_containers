@@ -36,6 +36,7 @@ orphaned. Those do not measure model capability.
 | Qwen3.8-Flash-Next-UD-Q3_K_XL | Two excellent broken-code reviews; deepest supervisor review | Highest demonstrated defect-finding depth, with well-supported operational analysis | Very slow: complete ASL reviews took about 205--209 min; supervisor review 162 min | Independent merge-gate or second-pass reviewer, with a long time budget |
 | Qwen3.6-35B-A3B-Q4_K_M | Sound-code review | Best fast, evidence-led review; found 3/4 known minor issues without fabrication | 3.6 min, 17 calls | First-pass reviewer; pair with a deeper reviewer on risky changes |
 | Qwen3.8-27B-UD-Q6_K_M | Broken-code review | Careful live verification; found the first 5 known ASL defects, but missed the later 5 | One useful run took 192 min; one external transport failure | Deep investigation when Flash Next is unavailable, not a complete gate alone |
+| Devstral-Small-2-24B-Instruct-2512-Q6_K | Supervisor review | Completed quickly but delivered a generic approval and missed every established material risk | 1.6 min, 10 calls | Do not use for in-depth review without materially better prompting or evidence |
 | Ornith-1.5-35B-A3B-Q4_K_M | Supervisor review | Coherent moderate-depth analysis, but missed important lifecycle risks | 5.7 min | Fast triage only |
 | NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0 | Broken and sound-code reviews | Some useful observations, but wrong or self-contradictory verdicts and one off-spec review | Fast; one failure was a known DSH configuration bug | Triage only; never sole approver |
 | Laguna-XS-2.1-Q4_K_M-Expert-Offload | Sound-code review | Correct safe-code conclusion, but no independent defects despite 65 calls | 12.9 min, high exploration cost | Low-value corroboration only |
@@ -107,6 +108,24 @@ renderer writing to `/tmp`, overlooking the unit's `PrivateTmp=true`. Private
 `/tmp` is writable in that combination. This is a clear case where a real
 observation does not compensate for a false critical conclusion; independently
 verify its findings before acting on them.
+
+### Devstral-Small-2-24B-Instruct-2512-Q6_K
+
+Devstral completed the supervisor review cleanly in 96.6 seconds after ten
+successful tool calls: it located the directory, then read the README, design,
+supervisor, client, installer, unit, and example environment. This distinguishes
+the result from Ling's missing-final-turn problem; the endpoint and tool loop
+worked, and the model had the relevant source in context.
+
+The resulting 455-token report was nevertheless almost entirely generic
+approval. It praised the socket/HMAC boundary, bounded Compose actions, and
+systemd hardening, then proposed generic logging, event, and health-check
+improvements. It did not identify the render-before-every-operation recovery
+failure, stale file-bind-mounted socket after restart, serial unbounded control
+handling, inherited renderer environment, or configuration/documentation drift.
+It also offered no commands, line-level evidence, or attempt to test its
+positive assertions. For this target it is a fast surface summary, not a code
+review; its successful tool use must not be mistaken for substantive analysis.
 
 ### NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
 
