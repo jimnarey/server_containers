@@ -29,6 +29,8 @@ MODELS_TARGET = "/models"
 UPSTREAM_PRESET_TARGET = "/models-preset.ini"
 FORK_CONFIG_TARGET = "/etc/llama.cpp/config.ini"
 FORK_PRESET_TARGET = "/etc/llama.cpp/models-preset.ini"
+CHAT_TEMPLATES_DIRECTORY = LLAMA_DIRECTORY / "config" / "chat-templates"
+CHAT_TEMPLATES_TARGET = "/opt/llama-cpp/chat-templates"
 GPU_LOCK_MOUNT = "llama-gpu-locks:/var/lock/llama-gpu"
 SERVER_HOST_PORT_ARGS = ("--host", "0.0.0.0", "--port", "8080")
 COMMON_SERVER_ARGS = ("--models-max", "1", "--models-autoload", *SERVER_HOST_PORT_ARGS)
@@ -419,7 +421,10 @@ def render(profile: Profile) -> str:
         environment["NCCL_CUMEM_ENABLE"] = profile.nccl_cumem_enable
     service["environment"] = environment
 
-    volumes = [f"{profile.models_dir}:{MODELS_TARGET}:ro"]
+    volumes = [
+        f"{profile.models_dir}:{MODELS_TARGET}:ro",
+        f"{CHAT_TEMPLATES_DIRECTORY}:{CHAT_TEMPLATES_TARGET}:ro",
+    ]
     if template.requires_config:
         assert template.config_target is not None
         volumes.extend((

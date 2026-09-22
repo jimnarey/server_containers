@@ -99,6 +99,7 @@ services:
     volumes:
       - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - ${LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-32gb/models-preset.ini}:/models-preset.ini:ro
+      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - llama-gpu-locks:/var/lock/llama-gpu
     command:
       - --models-preset
@@ -151,6 +152,7 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
+      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - ${GS_LLAMA_CPP_16GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
@@ -189,6 +191,7 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
+      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - ${GS_LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:
@@ -227,6 +230,7 @@ services:
     volumes:
       - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
       - llama-gpu-locks:/var/lock/llama-gpu
+      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-./llama-cpp/config/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
       - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-./llama-cpp/config/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
     command:

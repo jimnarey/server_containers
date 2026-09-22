@@ -108,7 +108,23 @@ Compose service.
 All model presets and fork `config.ini` files are mounted read-only directly
 from `llama-cpp/config/`. There is no runtime copy to synchronise. Edit the
 tracked source, validate the rendered profile, and recreate the affected
-service for a change to take effect.
+service for a change to take effect. The renderer also mounts
+`config/chat-templates/` read-only at `/opt/llama-cpp/chat-templates`.
+Use a per-model `chat-template-file` only when the GGUF's embedded template
+has a demonstrated compatibility fault. Vendor the publisher's template at a
+specific upstream revision, record that revision in the preset comment, and
+do not substitute a generic family template: tool-call syntax is model
+specific.
+
+`devstral-small-2-24b-instruct-2512.jinja` is Mistral's template from
+`55c5b41e98c2dbd21b0c8afffc540dcfc9eb5128`. It corrects the embedded GGUF
+template's rejection of valid assistant-tool-result-user sequences used by
+agent clients. The override is applied to every declared 2512 Devstral quant
+in the upstream 32GB and CPU presets; it intentionally does not cover the
+older `Devstral-Small-2505` family.
+
+See [chat-template-audit.md](chat-template-audit.md) for the evidence and
+follow-up priority across the models evaluated for coding quality and review.
 
 `llama-cpp-all-gpus` retains the `llama-cpp` network alias, preserving the
 existing DeepSeek and Pi endpoint `http://llama-cpp:8080/v1` when that profile
