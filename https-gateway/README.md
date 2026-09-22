@@ -24,6 +24,13 @@ DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
 DESKTOP_XFCE_GATEWAY_HOSTNAME=xfce.ai.home.arpa
 ```
 
+The Compose host environment must also provide `HOSTNAME`, normally supplied
+by the operating system. The gateway passes that machine hostname into Caddy
+and derives its local CA name from it. For example, a host named `ai` creates
+the `Caddy ai Local Authority` CA. This makes roots from different gateway
+machines distinguishable in Chrome/NSS even though they are all Caddy internal
+CAs. Do not set `HOSTNAME` to a Docker container ID or an ephemeral value.
+
 Use [`lan-dns/README.md`](../lan-dns/README.md) to configure the included
 resolver. It returns the gateway address for every `*.ai.home.arpa` name, so
 new services do not need separate router DNS records. `deepseek.ai.home.arpa`
@@ -55,6 +62,36 @@ An internal CA is not automatically trusted by other computers.  Install the
 CA *root certificate* on each browser/client that will access this gateway.
 Do not install a leaf certificate from a browser warning page.
 
+### Temporary client download
+
+For a short, one-client transfer from the gateway host, first extract the root
+as below, then run the standard-library HTTP exporter:
+
+```sh
+python3 serve-root-cert.py ./caddy-ai-local-root.crt \
+  --port 8080
+```
+
+It exposes only `GET /root.crt`, prints the SHA-256 fingerprint, and exits
+after one successful download. It also prints a one-line Bash/Zsh command that
+downloads `install-root-cert.py` from this repository's GitHub `master` branch
+and invokes it with the detected gateway endpoint and exact fingerprint. The
+server detects its routed `192.168.*.*` address and uses it both for listening
+and in that command. Pass `--address 192.168.x.y` to override detection. Send
+that command, or at least the fingerprint, to the client through a trusted
+channel. Use `--installer-url` when testing an unpublished branch or another
+repository fork.
+
+The installer updates the Debian/Ubuntu system trust bundle and both legacy
+and current Chrome/Chromium NSS database locations. It creates or replaces
+only a fingerprint-derived NSS nickname, leaving unrelated certificates in
+place. Fully restart Chrome after it completes. If `certutil` is absent,
+install `libnss3-tools` first.
+
+The root CA certificate is public, but HTTP does not authenticate its content.
+Always provide `--sha256` from a trusted channel; without it, the installer
+requires an interactive confirmation of the displayed fingerprint.
+
 After the gateway has started, extract Caddy's root certificate from the
 container:
 
@@ -63,6 +100,13 @@ docker compose cp \
   https-gateway:/data/caddy/pki/authorities/local/root.crt \
   ./caddy-HOST-local-root.crt
 ```
+
+The CA keypair is persisted in the gateway's Docker volume. Therefore, after
+changing the CA name, perform an explicit, controlled CA rotation on the
+gateway host so Caddy creates a root and leaf/intermediate chain with the new
+name. Extract and install that new root after the rotation; keep the prior
+root trusted until every client has been migrated. Do not delete the gateway
+CA data volume until the replacement root has been distributed.
 
 Keep the resulting file private enough to avoid accidental replacement, but it
 is the public CA certificate: the sensitive CA private key remains in the
