@@ -163,7 +163,7 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | Qwen3.8-27B-UD-IQ3_S | `llama-cpp-gpu-1` (dense, single physical GPU)⁷ | 14.5 GiB | not exposed | baseline only | idle | -- | 30.64 tok/s cold, 30.69 tok/s warm | 65,088-token prompt: -- / 20.95 tok/s (ctx=65536) |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 9.6 GiB | 9.7 GiB | baseline only | idle | 236.89 tok/s (cold) | 45.53 tok/s cold, 45.63 tok/s warm | 8,256-token prompt: 689.15 / 43.99 tok/s⁵ |
 | Qwen3.8-27B-UD-Q3_K_XL | `llama-cpp-gpu-1` (dense, single physical GPU)⁷ | 14.3 GiB | not exposed | baseline only | idle | -- | 28.92 tok/s cold, 28.91 tok/s warm | 65,024-token prompt: -- / 20.48 tok/s (ctx=65536) |
-| Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 10.6 GiB (97-98% util) | 10.6 GiB (97% util) | baseline only | idle | 68.13 tok/s | 39.11-40.62 tok/s | 8,256-token prompt: 685.43 / 38.66 tok/s⁵ |
+| Qwen3.8-27B-UD-Q4_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 10.6 GiB | 10.6 GiB | baseline only | idle | 68.13 tok/s | 39.11-40.62 tok/s | 8,256-token prompt: 685.43 / 38.66 tok/s⁵ |
 | Qwen3.8-27B-UD-Q5_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 12.0 GiB | 12.0 GiB | baseline only | idle | -- | 34.92 tok/s cold, 34.94 tok/s warm | 8,256-token prompt: 666.90 / 33.95 tok/s⁵ |
 | Qwen3.8-27B-UD-Q6_K_M | `llama-cpp-all-gpus` (dense, tensor-split) | 14.3 GiB | 14.3 GiB | baseline only | idle | 184.80 tok/s | 30.16-31.05 tok/s | 8,286-token prompt: 641.50 / 30.21 tok/s⁵ |
 | Qwen3.8-Flash-Next-UD-Q3_K_XL | 16GB schwerz, physical GPU 0 | 13.0 GiB | not exposed | baseline only | idle | -- | 6.34 tok/s cold, 6.60 tok/s warm |
@@ -200,6 +200,16 @@ real, at different depths.
 completion; input target = configured context / 8, clamped to 4,096--8,192
 tokens. Each cell reports actual prompt tokens, then prefill / decode. This
 is a comparable 4K/8K point, not a maximum-context result.
+
+Full-context validation (2026-09-22), using a real repeated-token prompt
+and a 64-token completion: `Qwen3.8-27B-UD-Q4_K_M` completed 192,105 prompt
+tokens at 519.36 tok/s; `Qwen3.6-35B-A3B-Q4_K_M` completed 256,066 at
+1,943.83 tok/s; and the new `Qwen3.6-27B-Q4_K_M` completed 192,065 at
+514.21 tok/s. All three generated the requested completion without
+truncation. The first two were temporary capacity tests, not changes to
+their deployed preset contexts. For the new dense Q4, allocation testing
+also passed at 229,376 but left only about 0.6 GiB per GPU, and 262,144
+failed to load; its deployed setting is therefore the conservative 196,608.
 
 ⁶ The 500 response is the router's presentation of the existing CUDA-OOM
 load failure; the entry uses `ctx-size=65536`, `n-gpu-layers=all`, and
