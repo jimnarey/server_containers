@@ -70,7 +70,11 @@ RUN npm install --global \
 # providers are local: SearXNG search and a guarded-fetch adapter for fetch.
 COPY plugins/dsh-web-search-searxng /opt/dsh-web-search-searxng
 COPY plugins/dsh-web-fetch-guarded /opt/dsh-web-fetch-guarded
-RUN npm install --omit=dev \
+# Local-directory installs below are symlinks back to /opt. Install the search
+# plugin's locked runtime dependencies at that physical path so Node resolves
+# its bare `guarded-fetch` import after following the symlink.
+RUN npm ci --omit=dev --prefix /opt/dsh-web-search-searxng && \
+    npm install --omit=dev \
         --prefix /usr/local/lib/node_modules/@deepseek-ai/dsh \
         /opt/dsh-web-search-searxng \
         /opt/dsh-web-fetch-guarded && \
