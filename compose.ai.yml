@@ -88,9 +88,9 @@ services:
         LLAMA_SOURCE_NAME: ggml-org-llama-cpp
         LLAMA_SERVICE_NAME: llama-cpp
         LLAMA_BRANCH: master
-        LLAMA_COMMIT: eafe15a5e3d87dd68ae33acf6a7cbd9415a0ac5e
+        LLAMA_COMMIT: e6ab7c1a41054a888ada952eab4c886444c2f5ad
         LLAMA_CUDA: "ON"
-    image: llama-cpp:upstream-eafe15a5-cuda
+    image: llama-cpp:upstream-e6ab7c1-cuda
     container_name: llama-cpp-c
     restart: "no"
     environment:
@@ -98,23 +98,21 @@ services:
       NCCL_CUMEM_ENABLE: "0"
     volumes:
       - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-32gb/models-preset.ini}:/models-preset.ini:ro
+      - ${LLAMA_CPP_UNIFIED_CONFIG:-./llama-cpp/config/unified/models-preset.ini}:/models-preset.ini:ro
       - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - llama-gpu-locks:/var/lock/llama-gpu
     command:
       - --models-preset
       - /models-preset.ini
       - --models-max
-      - "1"
-      - --models-autoload
+      - ${LLAMA_CPP_UNIFIED_MODELS_MAX:-3}
+      - --no-models-autoload
       - --host
       - 0.0.0.0
       - --port
       - "8080"
       - --parallel
       - ${LLAMA_CPP_PARALLEL:-1}
-      - --n-gpu-layers
-      - all
       - --flash-attn
       - on
       - --fit
