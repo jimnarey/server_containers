@@ -6,8 +6,9 @@ Caddy basic-auth proxy. It uses the NVIDIA GPU and does not need VNC.
 ## Configure and start
 
 Copy the ComfyUI settings from `.env_template` into `.env` if you want to
-override their defaults. In particular, set `COMFYUI_BIND_ADDRESS` to an IP
-assigned to the host. The existing `CADDY_HASH` controls the web password.
+override their defaults. Set `COMFYUI_GATEWAY_HOSTNAME` if you do not want to
+use `comfyui.ai.home.arpa`. The existing `CADDY_HASH` controls the web
+password.
 
 Create the bind-mount directories as UID/GID 1000, then build and start the
 service:
@@ -21,12 +22,14 @@ sudo install -d -o 1000 -g 1000 \
   /mnt/work/comfyui/custom_nodes
 
 docker compose build comfyui
-docker compose up -d comfyui
+docker compose up -d https-gateway comfyui
 ```
 
-Open `http://<COMFYUI_BIND_ADDRESS>:<COMFYUI_PORT>` (port 9034 by default) and
-sign in with the Caddy credentials. ComfyUI itself only listens on loopback
-inside the container, so it is not exposed without the authenticated proxy.
+Open `https://<COMFYUI_GATEWAY_HOSTNAME>` and sign in with the Caddy
+credentials. The HTTPS gateway terminates TLS and sends traffic to ComfyUI's
+private Caddy proxy, which performs Basic Auth before forwarding to the
+loopback-only application. LAN clients must trust the gateway's local Caddy
+CA as described in the repository README.
 
 ## Persistent data
 
@@ -54,10 +57,10 @@ Manager configuration through an insufficiently protected user-data path. The
 fix requires ComfyUI 0.3.76 or later and Manager 3.38 or later; this image uses
 ComfyUI 0.29.2 and Manager 4.2.2.
 
-ComfyUI listens only on `127.0.0.1` inside the container. LAN access passes
-through Caddy basic authentication on port 8081. Do not publish ComfyUI's
-internal port 8080 or remove the proxy authentication when exposing the
-service beyond the host.
+ComfyUI listens only on `127.0.0.1` inside the container. Its Caddy proxy
+also remains on a private Compose network: LAN access passes through the HTTPS
+gateway and then Caddy Basic Auth. Do not publish ComfyUI's internal port 8080
+or its Caddy port 8081, or remove proxy authentication when exposing the service.
 
 Custom nodes are executable Python code, not passive workflow data. A custom
 node can read or modify every writable path available to ComfyUI, install
@@ -103,7 +106,8 @@ The default dynamic VRAM/offload behaviour is a safer starting point.
 docker compose ps comfyui
 docker compose logs -f comfyui
 docker compose exec comfyui nvidia-smi
-curl -u admin:<password> http://<COMFYUI_BIND_ADDRESS>:9034/system_stats
+curl --cacert /path/to/caddy-root-ca.crt -u admin:<password> \
+  https://<COMFYUI_GATEWAY_HOSTNAME>/system_stats
 ```
 
 The image pins ComfyUI and the PyTorch CUDA wheels through `.env`. To upgrade,

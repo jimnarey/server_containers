@@ -19,6 +19,7 @@ services:
       HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.ai.home.arpa}
       DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}
       DESKTOP_XFCE_GATEWAY_HOSTNAME: ${DESKTOP_XFCE_GATEWAY_HOSTNAME:-xfce.ai.home.arpa}
+      COMFYUI_GATEWAY_HOSTNAME: ${COMFYUI_GATEWAY_HOSTNAME:-comfyui.ai.home.arpa}
     volumes:
       - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
       - /etc/hostname:/run/host-hostname:ro

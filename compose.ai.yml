@@ -106,7 +106,9 @@ services:
       - /models-preset.ini
       - --models-max
       - ${LLAMA_CPP_UNIFIED_MODELS_MAX:-3}
-      - --no-models-autoload
+      # The broker loads models explicitly. Until it is deployed, .env sets
+      # LLAMA_CPP_AUTOLOAD=--models-autoload and LLAMA_CPP_UNIFIED_MODELS_MAX=1.
+      - ${LLAMA_CPP_AUTOLOAD:---no-models-autoload}
       - --host
       - 0.0.0.0
       - --port
@@ -121,13 +123,16 @@ services:
       - ${LLAMA_CPP_FIT_TARGET:-1024}
       - --no-webui
       - --metrics
-    gpus: all
+    gpus:
+      - driver: nvidia
+        device_ids: ["0", "1"]
+        capabilities: [gpu]
     networks:
       default:
         aliases:
           - llama-cpp
     ports:
-      - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11436}:8080"
+      - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11450}:8080"
 
   llama-cpp-generel-schwerz-16gb:
     build:
@@ -393,9 +398,15 @@ services:
       - ${COMFYUI_OUTPUT:-/mnt/data/generation/output}:/data/output
       - ${COMFYUI_USER:-/mnt/work/comfyui/user}:/data/user
       - ${COMFYUI_CUSTOM_NODES:-/mnt/work/comfyui/custom_nodes}:/opt/ComfyUI/custom_nodes
-    ports:
-      - "${COMFYUI_BIND_ADDRESS:-192.168.50.136}:${COMFYUI_PORT:-9034}:8081"
-    gpus: all
+    # ComfyUI's authenticated Caddy proxy is reachable only through the
+    # internal HTTPS gateway network; do not publish it on a host port.
+    networks:
+      - default
+      - https-gateway
+    gpus:
+      - driver: nvidia
+        device_ids: ["0"]
+        capabilities: [gpu]
     shm_size: "2gb"
     stop_grace_period: 30s
     healthcheck:

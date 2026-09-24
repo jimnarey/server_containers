@@ -26,6 +26,11 @@ https://{$DEEPSEEK_GATEWAY_HOSTNAME} {
 	reverse_proxy deepseek:8081
 }
 
+https://{$COMFYUI_GATEWAY_HOSTNAME} {
+	tls internal
+	reverse_proxy comfyui:8081
+}
+
 # desktop-xfce retains its own Caddy Basic Auth. This gateway provides only
 # the TLS certificate and service-name routing.
 https://{$DESKTOP_XFCE_GATEWAY_HOSTNAME} {

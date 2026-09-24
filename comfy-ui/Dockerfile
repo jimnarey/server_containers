@@ -51,6 +51,7 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
 
 COPY --chown=runuser:runuser extra_model_paths.yaml /opt/ComfyUI/extra_model_paths.yaml
 COPY --chown=runuser:runuser start-comfyui.sh /usr/local/bin/start-comfyui
+COPY Caddyfile /etc/Caddyfile
 RUN chmod 755 /usr/local/bin/start-comfyui
 
 EXPOSE 8081
