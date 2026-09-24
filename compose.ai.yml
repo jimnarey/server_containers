@@ -320,6 +320,16 @@ services:
       PRE_COMMIT_HOME: /tmp/pre-commit-home
       UV_PYTHON_INSTALL_DIR: /home/runuser/.local/share/uv/python
       UV_PYTHON_PREFERENCE: managed
+      # 2026-09-24: /workspace is a bind mount of the host's project tree, and a
+      # uv venv records absolute interpreter and project paths (the container
+      # uses /usr/bin/python3.12 and /workspace/..., the host a uv-managed
+      # Python and /mnt/work/projects/...). With the default .venv, host and
+      # container `uv run` each saw the other's venv as broken ("linked to
+      # non-existent Python interpreter"), deleted it and rebuilt it (~250 MB
+      # download). A relative value resolves per project root, so every
+      # project under /workspace gets its own .venv-container here and the
+      # host's .venv is never touched. Projects should gitignore .venv-container/.
+      UV_PROJECT_ENVIRONMENT: .venv-container
       # DeepSeek's in-container Caddy owns its Basic Auth, matching the
       # browser/VNC containers rather than delegating authentication upstream.
       CADDY_USER: ${CADDY_USER:-admin}

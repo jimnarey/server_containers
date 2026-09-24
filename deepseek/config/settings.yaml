@@ -60,9 +60,9 @@ llm-pi-ai:
         - id: qwen2.5-coder-7b-instruct-q4_k_m--cuda1
           contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q4_k_m--cuda0
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-14b-instruct-q4_k_m--cuda1
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-7b-instruct-q8_0--cuda0
           contextWindow: 131072
         - id: qwen2.5-coder-7b-instruct-q8_0--cuda1
@@ -70,15 +70,15 @@ llm-pi-ai:
         - id: qwen2.5-coder-7b-instruct-q8_0--cuda0-cuda1
           contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q5_k_m--cuda0
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-14b-instruct-q5_k_m--cuda1
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-14b-instruct-q5_k_m--cuda0-cuda1
           contextWindow: 131072
         - id: qwen2.5-coder-14b-instruct-q6_k--cuda0
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-14b-instruct-q6_k--cuda1
-          contextWindow: 131072
+          contextWindow: 32768
         - id: qwen2.5-coder-14b-instruct-q6_k--cuda0-cuda1
           contextWindow: 131072
         - id: gemma-3n-E2B-it-Q4_K_M--cuda0
@@ -152,13 +152,13 @@ llm-pi-ai:
         - id: gpt-oss-20b-MXFP4--cuda0-cuda1
           contextWindow: 131072
         - id: Qwen3.8-27B-UD-IQ3_S--cuda0
-          contextWindow: 98304
+          contextWindow: 65536
           reasoning: true
           thinkingLevelMap:
             off: low
             minimal: low
         - id: Qwen3.8-27B-UD-IQ3_S--cuda1
-          contextWindow: 98304
+          contextWindow: 65536
           reasoning: true
           thinkingLevelMap:
             off: low
@@ -170,13 +170,13 @@ llm-pi-ai:
             off: low
             minimal: low
         - id: Qwen3.8-27B-UD-Q3_K_XL--cuda0
-          contextWindow: 131072
+          contextWindow: 65536
           reasoning: true
           thinkingLevelMap:
             off: low
             minimal: low
         - id: Qwen3.8-27B-UD-Q3_K_XL--cuda1
-          contextWindow: 131072
+          contextWindow: 65536
           reasoning: true
           thinkingLevelMap:
             off: low
