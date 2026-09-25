@@ -25,6 +25,8 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Runtime dependencies for the version-pinned custom nodes in the configuration
+# repository. OpenCV uses its headless wheel because ComfyUI runs server-side.
 RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
         https://github.com/Comfy-Org/ComfyUI.git /opt/ComfyUI && \
     python3 -m venv "${VIRTUAL_ENV}" && \
@@ -36,6 +38,32 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
         --index-url "${PYTORCH_INDEX_URL}" && \
     pip install -r /opt/ComfyUI/requirements.txt && \
     pip install -r /opt/ComfyUI/manager_requirements.txt && \
+    pip install \
+        opencv-python-headless \
+        "trimesh==4.4.1" \
+        matplotlib \
+        "jaxtyping==0.2.31" \
+        "einops==0.7.0" \
+        "omegaconf==2.3.0" \
+        "transformers==4.42.3" \
+        "open_clip_torch==2.24.0" \
+        "huggingface-hub==0.23.4" \
+        "rembg[gpu]==2.0.57" \
+        "pynanoinstantmeshes==0.0.3" \
+        "gpytoolbox==0.3.7" \
+        "numpy==1.26.4" \
+        scipy \
+        scikit-image \
+        python-dateutil \
+        "mediapipe>=0.8.0" \
+        fvcore \
+        yapf \
+        ftfy \
+        addict \
+        yacs \
+        albumentations \
+        scikit-learn \
+        onnxruntime-gpu && \
     pip check && \
     mkdir -p \
         /models \
@@ -48,6 +76,24 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
         "${VIRTUAL_ENV}" \
         /data \
         /opt/ComfyUI/custom_nodes
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ninja-build \
+        python3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG STABLE_FAST_3D_COMMIT=ff21fc491b4dc5314bf6734c7c0dabd86b5f5bb2
+RUN git init /tmp/stable-fast-3d && \
+    git -C /tmp/stable-fast-3d remote add origin https://github.com/Stability-AI/stable-fast-3d.git && \
+    git -C /tmp/stable-fast-3d fetch --depth 1 origin "${STABLE_FAST_3D_COMMIT}" && \
+    git -C /tmp/stable-fast-3d checkout --detach FETCH_HEAD && \
+    USE_CUDA=0 MAX_JOBS=2 pip install --no-build-isolation --no-deps \
+        /tmp/stable-fast-3d/uv_unwrapper \
+        /tmp/stable-fast-3d/texture_baker && \
+    rm -rf /tmp/stable-fast-3d
 
 COPY --chown=runuser:runuser extra_model_paths.yaml /opt/ComfyUI/extra_model_paths.yaml
 COPY --chown=runuser:runuser start-comfyui.sh /usr/local/bin/start-comfyui
