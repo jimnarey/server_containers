@@ -14,6 +14,7 @@ exec /opt/comfyui-venv/bin/python /opt/ComfyUI/main.py \
     --output-directory /data/output \
     --temp-directory /data \
     --user-directory /data/user \
+    --database-url sqlite:////data/user/comfyui.db \
     --enable-manager \
     --log-stdout \
     ${COMFYUI_EXTRA_ARGS:-}

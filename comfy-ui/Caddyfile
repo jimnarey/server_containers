@@ -3,6 +3,19 @@
 # before proxying to the loopback-only ComfyUI server.
 :8081 {
     log
+
+    # ComfyUI rejects any request with Sec-Fetch-Site: cross-site. Browsers
+    # send that for a top-level page load reached from a link on another site
+    # (and keep it on reload), which would 403 the UI itself. Rewrite it only
+    # for such page loads; API calls, WebSockets and POSTs keep their real
+    # value so ComfyUI's cross-site CSRF guard still applies to them.
+    @page_load {
+        method GET
+        header Sec-Fetch-Mode navigate
+        header Sec-Fetch-Dest document
+    }
+    request_header @page_load Sec-Fetch-Site none
+
     reverse_proxy 127.0.0.1:8080
     basicauth /* {
         {env.CADDY_USER} {env.CADDY_HASH}

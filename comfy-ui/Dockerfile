@@ -77,6 +77,11 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
         /data \
         /opt/ComfyUI/custom_nodes
 
+# rembg[gpu] installs both onnxruntime and onnxruntime-gpu. They contain the
+# same import files, so reinstall the GPU wheel last or the CPU provider wins.
+RUN pip install --force-reinstall --no-deps "onnxruntime-gpu==1.30.0" && \
+    pip check
+
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
         build-essential \
