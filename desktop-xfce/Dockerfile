@@ -44,6 +44,41 @@ RUN mkdir -p /etc/apt/keyrings && \
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && \
     uv --version
 
+# Blender from the official release tarball (Ubuntu 24.04's apt package is 4.0).
+# Pinned to an LTS point release and verified against the checksum published at
+# https://download.blender.org/release/Blender5.2/blender-5.2.2.sha256
+ARG BLENDER_VERSION=5.2.2
+ARG BLENDER_SHA256=84098912789dc450e95697c4184fb8a90acbe5111c2ba4aede3fecb57806a168
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libdecor-0-0 \
+        libegl1 \
+        libfontconfig1 \
+        libgl1 \
+        libgl1-mesa-dri \
+        libice6 \
+        libsm6 \
+        libwayland-client0 \
+        libwayland-cursor0 \
+        libwayland-egl1 \
+        libx11-6 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxkbcommon0 \
+        libxrender1 \
+        libxxf86vm1 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL -o /tmp/blender.tar.xz \
+        "https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" && \
+    echo "${BLENDER_SHA256}  /tmp/blender.tar.xz" | sha256sum -c - && \
+    mkdir -p /opt/blender && \
+    tar -xJf /tmp/blender.tar.xz -C /opt/blender --strip-components=1 && \
+    rm /tmp/blender.tar.xz && \
+    ln -s /opt/blender/blender /usr/local/bin/blender && \
+    install -Dm644 /opt/blender/blender.desktop /usr/share/applications/blender.desktop && \
+    install -Dm644 /opt/blender/blender.svg /usr/share/icons/hicolor/scalable/apps/blender.svg && \
+    blender --version
+
 RUN echo 'runuser ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/runuser && \
     chmod 0440 /etc/sudoers.d/runuser && \
     visudo -cf /etc/sudoers.d/runuser

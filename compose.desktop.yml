@@ -18,6 +18,12 @@ services:
     networks:
       - default
       - https-gateway
+    # GPU 0 (shared with comfyui) for Blender's Cycles renderer. "graphics" is
+    # needed for OptiX; the desktop itself is still Xtigervnc software OpenGL.
+    gpus:
+      - driver: nvidia
+        device_ids: ["0"]
+        capabilities: [gpu, compute, utility, graphics]
     <<: *defaults
     container_name: desktop-xfce-c
 
