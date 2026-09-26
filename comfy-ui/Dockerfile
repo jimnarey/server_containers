@@ -1,6 +1,6 @@
 FROM base-ubuntu-caddy-24:latest
 
-ARG COMFYUI_VERSION=v0.29.2
+ARG COMFYUI_VERSION=v0.37.0
 ARG TORCH_VERSION=2.11.0
 ARG TORCHVISION_VERSION=0.26.0
 ARG TORCHAUDIO_VERSION=2.11.0
@@ -41,6 +41,7 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 \
     pip install \
         opencv-python-headless \
         "trimesh==4.4.1" \
+        "pymeshfix==0.18.1" \
         matplotlib \
         "jaxtyping==0.2.31" \
         "einops==0.7.0" \

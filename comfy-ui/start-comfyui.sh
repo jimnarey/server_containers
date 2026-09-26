@@ -16,5 +16,6 @@ exec /opt/comfyui-venv/bin/python /opt/ComfyUI/main.py \
     --user-directory /data/user \
     --database-url sqlite:////data/user/comfyui.db \
     --enable-manager \
+    --enable-assets \
     --log-stdout \
     ${COMFYUI_EXTRA_ARGS:-}
