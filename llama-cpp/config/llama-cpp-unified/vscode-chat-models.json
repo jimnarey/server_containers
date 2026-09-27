@@ -117,6 +117,10 @@
     {"id": "gemma-3n-E4B-it-Q4_K_M--cpu", "name": "gemma-3n-E4B-it-Q4_K_M--cpu", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 24576, "maxOutputTokens": 8192},
     {"id": "NVIDIA-Nemotron-3-Nano-4B-Q4_K_M--cpu", "name": "NVIDIA-Nemotron-3-Nano-4B-Q4_K_M--cpu", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 57344, "maxOutputTokens": 8192},
     {"id": "Qwen3.5-9B-Q4_K_M--cpu", "name": "Qwen3.5-9B-Q4_K_M--cpu", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 57344, "maxOutputTokens": 8192},
-    {"id": "Ornith-1.5-9B-Q4_K_M--cpu", "name": "Ornith-1.5-9B-Q4_K_M--cpu", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 57344, "maxOutputTokens": 8192}
+    {"id": "Ornith-1.5-9B-Q4_K_M--cpu", "name": "Ornith-1.5-9B-Q4_K_M--cpu", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 57344, "maxOutputTokens": 8192},
+    {"id": "Qwen3.8-27B-Uncensored-Q4_K_M--cuda0-cuda1", "name": "Qwen3.8-27B-Uncensored-Q4_K_M--cuda0-cuda1", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 122880, "maxOutputTokens": 8192},
+    {"id": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda0-cuda1", "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda0-cuda1", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 253952, "maxOutputTokens": 8192},
+    {"id": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda0", "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda0", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 122880, "maxOutputTokens": 8192},
+    {"id": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda1", "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda1", "url": "http://192.168.50.136:11450/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 122880, "maxOutputTokens": 8192}
   ]
 }
