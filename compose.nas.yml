@@ -7,6 +7,35 @@ x-defaults: &defaults
 
 services:
 
+
+  samba:
+    build: ./samba
+    image: samba:latest
+    profiles: ["smb"]
+    environment:
+      USERID: "1000"
+      GROUPID: "1000"
+      SMB_USERNAME: ${SMB_USERNAME:-nas}
+      SMB_PASSWORD: ${SMB_PASSWORD:-}
+      SMB_PASSWORD_FILE: ${SMB_PASSWORD_FILE:-}
+      SMB_VERSION: ${SMB_VERSION:-3}
+      SMB_MIN_PROTOCOL: ${SMB_MIN_PROTOCOL:-}
+      SMB_MAX_PROTOCOL: ${SMB_MAX_PROTOCOL:-}
+      SMB_WORKGROUP: ${SMB_WORKGROUP:-WORKGROUP}
+      SMB_NETBIOS_NAME: ${SMB_NETBIOS_NAME:-nas-mini}
+      SMB_SHARE_NAME: ${SMB_SHARE_NAME:-mounts}
+      SMB_SHARE_COMMENT: ${SMB_SHARE_COMMENT:-NAS Mounts}
+      SMB_BROWSEABLE: ${SMB_BROWSEABLE:-yes}
+      SMB_WIDE_LINKS: ${SMB_WIDE_LINKS:-yes}
+    volumes:
+      - /mnt:/mnt
+    ports:
+      - "445:445"
+      - "139:139"
+      - "137:137/udp"
+      - "138:138/udp"
+    container_name: samba-c
+
   meganz:
     build: ./meganz
     image: meganz:latest
