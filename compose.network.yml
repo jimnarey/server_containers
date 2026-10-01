@@ -55,21 +55,41 @@ services:
     networks:
       - lan-dns-ingress
 
+  # HTTP proxy whose traffic leaves through ExpressVPN (OpenVPN via gluetun).
+  # gluetun's firewall blocks every other route out, so if the tunnel drops,
+  # proxied requests fail instead of leaking through the host's connection.
+  # Behind a profile because it cannot start without ExpressVPN credentials;
+  # naming the service (docker compose up -d expressvpn) also starts it.
   expressvpn:
-    build: ./expressvpn
-    image: expressvpn:latest
+    image: qmcgaw/gluetun:${GLUETUN_VERSION:-v3.41.3}
     container_name: expressvpn-c
+    profiles: ["vpn"]
     cap_add:
       - NET_ADMIN
-    devices: 
+    devices:
       - /dev/net/tun
-    stdin_open: true
-    tty: true
-    command: /bin/bash
-    privileged: true
     restart: unless-stopped
+    environment:
+      VPN_SERVICE_PROVIDER: expressvpn
+      VPN_TYPE: openvpn
+      # The manual-configuration credentials from the ExpressVPN account page,
+      # not the activation code.
+      OPENVPN_USER: ${EXPRESSVPN_OPENVPN_USER:-}
+      OPENVPN_PASSWORD: ${EXPRESSVPN_OPENVPN_PASSWORD:-}
+      SERVER_COUNTRIES: ${EXPRESSVPN_COUNTRY:-USA}
+      SERVER_CITIES: ${EXPRESSVPN_CITY:-}
+      HTTPPROXY: "on"
+      HTTPPROXY_LISTENING_ADDRESS: ":8888"
+      # Don't add Via/X-Forwarded-For headers revealing the client address.
+      HTTPPROXY_STEALTH: "on"
+      HTTPPROXY_USER: ${EXPRESSVPN_PROXY_USER:-}
+      HTTPPROXY_PASSWORD: ${EXPRESSVPN_PROXY_PASSWORD:-}
     ports:
-      - 9092:9091
+      # Loopback by default; set the host's LAN address to serve other machines.
+      - "${EXPRESSVPN_PROXY_BIND_ADDRESS:-127.0.0.1}:${EXPRESSVPN_PROXY_PORT:-8888}:8888/tcp"
+    networks:
+      - expressvpn-egress
+      - expressvpn-proxy
 
 volumes:
   https-gateway-data:
@@ -86,3 +106,10 @@ networks:
   # The DNS resolver needs an egress path to its configured upstream resolver,
   # but no other service joins this network.
   lan-dns-ingress:
+  # Carries the VPN tunnel itself. Only expressvpn joins this network.
+  expressvpn-egress:
+  # Services that must reach the internet only through the VPN join this
+  # network alone and use http://expressvpn:8888 as their proxy. It has no
+  # route out, so a missing or ignored proxy setting fails rather than leaks.
+  expressvpn-proxy:
+    internal: true

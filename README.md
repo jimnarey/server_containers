@@ -37,7 +37,7 @@ The repository is organised in layers:
 - `compose.bases.yml`, `compose.ai.yml`, `compose.emulation.yml`,
   `compose.hardware.yml`, `compose.nas.yml`, `compose.network.yml`, and
   `compose.desktop.yml`: grouped service definitions
-- `transmission-vpn.yml`: runs `transmission` through the `expressvpn` container network
+- `transmission-vpn.yml`: runs `transmission` inside its own ExpressVPN (gluetun) container network
 - `Makefile`: older convenience targets for building and running individual images
 
 ## Prerequisites
@@ -178,7 +178,7 @@ These are the main services currently defined in `docker-compose.yml`:
 - File and sync tools: `double-commander`, `filezilla`, `webdav`, `webdav-apache`, `meganz`
 - Media/library tools: `calibre`, `clrmamepro`, `nkit`, `jrom-manager`, `simple-arcade-multifilter`
 - Design / maker tools: `inkscape`, `laserweb`, `lightburn`, `lightburn-win`, `lightburn-win-install`, `lasergrbl`, `lasergrbl-install`
-- Network / download tools: `transmission`, `expressvpn`
+- Network / download tools: `transmission`, `expressvpn` (an HTTP proxy that egresses through ExpressVPN; see [`expressvpn/README.md`](./expressvpn/README.md))
 - Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`; see the
   [`llama.cpp profile documentation`](./llama-cpp/docs/README.md)
 - Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
