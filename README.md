@@ -181,6 +181,8 @@ These are the main services currently defined in `docker-compose.yml`:
 - Network / download tools: `transmission`, `expressvpn` (an HTTP proxy that egresses through ExpressVPN; see [`expressvpn/README.md`](./expressvpn/README.md))
 - Local AI inference: `ollama`, `ollama-cpu`, `llama-cpp`; see the
   [`llama.cpp profile documentation`](./llama-cpp/docs/README.md)
+- Local AI inference (80B-class MoE on a single consumer GPU): `strata`; see
+  [`strata/README.md`](./strata/README.md)
 - Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
 - Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness and Pi's web-search extension; see [`searxng/README.md`](./searxng/README.md)

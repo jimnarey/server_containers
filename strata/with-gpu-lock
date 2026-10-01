@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Keep a lock for the lifetime of the process this wraps. Strata mounts the
+# same llama-gpu-locks volume as the llama-cpp services in compose.ai.yml, so
+# whichever starts first on a given physical GPU keeps it until it exits -
+# generic exec wrapper, adapted from llama-cpp/with-gpu-lock.
+set -euo pipefail
+
+if [[ -z "${STRATA_GPU_LOCK_IDS:-}" ]]; then
+    exec "$@"
+fi
+
+lock_directory=/var/lock/llama-gpu
+mkdir -p "$lock_directory"
+
+# Acquire in a stable order. A failed non-blocking lock exits before Strata
+# starts, and releases any earlier locks as this process exits.
+mapfile -t gpu_ids < <(
+    tr ',' '\n' <<<"$STRATA_GPU_LOCK_IDS" | sed '/^$/d' | sort -u
+)
+
+for gpu_id in "${gpu_ids[@]}"; do
+    if [[ ! "$gpu_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "invalid STRATA_GPU_LOCK_IDS entry: $gpu_id" >&2
+        exit 64
+    fi
+
+    lock_file="$lock_directory/$gpu_id.lock"
+    exec {lock_fd}>"$lock_file"
+    if ! flock -n "$lock_fd"; then
+        echo "GPU allocation conflict: physical GPU '$gpu_id' is already held by another llama service." >&2
+        exit 75
+    fi
+done
+
+exec "$@"

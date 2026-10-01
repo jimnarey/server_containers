@@ -251,6 +251,41 @@ services:
     ports:
       - "${CSANTIAGO78_LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${CSANTIAGO78_LLAMA_CPP_PORT:-11440}:8080"
 
+  strata:
+    build:
+      context: ./strata
+      args:
+        STRATA_REPOSITORY: https://github.com/Niko1221/Strata.git
+        STRATA_COMMIT: ${STRATA_COMMIT:-d6708a4aae15b4860000d54c8af9e84d684bce09}
+    image: strata:latest
+    container_name: strata-c
+    restart: unless-stopped
+    # Strata's setup.py starts the model with subprocess.call(), so the
+    # actual server is a grandchild of PID 1, not PID 1 itself; init (tini)
+    # forwards docker stop's SIGTERM to the whole process group instead of
+    # just the outer setup.py process.
+    init: true
+    environment:
+      STRATA_FAMILY: ${STRATA_FAMILY:-qwen}
+      STRATA_MODEL: ${STRATA_MODEL:-IQ3_S}
+      STRATA_CONTEXT: ${STRATA_CONTEXT:-65536}
+      STRATA_API_KEY: ${STRATA_API_KEY:-}
+      # The lock id must be the physical GPU index so it actually
+      # cross-coordinates with the llama-cpp-generel-schwerz-16gb lock file;
+      # the --gpu flag Strata itself receives (in entrypoint.sh) is always 0,
+      # since device_ids below makes that the only GPU this container sees.
+      STRATA_GPU_LOCK_IDS: ${STRATA_GPU_DEVICE_ID:-1}
+    volumes:
+      - ${STRATA_HOME:-/mnt/work/strata}:/data
+      - ${STRATA_MODELS:-/mnt/data/models/strata}:/models
+      - llama-gpu-locks:/var/lock/llama-gpu
+    gpus:
+      - driver: nvidia
+        device_ids: ["${STRATA_GPU_DEVICE_ID:-1}"]
+        capabilities: [gpu]
+    ports:
+      - "${STRATA_BIND_ADDRESS:-192.168.50.136}:${STRATA_PORT:-11441}:8080"
+
   opencode:
     build:
       context: ./opencode
