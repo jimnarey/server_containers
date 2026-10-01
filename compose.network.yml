@@ -69,6 +69,10 @@ services:
     devices:
       - /dev/net/tun
     restart: unless-stopped
+    # Looks up the server's current IP before starting gluetun.
+    entrypoint: ["/bin/sh", "/expressvpn/resolve-endpoint.sh"]
+    volumes:
+      - ./expressvpn/resolve-endpoint.sh:/expressvpn/resolve-endpoint.sh:ro
     environment:
       VPN_SERVICE_PROVIDER: expressvpn
       VPN_TYPE: openvpn
@@ -76,8 +80,8 @@ services:
       # not the activation code.
       OPENVPN_USER: ${EXPRESSVPN_OPENVPN_USER:-}
       OPENVPN_PASSWORD: ${EXPRESSVPN_OPENVPN_PASSWORD:-}
-      SERVER_COUNTRIES: ${EXPRESSVPN_COUNTRY:-USA}
-      SERVER_CITIES: ${EXPRESSVPN_CITY:-}
+      # e.g. ireland-ca-version-2.expressnetw.com; see expressvpn/README.md.
+      SERVER_HOSTNAMES: ${EXPRESSVPN_SERVER_HOSTNAME:-}
       HTTPPROXY: "on"
       HTTPPROXY_LISTENING_ADDRESS: ":8888"
       # Don't add Via/X-Forwarded-For headers revealing the client address.

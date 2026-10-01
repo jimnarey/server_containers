@@ -16,29 +16,53 @@ That needed a privileged container, `expect`-driven activation and
 
 ## Configure
 
-Get the OpenVPN credentials from the ExpressVPN account page: **Set up other
-devices → Manual configuration → OpenVPN**. They are a generated username and
-password, not the activation code. Then set them in `.env`:
+Get the OpenVPN credentials from
+<https://www.expressvpn.com/setup#manual> (sign in, then **Manual
+Configuration → OpenVPN**). They are a generated username and password shown
+beside the list of `.ovpn` files, not the activation code. Then set them in
+`.env`:
 
 ```dotenv
 EXPRESSVPN_OPENVPN_USER=...
 EXPRESSVPN_OPENVPN_PASSWORD=...
-EXPRESSVPN_COUNTRY=UK
-# Optional, narrows the country to one city, e.g. "New York" for USA.
-EXPRESSVPN_CITY=
+EXPRESSVPN_SERVER_HOSTNAME=ireland-ca-version-2.expressnetw.com
 # The host's LAN address; the loopback default only serves this machine.
-EXPRESSVPN_PROXY_BIND_ADDRESS=192.168.50.136
+EXPRESSVPN_PROXY_BIND_ADDRESS=192.168.50.214
 EXPRESSVPN_PROXY_PORT=8888
 ```
 
-`EXPRESSVPN_COUNTRY` uses gluetun's names for ExpressVPN locations, such as
-`UK`, `USA`, `Netherlands`, `Germany` or `Japan`. It also accepts a
-comma-separated list. For the full list, including cities:
+### Choosing the egress country
+
+`EXPRESSVPN_SERVER_HOSTNAME` names one ExpressVPN server, and so one country
+(or city). Examples:
+
+```text
+ireland-ca-version-2.expressnetw.com
+uk-london-ca-version-2.expressnetw.com
+usa-newyork-ca-version-2.expressnetw.com
+netherlands-amsterdam-ca-version-2.expressnetw.com
+```
+
+The hostname is the `remote` line of the `.ovpn` file that the manual
+configuration page offers for each location. gluetun also prints the list it
+knows about:
 
 ```sh
 docker run --rm -v "$PWD:/out" qmcgaw/gluetun:v3.41.3 \
   format-servers -expressvpn -output /out/expressvpn-servers.md
 ```
+
+The hostname must appear in that list, otherwise gluetun refuses to start.
+
+gluetun normally chooses servers by country, but it connects to the IP
+addresses stored in its built-in server list. ExpressVPN renumbers its servers
+over time, so those addresses go stale and the tunnel times out ("TLS key
+negotiation failed"). gluetun's own list updater doesn't help, because it
+aborts when it reaches retired hostnames. Instead,
+[`resolve-endpoint.sh`](./resolve-endpoint.sh) looks up the hostname's current
+address each time the container starts and passes it to gluetun as
+`VPN_ENDPOINT_IP`. If the tunnel ever stops reconnecting, restart the
+container to look the address up again.
 
 Anyone on the LAN can use the proxy once it is published on a LAN address.
 To require a password, set `EXPRESSVPN_PROXY_USER` and
@@ -55,13 +79,13 @@ docker compose -f compose.network.yml up -d expressvpn
 docker logs -f expressvpn-c   # wait for "Public IP address is ... (<country>)"
 ```
 
-After changing the country, run the same `up -d` command again to recreate
+After changing the server, run the same `up -d` command again to recreate
 the container.
 
 Check from another machine:
 
 ```sh
-curl -x http://192.168.50.136:8888 https://ipinfo.io
+curl -x http://192.168.50.214:8888 https://ipinfo.io
 ```
 
 ## Use from LAN machines
@@ -76,8 +100,8 @@ HTTPS:
   curl, wget, pip, git and apt honour these.
 
 This is an HTTP proxy, not SOCKS. It carries HTTP and HTTPS, which covers
-browsers and most applications, but not arbitrary TCP or UDP. BitTorrent is an
-example that won't work through it; see Transmission below.
+browsers and most applications, but not arbitrary TCP or UDP. BitTorrent, for
+example, won't work through it.
 
 ## Use from other services in this repo
 
@@ -117,13 +141,3 @@ networks:
   expressvpn-proxy:
     internal: true
 ```
-
-## Transmission
-
-BitTorrent can't use an HTTP proxy, so `transmission-vpn.yml` runs Transmission
-inside its own gluetun container's network instead (`network_mode`). It reads
-the same `EXPRESSVPN_*` settings and publishes the web UI on port 9092.
-Docker cannot reattach a container to a recreated network namespace, so
-restart Transmission whenever its gateway container is recreated. The
-`depends_on: restart: true` setting does this when both are managed through
-Compose.
