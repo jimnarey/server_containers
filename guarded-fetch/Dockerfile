@@ -2,7 +2,7 @@ FROM node:24.19.0-bookworm-slim AS node-runtime
 
 FROM base-ubuntu-24:latest
 
-ARG GUARDED_FETCH_VERSION=0.1.4
+ARG GUARDED_FETCH_VERSION=0.1.5
 
 COPY --from=node-runtime /usr/local/ /usr/local/
 

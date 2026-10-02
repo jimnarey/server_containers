@@ -2,7 +2,7 @@ FROM node:24.19.0-bookworm-slim AS node-runtime
 
 FROM base-ubuntu-24:latest
 
-ARG PI_VERSION=0.85.1
+ARG PI_VERSION=1.0.0
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

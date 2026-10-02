@@ -1459,3 +1459,72 @@ making a *dual*-GPU service prefer one card over the other for MoE
 placement specifically. This remains genuinely open -- the schwerz-16gb
 GPU-0-vs-GPU-1 finding is the closest this deployment has to a real
 measurement of the effect, not a demonstrated fix for the dual-GPU case.
+
+## Strata (Qwen3.8-Flash-Next, separate engine -- not llama.cpp)
+
+[Niko1221/Strata](https://github.com/Niko1221/Strata) is a distinct,
+self-compiled C++/CUDA engine (vendors llama.cpp's `gguf-py`/`ggml`
+libraries for GGUF parsing only; the actual inference binary is its own),
+distributing an 80B-class MoE model's experts across GPU, RAM, and
+SSD/NVMe-backed OS file cache. Dockerized as the `strata` service in
+`compose.ai.yml`, pinned to physical GPU 1 only; see `strata/README.md`
+for the full setup. Same host as the rest of this document (2x RTX 5060 Ti
+16 GiB, 60 GiB RAM, 8 GiB swap). Quant files are ISTA-DASLab's own
+GSQ-RCO quantization, a different method from (and not interchangeable
+with) this document's Unsloth/bartowski-style llama.cpp quants, even where
+the model name matches (`Qwen3.8-Flash-Next`). As of the pinned commit
+(`d6708a4`) Strata has no published GitHub release, so the engine always
+compiles from source on first container start (~10-20 min, one-time,
+cached in a shared `strata-engine` volume across the service and one-off
+`docker compose run` invocations -- not repeated per container).
+
+All figures below: context 131072, real `/v1/chat/completions` requests
+against the running container, timings from the server's own response
+`timings` field (not an external stopwatch), measured 2026-10-01/02.
+
+| Quant | Mode | Prompt | Prefill | Generation | Decode | Draft accept |
+|---|---|---|---|---|---|---|
+| IQ3_S | forced low-RAM (`--low-ram on`, ~22% experts GPU-resident, rest read from NVMe-backed file cache) | 67 tok | 3.1 tok/s (cold) | 400 tok | 15.5 tok/s | 193/314 (61%) |
+| IQ3_S | forced low-RAM | 64 tok | 27.4 tok/s | 37 tok | 19.5 tok/s | 26/29 (90%) |
+| IQ3_S | forced low-RAM | 271 tok | 43.0 tok/s | 300 tok | 30.3 tok/s | 158/230 (69%) |
+| IQ3_S | forced low-RAM | 64 tok | 53.2 tok/s (cache-warm) | 38 tok | 19.8 tok/s | 26/38 (68%) |
+| IQ2_XS | fully RAM-resident (default mode) | 64 tok | 78.2 tok/s | 32 tok | 61.9 tok/s | 23/27 (85%) |
+| IQ2_XS | fully RAM-resident | 67 tok | 89.2 tok/s | 400 tok | 65.2 tok/s | 189/318 (59%) |
+| IQ2_XS | fully RAM-resident | 271 tok | 204.4 tok/s | 300 tok | 69.2 tok/s | 145/194 (75%) |
+
+**Low-RAM mode has a pronounced, measured cache-warming effect.** The
+first request after load was badly throttled (3.1 tok/s prefill -- the OS
+had nothing cached yet, every needed expert page was a cold NVMe read); by
+the fourth request `buff/cache` had grown to 54 GiB (`free -h`) and
+prefill was 17x faster. Decode settled around 16-30 tok/s depending on
+which experts a given prompt actually activates.
+
+**Resident mode is ~2-4x faster than forced low-RAM mode on this
+hardware** (IQ2_XS resident: 62-69 tok/s decode, consistently, no
+cache-warming ramp needed at all vs. IQ3_S low-RAM: 15.5-30.3 tok/s,
+ramping). This is a real, measured cost on top of Strata's own "expect it
+to be much slower" warning (printed whenever GPU share is below 60%; here
+~22%), not just a qualitative caveat.
+
+**RAM viability is not reliably predictable from Strata's own static
+per-quant table alone.** `IQ3_S` (`ram_gb`: 62, this host: 61 -- Strata's
+own `--check` calls this "tight") failed every resident-mode load attempt:
+repeated silent kills (no traceback -- consistent with an external
+`SIGKILL`, not a caught exception) at the "loading the experts into RAM"
+step, confirmed not a cgroup-level Docker OOM (`OOMKilled: false`) and not
+present in the accessible kernel/journal logs either, but stopping the
+container immediately freed ~24 GiB of RAM and most of the host's swap
+each time -- strong circumstantial evidence of a host-level OOM kill.
+`IQ2_XS` (`ram_gb`: 48, comfortably under the 61 GiB installed) also
+failed twice in a row the same way, then succeeded cleanly on a third
+attempt with no configuration change -- the only difference was the
+host's `free -h` **available** figure at load time (~20-44 GiB during the
+failures vs. ~54-56 GiB during the success). The host carries a
+persistent ~6.5-6.9 GiB baseline in swap from processes unrelated to
+Strata entirely (other agent/Python sessions, a desktop VNC session,
+several `f3d` processes) that Strata's own hardware check has no
+visibility into, since it only looks at total installed RAM, not
+real-time contention. **Practical implication**: check `free -h`
+**available** immediately before starting a resident-mode Strata load,
+for any quant -- the static "fits"/"tight" classification from `--check`
+is necessary but not sufficient on a host that also runs other workloads.

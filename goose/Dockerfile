@@ -1,6 +1,6 @@
 FROM base-ubuntu-gui-24:latest
 
-ARG GOOSE_VERSION=1.46.0
+ARG GOOSE_VERSION=1.53.0
 
 ENV PATH="/usr/local/lib/goose-cli:${PATH}"
 

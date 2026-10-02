@@ -183,7 +183,7 @@ These are the main services currently defined in `docker-compose.yml`:
   [`llama.cpp profile documentation`](./llama-cpp/docs/README.md)
 - Local AI inference (80B-class MoE on a single consumer GPU): `strata`; see
   [`strata/README.md`](./strata/README.md)
-- Coding agents and development: `deepseek`, `goose`, `openhands`, `opencode`, `pi`, `vscode`
+- Coding agents and development: `deepseek`, `goose`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
 - Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness and Pi's web-search extension; see [`searxng/README.md`](./searxng/README.md)
 - Guarded agent web fetch: `guarded-fetch`, a private HTTPS text-fetch gateway; see [`guarded-fetch/README.md`](./guarded-fetch/README.md)

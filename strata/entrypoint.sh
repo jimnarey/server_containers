@@ -32,8 +32,15 @@ set -- --yes \
     --data-dir "$STRATA_DATA_DIR" \
     --models-dir "$STRATA_MODELS_DIR"
 
-if [ -n "${STRATA_API_KEY:-}" ]; then
-    set -- "$@" --api-key "$STRATA_API_KEY"
+# Strata's own serve/server.py treats a literal STRATA_API_KEY environment
+# variable as reserved: present-but-empty is treated as a dangerous
+# footgun (silently disabling auth) and refuses to start (#213). Compose's
+# ${VAR:-} always defines the container env var, even empty, so the input
+# from .env is deliberately passed through under a different name
+# (STRATA_API_KEY_HOST, set in compose.ai.yml) to avoid ever defining
+# STRATA_API_KEY itself in this container.
+if [ -n "${STRATA_API_KEY_HOST:-}" ]; then
+    set -- "$@" --api-key "$STRATA_API_KEY_HOST"
 fi
 
 exec ./setup.sh "$@"

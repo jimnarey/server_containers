@@ -1,0 +1,9 @@
+{
+  "name": "ai-ubuntu-strata",
+  "vendor": "customendpoint",
+  "apiKey": "${input:chat.lm.secret.-392ee99b}",
+  "apiType": "chat-completions",
+  "models": [
+    {"id": "strata-loaded-model", "name": "strata-loaded-model", "url": "http://192.168.50.136:11441/v1/chat/completions", "toolCalling": true, "vision": false, "maxInputTokens": 122880, "maxOutputTokens": 8192}
+  ]
+}

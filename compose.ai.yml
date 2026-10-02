@@ -158,7 +158,14 @@ services:
       # headroom); "on" forces it even when RAM would technically fit the
       # model resident, trading speed for headroom. See strata/README.md.
       STRATA_LOW_RAM: ${STRATA_LOW_RAM:-auto}
-      STRATA_API_KEY: ${STRATA_API_KEY:-}
+      # Named differently from .env's STRATA_API_KEY on purpose: Strata's own
+      # serve/server.py treats a literal STRATA_API_KEY env var as reserved
+      # and refuses to start if it's merely present-but-empty (#213, a
+      # deliberate guard against silently running with no auth). Compose's
+      # ${VAR:-} always defines the container var even when empty, so this
+      # is passed under a different name and entrypoint.sh reads it as
+      # STRATA_API_KEY_HOST. See strata/README.md.
+      STRATA_API_KEY_HOST: ${STRATA_API_KEY:-}
       # The lock id is the physical GPU index. The unified llama-cpp service locks
       # both GPUs, so Strata and llama-cpp cannot run concurrently on GPU 1.
       # Strata itself receives GPU 0 because device_ids exposes only one card.
@@ -202,24 +209,6 @@ services:
       - "192.168.50.136:9032:4096"
     stdin_open: true
     tty: true
-
-  openhands:
-    build: ./openhands
-    image: openhands-agent-canvas:1.7.0
-    container_name: openhands-c
-    user: "1000:1000"
-    restart: unless-stopped
-    environment:
-      LOCAL_BACKEND_API_KEY: "${OPENHANDS_API_KEY:-CHANGEME_OPENHANDS_API_KEY}"
-      OH_SECRET_KEY: "${OPENHANDS_SECRET_KEY:-CHANGEME_OPENHANDS_SECRET_KEY}"
-      GIT_CONFIG_GLOBAL: /home/openhands/.openhands/gitconfig
-    volumes:
-      - /mnt/work/openhands:/home/openhands/.openhands
-      - /mnt/work/projects:/projects
-    ports:
-      - "192.168.50.136:9030:8000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   deepseek:
     build:
