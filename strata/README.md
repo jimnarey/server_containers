@@ -155,6 +155,14 @@ docker compose run --rm --entrypoint ./setup.sh strata \
   --yes --setup --no-start \
   --family swift --model IQ3_XXS \
   --data-dir /data --models-dir /models
+
+# Swift 1.5 also has an IQ2_XS quant (confirmed present on HuggingFace,
+# ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF) - smaller/faster than
+# IQ3_XXS, same quality tier as qwen's IQ2_XS
+docker compose run --rm --entrypoint ./setup.sh strata \
+  --yes --setup --no-start \
+  --family swift --model IQ2_XS \
+  --data-dir /data --models-dir /models
 ```
 
 Each command downloads into its own subfolder under `/models` (mapped to
@@ -186,6 +194,49 @@ pick more context"). It also can't be changed per-request — `STRATA_CONTEXT` i
 life of the running config. If you point an autonomous client (e.g. deepseek) at this backend,
 its own compaction needs to keep requests comfortably under `STRATA_CONTEXT`, since Strata
 itself won't help if that's exceeded.
+
+## Reasoning effort
+
+Qwen3.8-Flash-Next is a reasoning model (responses include a separate `reasoning_content` field);
+its chat template defaults to its highest effort level (`xhigh`-equivalent) whenever a request
+doesn't specify one — the same gotcha this repo's `llama-cpp` deployment already found and had to
+work around for this exact model family (see `llama-cpp/docs/performance-findings.md`, "16GB
+schwerz service"). Confirmed working two ways, tested directly against a running container
+(`serve/server.py`):
+
+**Per-request** (works with any client that can add custom JSON fields to the request body):
+
+```json
+{"model": "...", "messages": [...], "reasoning_effort": "low"}
+```
+
+Valid values: `none`, `low`, `medium`, `high` (server validates this; anything else is a 400).
+
+**Server-wide persistent default** (useful for a client that can't inject custom fields, e.g. a
+fixed VSCode chat-model config) — `POST /settings`, no extra auth beyond what's already
+configured:
+
+```bash
+curl -X POST http://192.168.50.136:11441/settings \
+  -H "Content-Type: application/json" \
+  -d '{"defaults": {"reasoning_effort": "low"}}'
+```
+
+This persists to a `.shared-settings.json` file next to the model's config (survives container
+restarts) and is applied to any request that omits `reasoning_effort` entirely — confirmed by
+testing an omitted-field request before and after setting the default. `GET /settings` shows the
+current state. Clear it back to "clients use their own" with:
+
+```bash
+curl -X POST http://192.168.50.136:11441/settings \
+  -H "Content-Type: application/json" \
+  -d '{"defaults": null}'
+```
+
+One implementation detail worth knowing: `POST /settings` is same-origin-restricted (rejects a
+request carrying a foreign `Origin` header, intended to stop a random web page from silently
+changing settings), but a plain `curl`/API client that sends no `Origin` header at all passes
+through fine — this isn't an auth mechanism, just a same-page-only guard aimed at browsers.
 
 ## Known caveats
 
