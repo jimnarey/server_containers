@@ -84,11 +84,9 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, single physical GPU, `ctx-size=32768`) | 14.3 GiB | not exposed | baseline only | idle | 168.44 tok/s | -- (load-confirmed only) | not in current 16GB preset |
 | Devstral-Small-2-24B-Instruct-2512-Q4_K_M | CPU-only (`llama-cpp-cpu`)² | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.998 tok/s | 2.76 tok/s cold, 2.76 tok/s warm |
 | Devstral-Small-2-24B-Instruct-2512-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 12.8 GiB | 12.9 GiB | baseline only | idle | 784.07 tok/s | 42.49 tok/s cold, 42.53 tok/s warm | 8,799-token prompt: 1,035.86 / 38.92 tok/s⁵ |
-| Devstral-Small-2-24B-Instruct-2512-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 13.9 GiB | 14.0 GiB | baseline only | idle | 981.03 tok/s | 39.44 tok/s cold, 39.53 tok/s warm | 8,799-token prompt: 1,021.85 / 36.95 tok/s⁵ |
 | Devstral-Small-2-24B-Instruct-2512-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 15.1 GiB | 15.1 GiB | baseline only | idle | 913.35 tok/s | 33.97 tok/s cold, 35.22 tok/s warm | 8,799-token prompt: 946.79 / 33.15 tok/s⁵ |
 | Devstral-Small-2505-Q4_K_M | CPU-only (`llama-cpp-cpu`)² | not exposed | not exposed | baseline only | **compute (8 threads)** | 15.316 tok/s | 2.69 tok/s cold, 2.69 tok/s warm |
 | Devstral-Small-2505-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 12.8 GiB | 12.9 GiB | baseline only | idle | 1,040.28 tok/s | 47.02 tok/s cold, 47.06 tok/s warm | 9,469-token prompt: 1,040.34 / 43.42 tok/s⁵ |
-| Devstral-Small-2505-Q5_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 13.9 GiB | 14.0 GiB | baseline only | idle | 1,020.88 tok/s | 43.14 tok/s cold, 43.30 tok/s warm | 9,469-token prompt: 1,022.05 / 40.26 tok/s⁵ |
 | Devstral-Small-2505-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 15.1 GiB | 15.1 GiB | baseline only | idle | 950.21 tok/s | 37.26 tok/s cold, 38.13 tok/s warm | 9,469-token prompt: 945.72 / 35.90 tok/s⁵ |
 | gemma-3n-E2B-it-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 5.1 GiB | **compute (8 threads)** | 145.26 tok/s | 21.72-21.85 tok/s | 4,160-token prompt: 124.22 / 20.65 tok/s⁵ |
 | gemma-3n-E2B-it-Q4_K_M | `llama-cpp-all-gpus` (dense, dual-GPU layer-split) | 1.7 GiB | 1.9 GiB | baseline only | idle | 1,116.95 tok/s | 134.78 tok/s cold, 134.84 tok/s warm | 4,160-token prompt: 3,396.70 / 132.66 tok/s⁵ |
@@ -111,16 +109,12 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | gpt-oss-20b-F16 | `llama-cpp-gpu-1` (MoE, single physical GPU) | 14.1 GiB | not exposed | baseline only | idle | 580.26 tok/s | 94.34 tok/s cold, 94.39 tok/s warm | 8,308-token prompt: 5,530.95 / 84.44 tok/s⁵ |
 | granite-4.0-h-small-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 11.5 GiB | 11.0 GiB | baseline only | idle | 85.92 tok/s | 57.28 tok/s cold, 57.32 tok/s warm | 8,272-token prompt: 1,868.29 / 56.07 tok/s⁵ |
 | granite-4.0-h-small-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 13.3 GiB | not exposed | baseline only | idle | 92.40 tok/s | 27.16 tok/s cold, 27.49 tok/s warm | 8,272-token prompt: 1,256.08 / 27.28 tok/s⁵ |
-| Laguna-XS-2.1-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 12.7 GiB | 12.0 GiB | baseline only | idle | 145.35 tok/s | 128.71 tok/s cold, 128.06 tok/s warm | 8,285-token prompt: 3,273.25 / 104.72 tok/s⁵ |
-| Laguna-XS-2.1-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 13.0 GiB | not exposed | baseline only | idle | 144.99 tok/s | 80.42 tok/s cold, 80.56 tok/s warm | 8,285-token prompt: 2,092.61 / 60.94 tok/s⁵ |
 | Ling-3.0-flash-Q4_K_M | 16GB schwerz | 5,208 MiB | not exposed | not measured | idle | not measured | 5.68-7.21 tok/s | 49,200-token prompt: not measured / 5.36 tok/s (ctx=131072) |
 | Ling-3.0-flash-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 12,360 MiB | not exposed | not measured | idle | not measured | 11.09-18.36 tok/s | 49,200-token prompt: not measured / 11.12 tok/s (ctx=131072) |
 | Ling-3.0-flash-Q4_K_M | `llama-cpp-all-gpus` (MoE, `n-cpu-moe` offload, dual-GPU) | not measured | not measured | not measured | idle | not measured | 11.43-17.17 tok/s | 49,200-token prompt: not measured / 10.53 tok/s (ctx=131072) |
 | Llama-4-Scout-17B-16E | 16GB schwerz | **CUDA OOM** | not exposed | -- | -- | failed to load | failed to load | failed to load at 65,536 ctx⁶ |
 | Llama-4-Scout-17B-16E-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 12,208 MiB | not exposed | not measured | idle | not measured | 8.42-8.80 tok/s | 49,186-token prompt: not measured / 8.09 tok/s (ctx=131072) |
 | Llama-4-Scout-17B-16E-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, `n-cpu-moe` offload, dual-GPU) | 5,221 MiB | 7,576 MiB | not measured | idle | not measured | 7.71-8.03 tok/s | 49,186-token prompt: not measured / 7.57 tok/s (ctx=131072) |
-| North-Mini-Code-1.0-UD-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 11.4 GiB | 11.2 GiB | baseline only | idle | 446.31 tok/s | 105.02 tok/s cold, 105.16 tok/s warm | 8,356-token prompt: 5,235.44 / 80.65 tok/s⁵ |
-| North-Mini-Code-1.0-UD-Q4_K_M-Expert-Offload | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 13.0 GiB | not exposed | baseline only | idle | 147.28 tok/s | 55.45 tok/s cold, 55.41 tok/s warm | 8,356-token prompt: 2,022.82 / 47.78 tok/s⁵ |
 | NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 4.5-4.8 GiB | **compute (8 threads)** | 55.47 tok/s | 12.67-12.71 tok/s | 8,261-token prompt: 49.28 / 10.54 tok/s⁵ |
 | NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | `llama-cpp-all-gpus` (dense, dual-GPU layer-split) | 2.2 GiB | 2.6 GiB | baseline only | idle | 551.39 tok/s | 125.61 tok/s cold, 125.73 tok/s warm | 8,261-token prompt: 4,951.84 / 118.90 tok/s⁵ |
 | NVIDIA-Nemotron-3-Nano-4B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU) | 3.7 GiB | not exposed | baseline only | idle | 424.58 tok/s | 127.61 tok/s cold, 127.70 tok/s warm | 8,261-token prompt: 4,848.14 / 120.59 tok/s⁵ |
@@ -132,14 +126,6 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | Ornith-1.5-9B-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 7.4-7.5 GiB | **compute (8 threads)** | 45.29 tok/s | 7.36-7.35 tok/s |
 | Ornith-1.5-9B-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 3.7 GiB | 3.8 GiB | baseline only | idle | 608.19 tok/s | 105.35 tok/s cold, 105.81 tok/s warm | 8,256-token prompt: 1,795.95 / 102.23 tok/s⁵ |
 | Ornith-1.5-9B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU) | 6.6 GiB | not exposed | baseline only | idle | 383.61 tok/s | 69.78 tok/s cold, 69.90 tok/s warm | 8,256-token prompt: 2,986.99 / 67.01 tok/s⁵ |
-| qwen2.5-coder-14b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU)⁸ | 11.9 GiB | not exposed | baseline only | idle | not measured | 40.92-41.12 tok/s | 8,273-token prompt: 904.70 / 6.15 tok/s⁵ (historical 32K all-GPU figure; not re-measured) |
-| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 6.8 GiB | 6.8 GiB | baseline only | idle | 761.79 tok/s | 62.99 tok/s cold, 63.41 tok/s warm | 8,273-token prompt: 1,019.55 / 52.96 tok/s⁵ |
-| qwen2.5-coder-14b-instruct-q5_k_m | `llama-cpp-gpu-1` (dense, single physical GPU; native 32K, all-GPU) | 13.2 GiB | not exposed | baseline only | idle | 46-token: 774.22 tok/s | 38.25 tok/s (128-token, post-fix) | not remeasured after the native-32K/all-GPU fix |
-| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 7.5 GiB | 7.5 GiB | baseline only | idle | 627.89 tok/s | 55.47 tok/s cold, 56.49 tok/s warm | 8,273-token prompt: 992.46 / 49.18 tok/s⁵ |
-| qwen2.5-coder-14b-instruct-q6_k | `llama-cpp-gpu-1` (dense, single physical GPU; native 32K, all-GPU) | 14.7 GiB | not exposed | baseline only | idle | 46-token: 743.90 tok/s | 33.17 tok/s (128-token, post-fix) | not remeasured after the native-32K/all-GPU fix |
-| qwen2.5-coder-7b-instruct-q4_k_m | `llama-cpp-gpu-1` (dense, single physical GPU) | 5.4 GiB | not exposed | baseline only | idle | 1,797.27 tok/s | 80.81 tok/s cold, 81.04 tok/s warm | 8,273-token prompt: 3,667.72 / 68.88 tok/s⁵ |
-| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 4.4 GiB | 4.5 GiB | baseline only | idle | 1,342.20 tok/s | 90.27 tok/s cold, 90.62 tok/s warm | 8,273-token prompt: 2,439.63 / 82.49 tok/s⁵ |
-| qwen2.5-coder-7b-instruct-q8_0 | `llama-cpp-gpu-1` (dense, single physical GPU) | 8.3 GiB | not exposed | baseline only | idle | 1,870.13 tok/s | 52.91 tok/s cold, 53.06 tok/s warm | 8,273-token prompt: 3,721.65 / 47.63 tok/s⁵ |
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 13.4 GiB | 12.8 GiB | baseline only | idle | 84.69 tok/s | 139.09 tok/s cold, 139.63 tok/s warm | 8,252-token prompt: 3,537.06 / 87.37 tok/s⁵ |
 | Qwen3-Coder-30B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 12.3 GiB | not exposed | baseline only | idle | 115.57 tok/s | 59.74 tok/s cold, 60.17 tok/s warm | 8,252-token prompt: 1,814.80 / 40.25 tok/s⁵ |
 | Qwen3-Coder-Next | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 52 GiB mmap cache | idle | 58.72 tok/s | 31.12-31.29 tok/s | 8,252-token prompt: 962.31 / 37.05 tok/s⁵ |
@@ -147,15 +133,6 @@ has no `gpus:` passthrough); "not used" = visible but untouched.
 | Qwen3-Coder-Next | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 11.18 tok/s | 9.17-13.33 tok/s |
 | Qwen3-Coder-Next-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 11,338 MiB | not exposed | not measured | idle | not measured | 35.32-37.19 tok/s | 49,186-token prompt: not measured / 29.94 tok/s (ctx=131072) |
 | Qwen3-Coder-Next-Q4_K_M | `llama-cpp-all-gpus` (MoE, `n-cpu-moe` offload, dual-GPU) | not measured | not measured | not measured | idle | not measured | 34.14-36.06 tok/s | 49,186-token prompt: not measured / 30.33 tok/s (ctx=131072) |
-| Qwen3-Next-80B-A3B-Instruct | 16GB schwerz | 7.5 GiB | not exposed | 49 GiB + 55 GiB mmap cache | idle | 62.98 tok/s | 31.81-32.00 tok/s | 8,252-token prompt: 1,306.14 / 41.71 tok/s⁵ |
-| Qwen3-Next-80B-A3B-Instruct | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 37 GiB | **compute (8 threads)** | 9.23 tok/s | 9.98-13.24 tok/s | 16,418-token prompt: 32.57 / 8.46 tok/s |
-| Qwen3-Next-80B-A3B-Instruct-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 11,338 MiB | not exposed | not measured | idle | not measured | 35.21-37.36 tok/s | 49,186-token prompt: not measured / 30.63 tok/s (ctx=131072) |
-| Qwen3-Next-80B-A3B-Instruct-Q4_K_M | `llama-cpp-all-gpus` (MoE, `n-cpu-moe` offload, dual-GPU) | not measured | not measured | not measured | idle | not measured | 34.02-35.96 tok/s | 49,186-token prompt: not measured / 30.21 tok/s (ctx=131072) |
-| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 12.3 GiB | 11.8 GiB | baseline only | idle | 71.10 tok/s | 101.96 tok/s cold, 102.30 tok/s warm | 8,256-token prompt: 4,329.95 / 94.71 tok/s⁵ |
-| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 11.7 GiB | not exposed | baseline only | idle | 129.14 tok/s | 60.60 tok/s cold, 60.62 tok/s warm | 8,256-token prompt: 1,530.73 / 57.39 tok/s⁵ |
-| Qwen3.5-9B-Q4_K_M | CPU-only (`llama-cpp-cpu`) | not exposed | not exposed | 7.0-7.1 GiB | **compute (8 threads)** | 42.23 tok/s | 7.29-7.30 tok/s |
-| Qwen3.5-9B-Q4_K_M | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 3.7 GiB | 3.8 GiB | baseline only | idle | 578.38 tok/s | 105.11 tok/s cold, 105.76 tok/s warm | 8,256-token prompt: 1,845.76 / 102.16 tok/s⁵ |
-| Qwen3.5-9B-Q4_K_M | `llama-cpp-gpu-1` (dense, single physical GPU) | 6.6 GiB | not exposed | baseline only | idle | 930.51 tok/s | 69.48 tok/s cold, 69.50 tok/s warm | 8,256-token prompt: 3,008.76 / 66.69 tok/s⁵ |
 | Qwen3.6-27B-Q6_K | `llama-cpp-all-gpus` (dense, forced dual-GPU tensor-split) | 14.0 GiB | 14.0 GiB | baseline only | idle | 167.97 tok/s | 31.47 tok/s cold, 31.50 tok/s warm | 8,256-token prompt: 628.43 / 30.38 tok/s⁵ |
 | Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-all-gpus` (MoE, full GPU-resident, dual-GPU) | 12.0 GiB | 11.5 GiB | baseline only | idle | 78.67 tok/s | 122.55 tok/s cold, 123.44 tok/s warm | 8,256-token prompt: 3,989.07 / 112.98 tok/s⁵ |
 | Qwen3.6-35B-A3B-Q4_K_M | `llama-cpp-gpu-1` (MoE, `n-cpu-moe` offload) | 11.7 GiB | not exposed | baseline only | idle | 125.48 tok/s | 68.39 tok/s cold, 68.18 tok/s warm | 8,256-token prompt: 1,242.04 / 63.81 tok/s⁵ |
@@ -274,14 +251,23 @@ Six reported failures did not produce new throughput results:
 
 ## Rejected models
 
-Models removed entirely -- weight files deleted from disk, not just
-unlisted. Kept as a record of what was tried and why it didn't earn a
-place.
+Models removed from the active local catalog -- archived or deleted rather
+than merely unlisted. Kept as a record of what was tried and why it did not
+earn a place.
 
 | Model | Service tried | Decode | Reason rejected |
 |---|---|---|---|
 | Llama-3.3-70B-Instruct-Q3_K_M | `llama-cpp-all-gpus`, `n-gpu-layers=auto` partial offload | 4.78 tok/s (small ctx) -> 2.09-2.75 tok/s (ctx-size 65536-131072) | Doesn't fit 32 GiB combined VRAM with real margin, so every token touches host RAM/PCIe -- a structural bottleneck. An order of magnitude slower than the fleet's MoE models of similar or larger total size, which only activate a few billion parameters per token. ~32 GiB freed. |
-| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus`, `n-gpu-layers=auto` partial offload | 4.57 tok/s (small ctx) -> 2.14-2.57 tok/s (ctx-size 65536-131072) | Same partial-offload bottleneck, same order-of-magnitude gap to the fleet's MoE models. ~32 GiB freed. |
+| Qwen2.5-72B-Instruct-Q3_K_S | `llama-cpp-all-gpus`, `n-gpu-layers=auto` partial offload | 4.57 tok/s (small ctx) -> 2.14-2.57 tok/s (ctx-size 65536-131072) | Same partial-offload bottleneck, same order-of-magnitude gap to the fleet MoE models. ~32 GiB freed. |
+| Devstral-Small-2-24B-Instruct-2512-Q5_K_M | `llama-cpp-all-gpus`, dual-GPU tensor-split | 39.44-39.53 tok/s | Redundant intermediate quantisation: Q6 was retained for quality; Q5 did not justify a separate copy. |
+| Devstral-Small-2505-Q5_K_M | `llama-cpp-all-gpus`, dual-GPU tensor-split | 43.14-43.30 tok/s | Redundant intermediate quantisation: Q6 was retained for quality; Q5 did not justify a separate copy. |
+| Laguna-XS-2.1-Q4_K_M | `llama-cpp-all-gpus`; `llama-cpp-gpu-1` expert offload | 128.06 / 80.56 tok/s warm | Superseded and removed from the local catalog. |
+| North-Mini-Code-1.0-UD-Q4_K_M | `llama-cpp-all-gpus`; `llama-cpp-gpu-1` expert offload | 105.16 / 55.41 tok/s warm | Superseded and removed from the local catalog. |
+| Qwen2.5-Coder-14B-Instruct (Q4/Q5/Q6) | `llama-cpp-all-gpus`; `llama-cpp-gpu-1` | 33.17-63.41 tok/s | Superseded and removed from the local catalog. |
+| Qwen2.5-Coder-7B-Instruct (Q4/Q8) | `llama-cpp-all-gpus`; `llama-cpp-gpu-1` | 52.91-90.62 tok/s | Superseded and removed from the local catalog. |
+| Qwen3-Next-80B-A3B-Instruct-Q4_K_M | 16GB schwerz; CPU; `llama-cpp-gpu-1`; `llama-cpp-all-gpus` | 7.43-37.36 tok/s | Superseded and removed from the local catalog. |
+| Qwen3.5-35B-A3B-Q4_K_M | `llama-cpp-all-gpus`; `llama-cpp-gpu-1` expert offload | 60.60-102.30 tok/s | Superseded and removed from the local catalog. |
+| Qwen3.5-9B-Q4_K_M | CPU; `llama-cpp-all-gpus`; `llama-cpp-gpu-1` | 7.29-105.76 tok/s | Superseded and removed from the local catalog. |
 
 ## GPU-resident, single card, no host offload
 
