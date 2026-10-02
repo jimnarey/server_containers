@@ -53,7 +53,7 @@ class Provider:
 
 PROVIDERS = (
     Provider(
-        "llama-cpp-unified",
+        "llama-cpp",
         "llama-cpp",
         8080,
         "http://llama-cpp:8080/v1",

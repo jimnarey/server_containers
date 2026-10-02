@@ -99,7 +99,7 @@ services:
       NCCL_CUMEM_ENABLE: "0"
     volumes:
       - /mnt/data/models/gguf:/models:ro
-      - ./llama-cpp/config/llama-cpp-unified/models-preset.ini:/models-preset.ini:ro
+      - ./llama-cpp/config/models-preset.ini:/models-preset.ini:ro
       - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - llama-gpu-locks:/var/lock/llama-gpu
     command:

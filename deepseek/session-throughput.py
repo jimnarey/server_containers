@@ -243,7 +243,7 @@ def parse_arguments() -> argparse.Namespace:
         default=Path(os.environ.get("DEEPSEEK_HOME", DEFAULT_DEEPSEEK_HOME)),
         help="Persisted DeepSeek home directory (default: DEEPSEEK_HOME or %(default)s)",
     )
-    parser.add_argument("--provider", help="Only include this provider (e.g. llama-cpp-unified)")
+    parser.add_argument("--provider", help="Only include this provider (e.g. llama-cpp)")
     parser.add_argument("--model", help="Only include this model id")
     parser.add_argument("--workspace", help="Only include this workspace (session directory name, dashes stripped)")
     parser.add_argument("--since", type=datetime.fromisoformat, help="Only include steps at/after this ISO timestamp")

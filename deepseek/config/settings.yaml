@@ -7,7 +7,7 @@ llm-pi-ai:
     # One upstream router serves every declared CPU and GPU placement.
     # Each ID below matches a section in the unified models preset; its resource
     # suffix is part of the model ID and selects the declared placement.
-    llama-cpp-unified:
+    llama-cpp:
       apiKeyEnv: LLAMA_CPP_API_KEY
       api: openai-completions
       baseURL: http://llama-cpp:8080/v1
@@ -412,7 +412,7 @@ llm-pi-ai:
 # (where the old fork-based default ran) with its now-upstream 262144
 # contextWindow -- see the cuda1 entry above.
 agent-default-model:
-  provider: llama-cpp-unified
+  provider: llama-cpp
   model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1
 agent-presets:
   # Presets are capability/tool compositions, not model routes. Keep the
