@@ -94,33 +94,34 @@ services:
     container_name: llama-cpp-c
     restart: "no"
     environment:
-      LLAMA_GPU_LOCK_IDS: ${LLAMA_CPP_ALL_GPU_LOCK_IDS:-0,1}
+      CUDA_VISIBLE_DEVICES: "0,1"
+      LLAMA_GPU_LOCK_IDS: "0,1"
       NCCL_CUMEM_ENABLE: "0"
     volumes:
-      - ${LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - ${LLAMA_CPP_UNIFIED_CONFIG:-./llama-cpp/config/llama-cpp-unified/models-preset.ini}:/models-preset.ini:ro
+      - /mnt/data/models/gguf:/models:ro
+      - ./llama-cpp/config/llama-cpp-unified/models-preset.ini:/models-preset.ini:ro
       - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
       - llama-gpu-locks:/var/lock/llama-gpu
     command:
       - --models-preset
       - /models-preset.ini
       - --models-max
-      - ${LLAMA_CPP_UNIFIED_MODELS_MAX:-3}
-      # The broker loads models explicitly. Until it is deployed, .env sets
-      # LLAMA_CPP_AUTOLOAD=--models-autoload and LLAMA_CPP_UNIFIED_MODELS_MAX=1.
-      - ${LLAMA_CPP_AUTOLOAD:---no-models-autoload}
+      - "1"
+      # The router autoloads one model at a time; the unified preset assigns its
+      # exact CPU/GPU placement per model.
+      - --models-autoload
       - --host
       - 0.0.0.0
       - --port
       - "8080"
       - --parallel
-      - ${LLAMA_CPP_PARALLEL:-1}
+      - "1"
       - --flash-attn
       - on
       - --fit
       - on
       - --fit-target
-      - ${LLAMA_CPP_FIT_TARGET:-1024}
+      - "1024"
       - --no-webui
       - --metrics
     gpus:
@@ -132,124 +133,7 @@ services:
         aliases:
           - llama-cpp
     ports:
-      - "${LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${LLAMA_CPP_PORT:-11450}:8080"
-
-  llama-cpp-generel-schwerz-16gb:
-    build:
-      context: ./llama-cpp
-      target: server
-      args:
-        LLAMA_REPOSITORY: https://github.com/GenerelSchwerz/llama.cpp.git
-        LLAMA_SOURCE_NAME: generel-schwerz-llama-cpp
-        LLAMA_SERVICE_NAME: llama-cpp-generel-schwerz-16gb
-        LLAMA_BRANCH: qwen4exp-mtp
-        LLAMA_COMMIT: e69a1d0be5f8ae0080593865b38b175223059199
-        LLAMA_CUDA: "ON"
-    image: llama-cpp:generel-schwerz-qwen4exp-mtp-e69a1d0
-    container_name: llama-cpp-generel-schwerz-16gb-c
-    restart: "no"
-    gpus: all
-    environment:
-      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-1}"
-      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_16GB_CUDA_VISIBLE_DEVICES:-1}"
-    volumes:
-      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - llama-gpu-locks:/var/lock/llama-gpu
-      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
-      - ${GS_LLAMA_CPP_16GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_16GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-16gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
-    command:
-      - --models-preset
-      - /etc/llama.cpp/models-preset.ini
-      - --models-max
-      - "1"
-      - --models-autoload
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --no-webui
-      - --metrics
-    ports:
-      - "${GS_LLAMA_CPP_16GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_16GB_PORT:-11438}:8080"
-
-  llama-cpp-generel-schwerz-32gb:
-    build:
-      context: ./llama-cpp
-      target: server
-      args:
-        LLAMA_REPOSITORY: https://github.com/GenerelSchwerz/llama.cpp.git
-        LLAMA_SOURCE_NAME: generel-schwerz-llama-cpp
-        LLAMA_SERVICE_NAME: llama-cpp-generel-schwerz-32gb
-        LLAMA_BRANCH: codex/moe-grouped-multigpu
-        LLAMA_COMMIT: 0ed73d1c9e26587cc41b73f77e9e058a0da55368
-        LLAMA_CUDA: "ON"
-    image: llama-cpp:generel-schwerz-codex-moe-grouped-multigpu-0ed73d1
-    container_name: llama-cpp-generel-schwerz-32gb-c
-    restart: "no"
-    gpus: all
-    environment:
-      CUDA_VISIBLE_DEVICES: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
-      LLAMA_GPU_LOCK_IDS: "${GS_LLAMA_CPP_32GB_CUDA_VISIBLE_DEVICES:-0,1}"
-    volumes:
-      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - llama-gpu-locks:/var/lock/llama-gpu
-      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
-      - ${GS_LLAMA_CPP_32GB_CONFIG:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${GS_LLAMA_CPP_32GB_MODELS_PRESET:-./llama-cpp/config/llama-cpp-generel-schwerz-32gb/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
-    command:
-      - --models-preset
-      - /etc/llama.cpp/models-preset.ini
-      - --models-max
-      - "1"
-      - --models-autoload
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --no-webui
-      - --metrics
-    ports:
-      - "${GS_LLAMA_CPP_32GB_BIND_ADDRESS:-192.168.50.136}:${GS_LLAMA_CPP_32GB_PORT:-11439}:8080"
-
-  llama-cpp-csantiago78:
-    build:
-      context: ./llama-cpp
-      target: server
-      args:
-        LLAMA_REPOSITORY: https://github.com/csantiago78/llama.cpp.git
-        LLAMA_SOURCE_NAME: csantiago78-llama-cpp
-        LLAMA_SERVICE_NAME: llama-cpp-csantiago78
-        LLAMA_BRANCH: moe-expert-cache
-        LLAMA_COMMIT: bccbacdb8945680f1cfc7e6bffd1e59014705750
-        LLAMA_CUDA: "ON"
-    image: llama-cpp:csantiago78-moe-expert-cache-bccbacd
-    container_name: llama-cpp-csantiago78-c
-    restart: "no"
-    gpus: all
-    environment:
-      CUDA_VISIBLE_DEVICES: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
-      LLAMA_GPU_LOCK_IDS: "${CSANTIAGO78_LLAMA_CPP_CUDA_VISIBLE_DEVICES:-0,1}"
-    volumes:
-      - ${GS_LLAMA_CPP_MODELS:-/mnt/data/models/gguf}:/models:ro
-      - llama-gpu-locks:/var/lock/llama-gpu
-      - ./llama-cpp/config/chat-templates:/opt/llama-cpp/chat-templates:ro
-      - ${CSANTIAGO78_LLAMA_CPP_CONFIG:-./llama-cpp/config/llama-cpp-csantiago78/config.ini}:/etc/llama.cpp/config.ini:ro
-      - ${CSANTIAGO78_LLAMA_CPP_MODELS_PRESET:-./llama-cpp/config/llama-cpp-csantiago78/models-preset.ini}:/etc/llama.cpp/models-preset.ini:ro
-    command:
-      - --models-preset
-      - /etc/llama.cpp/models-preset.ini
-      - --models-max
-      - "1"
-      - --models-autoload
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-      - --no-webui
-      - --metrics
-    ports:
-      - "${CSANTIAGO78_LLAMA_CPP_BIND_ADDRESS:-192.168.50.136}:${CSANTIAGO78_LLAMA_CPP_PORT:-11440}:8080"
+      - "192.168.50.136:11450:8080"
 
   strata:
     build:
@@ -275,10 +159,9 @@ services:
       # model resident, trading speed for headroom. See strata/README.md.
       STRATA_LOW_RAM: ${STRATA_LOW_RAM:-auto}
       STRATA_API_KEY: ${STRATA_API_KEY:-}
-      # The lock id must be the physical GPU index so it actually
-      # cross-coordinates with the llama-cpp-generel-schwerz-16gb lock file;
-      # the --gpu flag Strata itself receives (in entrypoint.sh) is always 0,
-      # since device_ids below makes that the only GPU this container sees.
+      # The lock id is the physical GPU index. The unified llama-cpp service locks
+      # both GPUs, so Strata and llama-cpp cannot run concurrently on GPU 1.
+      # Strata itself receives GPU 0 because device_ids exposes only one card.
       STRATA_GPU_LOCK_IDS: ${STRATA_GPU_DEVICE_ID:-1}
     volumes:
       - ${STRATA_HOME:-/mnt/work/strata}:/data

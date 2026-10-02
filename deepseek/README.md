@@ -126,10 +126,10 @@ enable fetch there as well.
 In Settings -> Models, add a custom provider with:
 
 ```text
-Provider ID: llama-cpp
+Provider ID: llama-cpp-unified
 Base URL: http://llama-cpp:8080/v1
 API protocol: OpenAI Completions
-Model: Qwen3.8-27B-UD-Q6_K_M
+Model: Qwen3.8-27B-UD-Q6_K_M--cuda0-cuda1
 ```
 
 Use a non-secret placeholder if the form requires an API key; the current llama.cpp service does not validate one. `localhost` is wrong here because it would refer to the DeepSeek container, not the llama.cpp service.
@@ -140,8 +140,8 @@ At present, the provider form can save the catalogue without saving a default fo
 
 ```yaml
 agent-default-model:
-  provider: llama-cpp-moe-16gb
-  model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+  provider: llama-cpp-unified
+  model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1
 ```
 
 Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
@@ -171,9 +171,9 @@ uses `standard` by default. Its repository-owned, version-matched composition
 adds exact model policies to `compaction-basic` without adding any model-named
 modes:
 
-- `llama-cpp` / `Qwen3.8-27B-UD-Q6_K_M`: compact at 75% of its 163,840-token
+- `llama-cpp-unified` / `Qwen3.8-27B-UD-Q6_K_M--cuda0-cuda1`: compact at 75% of its 163,840-token
   route, retain 16,384 recent tokens, and allow a 12,288-token checkpoint.
-- `llama-cpp-moe-16gb` or `llama-cpp-moe-16gb-gpu-0` / Flash Next: compact at
+- `llama-cpp-unified` / Flash Next resource variants: compact at
   80% of its 98,304-token route, retain 16,384 tokens, and use the same
   checkpoint cap.
 
@@ -182,10 +182,10 @@ The local Standard composition is bind-mounted into the pinned Harness package,
 so revisit it as part of every `DEEPSEEK_VERSION` upgrade.
 
 The **Select Model** control chooses a provider/model independently. New
-sessions default to `llama-cpp-moe-16gb` / `Qwen3.8-Flash-Next-UD-Q3_K_XL`
+sessions default to `llama-cpp-unified` / `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1`
 through `agent-default-model` in `settings.yaml`. To use the same model on the
 other physical GPU, keep Standard mode selected and choose
-`llama-cpp-moe-16gb-gpu-0`. A session's existing model selection remains
+`llama-cpp-unified` with `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0`. A session's existing model selection remains
 durable when its capability mode changes.
 
 ## Command-line use over SSH

@@ -49,9 +49,8 @@ ready-made download instead and this toolchain simply goes unused.
 - **GPU: defaults to GPU 1 only.** `compose.ai.yml` restricts the container to physical GPU 1
   via `device_ids`, so Strata only ever sees one card (always index 0 from its own point of
   view — `entrypoint.sh` always passes `--gpu 0`). Change `STRATA_GPU_DEVICE_ID` in `.env` to
-  move it. It also acquires the same GPU lock file (`llama-gpu-locks` volume) that
-  `llama-cpp-generel-schwerz-16gb` uses on GPU 1, so the two won't silently collide — whichever
-  starts first keeps the card until it stops.
+  move it. It also acquires the same GPU lock file (`llama-gpu-locks` volume) that the unified `llama-cpp` service locks on both GPUs. Strata and the unified service
+  therefore cannot run concurrently on GPU 1; whichever starts first keeps the card until it stops.
 - **Models: always under `/mnt/data/models/strata`.** Override with `STRATA_MODELS` in `.env`
   if you want them elsewhere. Engine/venv/config state (small) lives separately under
   `STRATA_HOME` (default `/mnt/work/strata`), matching this repo's `/mnt/data` = bulk assets,

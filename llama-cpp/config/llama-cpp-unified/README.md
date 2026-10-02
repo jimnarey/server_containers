@@ -27,7 +27,7 @@ also use host RAM that nothing budgets.
 
 ## Router settings
 
-`render-compose.py` starts the router with `--models-max 1 --models-autoload`,
+`compose.ai.yml` starts the router with `--models-max 1 --models-autoload`,
 so exactly one model is resident at a time and llama.cpp loads and unloads
 models itself.  It also passes `--flash-attn on`, `--fit on` and
 `--fit-target`.  The router command line deliberately omits `--device`,

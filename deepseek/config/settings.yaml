@@ -4,49 +4,14 @@ ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
 llm-pi-ai:
   providers:
-    # 2026-09-23: replaced the eight upstream/gpu-0/gpu-1/cpu/moe-16gb/
-    # moe-16gb-gpu-0/moe-32gb/csantiago78 providers below with this single
-    # provider for the new llama-cpp-unified service (see
-    # llama-cpp/config/llama-cpp-unified/), which runs every model from every
-    # former service on one router with an explicit per-model resource claim
-    # (see models-preset.ini and its README.md). Every id here is the exact
-    # unified-preset section name, including its `--cuda0` / `--cuda1` /
-    # `--cuda0-cuda1` / `--cpu` resource suffix -- the router exposes each
-    # section as a separate model, so the suffix is part of the real id, not
-    # decoration.
-    #
-    # Where a model+resource combination existed on more than one former
-    # provider, the upstream (non-fork) provider's settings were kept and the
-    # generel-schwerz/csantiago78 fork's settings were kept only for
-    # combinations the upstream side never had (this is the user's stated
-    # precedence: upstream wins over a fork for the same model on the same
-    # card combination). The one case where this produces different settings
-    # per suffix for the *same* model is Qwen3.8-Flash-Next-UD-Q3_K_XL: cuda0
-    # keeps upstream llama-cpp-gpu-0's 262144/12288 (no reasoning workaround),
-    # while cuda1 and cuda0-cuda1 have no upstream equivalent and keep the
-    # fork's 98304/12288 plus the reasoning/thinkingLevelMap workaround below
-    # (that workaround compensates for this model's chat template defaulting
-    # reasoning_effort to "xhigh"; it is unrelated to, and kept separate from,
-    # the streamIdleTimeoutMs compaction fix applied at the provider level).
-    #
-    # Models that never had any DSH entry on any former provider (gemma-3n
-    # E2B/E4B, NVIDIA-Nemotron-3-Nano-4B, Ornith-1.5-9B, Qwen3.5-9B,
-    # gpt-oss-20b-MXFP4, gpt-oss-120b-MXFP4, Ling-3.0-flash,
-    # upstage.Solar-Open-100B, and the dual-GPU-only gpt-oss-20b-F16 and
-    # DeepSeek-Coder-V2-Lite-Instruct-Q8_0) get a fresh contextWindow copied
-    # from their own models-preset.ini `ctx-size`, since there is no prior
-    # deepseek setting to translate.
-    #
-    # Ornith-1.5-35B-A3B-Q4_K_M was carried over under its real preset
-    # section name: every former provider's `id:` for it (`Ornith-1.5-35B-
-    # Q4_K_M`, missing "-A3B") did not match the section name the router
-    # actually serves, a pre-existing naming bug now fixed rather than
-    # repeated.
+    # One upstream router serves every declared CPU and GPU placement.
+    # Each ID below matches a section in the unified models preset; its resource
+    # suffix is part of the model ID and selects the declared placement.
     llama-cpp-unified:
       apiKeyEnv: LLAMA_CPP_API_KEY
       api: openai-completions
       baseURL: http://llama-cpp:8080/v1
-      # Carried over from the former llama-cpp/llama-cpp-moe-*/csantiago78
+      # Carried over from the former former separate llama.cpp routes
       # providers: the pi-ai adapter's default (300000ms = 5 minutes) is too
       # short for compaction on this fleet -- a 2026-09-14 session showed
       # compaction on Flash Next reliably taking just over 5 minutes
@@ -323,10 +288,10 @@ llm-pi-ai:
         - id: GLM-4.7-Flash-Q4_K_M--cuda0-cuda1
           contextWindow: 202752
           maxTokens: 24576
-        # 2026-09-23: llama-cpp-16gb/llama-cpp-32gb (the upstream, non-fork
+        # 2026-09-23: former single- and dual-GPU catalogues (the upstream, non-fork
         # presets) added their own gpt-oss-120b profiles on 2026-09-20 --
         # contextWindow now matches their real ctx-size=131072, replacing the
-        # generel-schwerz fork's 65536 that DSH had carried until now. The
+        # former fork.s 65536 that DSH had carried until now. The
         # fork route is obsolete; every gpt-oss-120b/Llama-4-Scout/GLM-4.5-Air/
         # Qwen3-Coder-Next/Qwen3-Next-80B entry below is now sourced straight
         # from the current models-preset.ini's ctx-size, not the fork.
@@ -378,11 +343,9 @@ llm-pi-ai:
         - id: Qwen3-Next-80B-A3B-Instruct-Q4_K_M--cpu
           contextWindow: 65536
           maxTokens: 4096
-        # Full native-context validation on the upstream side: 256,086
-        # prompt tokens plus a 64-token completion completed on GPU 0
-        # without truncation. llama-cpp-16gb's preset now gives cuda0 and
-        # cuda1 the identical profile (same ctx-size/n-cpu-moe/lazy-mode), so
-        # both use this value. This model's chat template also defaults
+        # Full native-context validation: 256,086 prompt tokens plus a 64-token
+        # completion completed on GPU 0 without truncation. The unified cuda0
+        # and cuda1 profiles use the same placement settings and context. This model's chat template also defaults
         # reasoning_effort to "xhigh" whenever a request omits it, and only
         # accepts low/medium/xhigh -- `max` maps to xhigh below for the
         # reasoning-low default to actually take effect (not just the
@@ -403,9 +366,8 @@ llm-pi-ai:
             off: low
             minimal: low
             max: xhigh
-        # Dual-GPU upstream profile (llama-cpp-32gb) uses a smaller ctx-size
-        # than either single-GPU card; no upstream dual entry existed before
-        # csantiago78's now-obsolete fork route, which this replaces.
+        # The unified dual-GPU profile uses a smaller context than the single-GPU
+        # variants because its placement has different memory headroom.
         - id: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0-cuda1
           contextWindow: 131072
           maxTokens: 12288

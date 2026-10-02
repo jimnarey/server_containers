@@ -92,10 +92,7 @@ then run one of the following; later runs merge its fresh result into the same
 catalogue:
 
 ```sh
-./pi/sync-config.py --provider llama-cpp
-./pi/sync-config.py --provider llama-cpp-cpu
-./pi/sync-config.py --provider llama-cpp-moe-16gb
-./pi/sync-config.py --provider llama-cpp-moe-32gb
+./pi/sync-config.py --provider llama-cpp-unified
 ./pi/sync-config.py --provider ollama
 ```
 

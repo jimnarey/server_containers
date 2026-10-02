@@ -1,5 +1,5 @@
 {
-  "defaultProvider": "llama-cpp",
+  "defaultProvider": "llama-cpp-unified",
   "defaultModel": "Qwen3.8-27B-UD-Q6_K_M",
   "defaultThinkingLevel": "low",
   "showCacheMissNotices": true,

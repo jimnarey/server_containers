@@ -53,32 +53,11 @@ class Provider:
 
 PROVIDERS = (
     Provider(
-        "llama-cpp",
+        "llama-cpp-unified",
         "llama-cpp",
         8080,
         "http://llama-cpp:8080/v1",
-        "PI_LLAMA_CPP_MODELS_URL",
-    ),
-    Provider(
-        "llama-cpp-cpu",
-        "llama-cpp-cpu",
-        8080,
-        "http://llama-cpp-cpu:8080/v1",
-        "PI_LLAMA_CPP_CPU_MODELS_URL",
-    ),
-    Provider(
-        "llama-cpp-moe-16gb",
-        "llama-cpp-generel-schwerz-16gb",
-        8080,
-        "http://llama-cpp-generel-schwerz-16gb:8080/v1",
-        "PI_LLAMA_CPP_MOE_16GB_MODELS_URL",
-    ),
-    Provider(
-        "llama-cpp-moe-32gb",
-        "llama-cpp-generel-schwerz-32gb",
-        8080,
-        "http://llama-cpp-generel-schwerz-32gb:8080/v1",
-        "PI_LLAMA_CPP_MOE_32GB_MODELS_URL",
+        "PI_LLAMA_CPP_UNIFIED_MODELS_URL",
     ),
     Provider(
         "ollama",

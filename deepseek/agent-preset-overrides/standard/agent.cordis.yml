@@ -172,8 +172,8 @@
         modelPolicies:
           # 163,840-token general GPU coding route: compact sooner, while
           # retaining an absolute 16K recent working set.
-          - provider: llama-cpp
-            model: Qwen3.8-27B-UD-Q6_K_M
+          - provider: llama-cpp-unified
+            model: Qwen3.8-27B-UD-Q6_K_M--cuda0-cuda1
             thresholdRatio: 0.75
             retainTokens: 16384
             maxTokens: 12288
@@ -191,10 +191,10 @@
           # real compaction behaviour is observed for this model specifically.
           # Without this entry it would silently fall back to the plugin's
           # own defaults (maxTokens 8192, retainRatio 0.16, compactionRetries
-          # 1) -- see the llama-cpp-csantiago78 comment below for what that
+          # 1) -- see the Flash Next note below for what that
           # gap looks like in practice.
-          - provider: llama-cpp
-            model: GLM-4.7-Flash-Q4_K_M
+          - provider: llama-cpp-unified
+            model: GLM-4.7-Flash-Q4_K_M--cuda0-cuda1
             thresholdRatio: 0.75
             retainTokens: 16384
             maxTokens: 12288
@@ -211,9 +211,9 @@
           # silently fall back to the plugin's own defaults (maxTokens 8192,
           # retainRatio 0.16, compactionRetries 1), which on a window this
           # size is an even larger undertested gap than the ones this same
-          # section already fixed for Flash Next and llama-cpp-csantiago78.
-          - provider: llama-cpp
-            model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0
+          # section already fixed for Flash Next variants.
+          - provider: llama-cpp-unified
+            model: NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0--cuda0-cuda1
             thresholdRatio: 0.75
             retainTokens: 16384
             maxTokens: 12288
@@ -239,8 +239,8 @@
           # read its `compaction/summary` session event: it carries `usage`
           # and `shadowedTokenCount`, which is the evidence to right-size this
           # value precisely instead of guessing again.
-          - provider: llama-cpp-moe-16gb
-            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          - provider: llama-cpp-unified
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1
             thresholdRatio: 0.80
             retainTokens: 16384
             maxTokens: 12288
@@ -249,33 +249,17 @@
           # Provider/model matching is exact. The GPU-0 companion has the
           # same Flash Next preset and context as the established 16GB route,
           # but therefore needs its own copy of the policy.
-          - provider: llama-cpp-moe-16gb-gpu-0
-            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          - provider: llama-cpp-unified
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0
             thresholdRatio: 0.80
             retainTokens: 16384
             maxTokens: 12288
             compactionRetries: 2
             maxOverflowRetries: 2
-          # The normal upstream GPU-1 route is distinct from schwerz. It has
-          # a populated 256K validation, so compact at the same conservative
-          # 80% threshold while preserving the proven 16K working tail.
-          - provider: llama-cpp-gpu-1
-            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
-            thresholdRatio: 0.80
-            retainTokens: 16384
-            maxTokens: 12288
-            compactionRetries: 2
-            maxOverflowRetries: 2
-          # llama-cpp-csantiago78 is a separate provider route (see
-          # settings.yaml), so modelPolicies matching on {provider, model}
-          # does not pick it up from the entries above by itself — without
-          # this entry it would silently fall back to the plugin's own
-          # defaults (maxTokens 8192, retainRatio 0.16, compactionRetries 1),
-          # not the values settled above after the 2026-09-14 failures.
-          # Its Flash Next route mirrors the established one-GPU provider's
-          # context and reasoning/idle-timeout handling in settings.yaml.
-          - provider: llama-cpp-csantiago78
-            model: Qwen3.8-Flash-Next-UD-Q3_K_XL
+          # The dual-GPU resource variant has its own exact model ID, so it
+          # needs a separate policy even though it shares the unified provider.
+          - provider: llama-cpp-unified
+            model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0-cuda1
             thresholdRatio: 0.80
             retainTokens: 16384
             maxTokens: 12288
