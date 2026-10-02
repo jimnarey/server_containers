@@ -11,6 +11,7 @@ set -eu
 : "${STRATA_CONTEXT:=65536}"
 : "${STRATA_KV:=int8}"
 : "${STRATA_VISION:=no}"
+: "${STRATA_LOW_RAM:=auto}"
 : "${STRATA_DATA_DIR:=/data}"
 : "${STRATA_MODELS_DIR:=/models}"
 
@@ -24,6 +25,7 @@ set -- --yes \
     --context "$STRATA_CONTEXT" \
     --kv "$STRATA_KV" \
     --vision "$STRATA_VISION" \
+    --low-ram "$STRATA_LOW_RAM" \
     --gpu 0 \
     --host 0.0.0.0 \
     --port 8080 \

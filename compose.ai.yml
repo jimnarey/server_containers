@@ -268,7 +268,12 @@ services:
     environment:
       STRATA_FAMILY: ${STRATA_FAMILY:-qwen}
       STRATA_MODEL: ${STRATA_MODEL:-IQ3_S}
-      STRATA_CONTEXT: ${STRATA_CONTEXT:-65536}
+      STRATA_CONTEXT: ${STRATA_CONTEXT:-131072}
+      # auto: Strata only drops experts to NVMe-backed file-cache reads when
+      # RAM is clearly short (its own threshold is a model's arena_gb + 10 GB
+      # headroom); "on" forces it even when RAM would technically fit the
+      # model resident, trading speed for headroom. See strata/README.md.
+      STRATA_LOW_RAM: ${STRATA_LOW_RAM:-auto}
       STRATA_API_KEY: ${STRATA_API_KEY:-}
       # The lock id must be the physical GPU index so it actually
       # cross-coordinates with the llama-cpp-generel-schwerz-16gb lock file;
@@ -278,6 +283,14 @@ services:
     volumes:
       - ${STRATA_HOME:-/mnt/work/strata}:/data
       - ${STRATA_MODELS:-/mnt/data/models/strata}:/models
+      # The compiled engine (setup.py's build_engine()) is keyed on a hash of
+      # its own source plus target GPU archs, stored in engine/BUILD.json, so
+      # it is self-healing: recompiles only when the pinned commit actually
+      # changes the engine source or a new GPU arch is needed. Sharing it
+      # across this service and one-off `docker compose run` invocations
+      # (strata/README.md) avoids repeating a 10-20 minute compile in every
+      # separate container.
+      - strata-engine:/app/engine
       - llama-gpu-locks:/var/lock/llama-gpu
     gpus:
       - driver: nvidia
@@ -541,6 +554,7 @@ services:
 
 volumes:
   llama-gpu-locks:
+  strata-engine:
   ollama-home:
   ollama-cpu-home:
   searxng-cache:
