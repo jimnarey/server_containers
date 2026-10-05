@@ -720,6 +720,67 @@ pruning the session after just 8 turns -- against roughly a quarter of the
 model's real window. Fixed the same day (`contextWindow` corrected, a
 `modelPolicies` entry added); not retested under the corrected config.
 
+## Unresolved reliability issue: Qwen3.6 Uncensored tool loops in VS Code Copilot
+
+`Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M--cuda1` is **not
+currently reliable for VS Code Copilot Agent-mode tool loops**. This is a
+protocol/reasoning failure, not a measured GPU-performance limitation and
+not a filesystem failure. The controlled server-only tool tests pass, but
+the full Copilot interaction can still fail after valid tool results.
+
+The clearest incident was Copilot session
+`d949e6d5-135b-4058-b815-f669d34714fd` on 2026-10-04. It made an initial
+three-tool batch, correctly recovered from the ordinary missing-file result
+`File /memories/repo/krea2.md does not exist`, then made a second successful
+three-directory-listing batch. Copilot recorded `toolInputRetry: 1` for the
+second batch. The next request (18:40:46--19:12:03 BST) accepted 827 prompt
+tokens but generated 81,883 tokens for 1,876 seconds; llama.cpp released it
+at the 131,071-token context ceiling with `truncated = 1`. It emitted no
+usable next tool call or final answer, and Copilot reported "Sorry, no
+response was returned" about a second later. The matching server window has
+no OOM, CUDA fault, worker exit, restart, network loss, queueing event, or
+parser/template error. Raw generated tokens were not logged, so it cannot
+be proved whether the runaway consisted of unterminated reasoning, raw tool
+syntax, or another malformed completion.
+
+Changes attempted, and their observed effect:
+
+- Replaced the implicit/unspecified Qwen 3.6 formatting with an explicit
+  local community Qwen 3.5/3.6/3.8 Jinja template, modified to default to
+  JSON tool arguments, and enabled `--jinja`, `--chat-template-file`, and
+  `--reasoning-format deepseek`. This fixed the controlled protocol shape:
+  simple and multi-turn requests return normal OpenAI `tool_calls` arrays
+  with JSON arguments, including recovery from the same missing-file tool
+  result. It did **not** prevent the real Copilot post-tool runaway.
+- Investigated the proposed Hermes parser setting. The deployed llama.cpp
+  build (0.4.1-dev, build 11118, `e6ab7c1a4`) has no
+  `--tool-call-parser`/Hermes-equivalent switch; it was therefore not added.
+  There is no parser rejection in the incident log.
+- Used low reasoning effort, an 8,000-token `reasoning-budget`, and an
+  injected "make a concrete tool call or final answer" budget message. They
+  did **not** hard-limit the incident: the post-tool request still produced
+  81,883 tokens. No GPU, context-size, or `parallel = 1` setting was changed
+  while diagnosing it.
+- Set `reasoning-preserve = false` because VS Code was retaining large
+  reasoning chunks poorly. That reduced historical-reasoning carry-over but
+  did not eliminate tool-loop failures and may make Qwen's interleaved
+  reasoning/tool transitions less robust when Copilot does not resend
+  `reasoning_content` consistently.
+- On 2026-10-05 restored `reasoning-preserve = true` for this preset and
+  added `n-predict = 8192`. The output cap is a safety guardrail: it limits
+  any one completion (reasoning plus visible response) and prevents another
+  31-minute context-filling request, but it cannot itself repair malformed
+  tool/reasoning serialization. Copilot Agent-mode reliability with this
+  latest combination remains unproven.
+
+The persisted evidence is in
+`docs/diagnostics/copilot-tool-protocol-20261005/`: the historical request
+timeline, raw HTTP replies from the successful and failed-result multi-turn
+tests, and the corresponding server parser log. Until a real Copilot
+multi-tool session succeeds repeatedly with preserved reasoning, treat this
+model as experimental for Agent mode rather than as a dependable tool-use
+model.
+
 ## `models-preset.ini` split into GPU and CPU templates
 
 The GPU and CPU services shared one override source, generated ad hoc for
