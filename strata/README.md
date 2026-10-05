@@ -56,8 +56,9 @@ ready-made download instead and this toolchain simply goes unused.
   `STRATA_HOME` (default `/mnt/work/strata`), matching this repo's `/mnt/data` = bulk assets,
   `/mnt/work` = app state convention.
 - **Active model**: `STRATA_FAMILY` / `STRATA_MODEL` in `.env` select what the running service
-  actually serves (default `qwen` / `IQ3_S`). Switching is a restart, not a re-download, once
-  the quant you want is already on disk (see below).
+  actually serves (default `qwen` / `IQ2_XS`, with the uncensored speed-projection vector on —
+  see below). Switching is a restart, not a re-download, once the quant you want is already on
+  disk (see below).
 - **Context**: `STRATA_CONTEXT` (default `131072`). Strata's suggested values are `8192, 32768,
   65536, 131072, 262144`; it's a fixed ceiling set at model-load time, not a per-request
   parameter — see the context/compaction note below.
@@ -112,6 +113,43 @@ Practical options, in order of how little they change:
 This is a judgment call about how much of this host's RAM is actually free when Strata is
 serving, which isn't something to decide from source alone — check `free -h` in practice once
 other services are running their normal workloads.
+
+## Uncensored mode (speed-projection control vector)
+
+`STRATA_SPEED_PROJECTION` (default: set, pointing at the file below) enables Strata's native
+`--experimental-speed-projection` feature — a refusal-direction control vector applied at
+*runtime* via llama.cpp's `--control-vector-scaled`/`--cvec-mode project`, layers 4-44. This is
+not a separate model and not a fine-tune: the underlying weights are the exact same ISTA-DASLab
+GSQ-RCO files already used for the plain `qwen` quants (confirmed byte-for-byte via SHA256). Only
+runtime *behavior* changes, not the weights on disk.
+
+Only takes effect for `qwen`/`coder` — `setup.py` warns and silently ignores it for `swift`, so
+there's no point setting it while `STRATA_FAMILY=swift`. Empty disables it entirely (no flag
+passed at all, rather than passing `off`), to avoid that warning when running `swift`.
+
+**Source**: [`alesha-pro/Qwen3.8-Flash-Next-abliterated-GSQ-RCO-Strata-GGUF`](https://huggingface.co/alesha-pro/Qwen3.8-Flash-Next-abliterated-GSQ-RCO-Strata-GGUF)
+(not gated, not private). The vector itself (`Huihui-Qwen3.8-Flash-Next-refusal-direction-r.gguf`,
+~480 KB, SHA256-verified against the repo's own `SHA256SUMS`) lives at
+`/mnt/work/strata/vectors/` — already reachable in the container at `/data/vectors/` via the
+existing `STRATA_HOME` mount, no extra volume needed.
+
+**Read before relying on this for anything serious** — from the author's own measurements (RTX
+3090, not this host, not independently re-verified here beyond confirming the mechanism actually
+applies the flags):
+- Only `IQ3_S` and `IQ2_XS` were tested; `Q2_0` and `IQ3_XXS` were **not run at all** by the
+  author. `IQ2_XS` (what this defaults to) is one of the two actually-measured quants, not a
+  guess.
+- On `IQ2_XS` specifically, with thinking on, **3-4 of 10 hard prompts in their test set spent
+  the full reasoning budget and returned no answer at all** (not a refusal — genuine indecision).
+  Same over-thinking tendency already documented elsewhere in this repo for this model family,
+  not something this vector fixes.
+- `IQ2_XS` stays further from the full BF16 model than `IQ3_S` does (KL divergence 0.1923 vs
+  0.0738, top-1 match 87.4% vs 93.0%) — the usual quality/size trade-off, not specific to this
+  vector.
+- Removing refusals removes a safety behavior. What the model writes with this on is your
+  responsibility, same as the author's own README says.
+
+To disable: set `STRATA_SPEED_PROJECTION=` (empty) in `.env` and restart.
 
 ## Build and first start
 

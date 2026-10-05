@@ -43,4 +43,11 @@ if [ -n "${STRATA_API_KEY_HOST:-}" ]; then
     set -- "$@" --api-key "$STRATA_API_KEY_HOST"
 fi
 
+# --experimental-speed-projection only has an effect for qwen/coder (setup.py
+# warns and ignores it for swift); not passing it at all - rather than
+# passing "off" - avoids that warning on families where it's a no-op anyway.
+if [ -n "${STRATA_SPEED_PROJECTION:-}" ]; then
+    set -- "$@" --experimental-speed-projection "$STRATA_SPEED_PROJECTION"
+fi
+
 exec ./setup.sh "$@"

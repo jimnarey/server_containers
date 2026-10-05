@@ -158,8 +158,19 @@ services:
       # headroom); "on" forces it even when RAM would technically fit the
       # model resident, trading speed for headroom. See strata/README.md.
       STRATA_LOW_RAM: ${STRATA_LOW_RAM:-auto}
-      # Named differently from .env's STRATA_API_KEY on purpose: Strata's own
-      # serve/server.py treats a literal STRATA_API_KEY env var as reserved
+      # Only takes effect for qwen/coder (setup.py ignores it for swift).
+      # Default points at alesha-pro/Qwen3.8-Flash-Next-abliterated-GSQ-RCO-
+      # Strata-GGUF's control vector (SHA256-verified against the repo's own
+      # SHA256SUMS before use) - a refusal-direction projection applied at
+      # runtime via llama.cpp's --control-vector-scaled, layers 4-44. The
+      # underlying model weights are untouched (same ISTA-DASLab GSQ-RCO
+      # files already used for the non-uncensored qwen models); this changes
+      # *behavior*, not *weights*. Empty disables it entirely (no flag
+      # passed) rather than passing "off", matching the file at
+      # /mnt/work/strata/vectors/ (already reachable at /data/vectors/ via
+      # the existing STRATA_HOME mount - no extra volume needed). See
+      # strata/README.md.
+      STRATA_SPEED_PROJECTION: ${STRATA_SPEED_PROJECTION:-}
       # and refuses to start if it's merely present-but-empty (#213, a
       # deliberate guard against silently running with no auth). Compose's
       # ${VAR:-} always defines the container var even when empty, so this
