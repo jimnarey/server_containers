@@ -6,13 +6,13 @@ Harness profiles, settings, credentials, sessions, and installed plugins are per
 
 DeepSeek Harness is a developer preview and may make compatibility-breaking changes. The image therefore pins its npm package version rather than installing `latest` on every build. The repository also bind-mounts a version-matched copy of the shipped Standard agent composition to apply local compaction policies; review that copy whenever `DEEPSEEK_VERSION` changes.
 
-The image includes the common tools needed by the local coding-agent workflow:
-`uv`, Python 3.12 development headers, build tools, Python Capstone,
-`Xvfb`, `xauth`, `7z`, `zstd`, `fd`, `jq`, `git`, `openssh-client`,
-`ripgrep`, and the GLib/Qt/XCB
-runtime libraries needed by PySide6 under Xvfb. `uv` uses persistent cache and
-managed-Python directories under `/home/runuser`, so Python downloads and package
-caches survive container recreation.
+The harness core includes Node, `uv`, build tools, `fd`, `jq`, `git`,
+`openssh-client`, `ripgrep`, `tmux`, `zstd`, and passwordless `sudo`. Operating
+system requirements for a target project live in [`projects`](../projects/):
+the default aggregate Compose stack selects the Amiga layer, while Xbox 360 is
+an explicit alternative overlay. `uv` uses persistent cache and managed-Python
+directories under `/home/runuser`, so Python downloads and package caches
+survive container recreation.
 
 Passwordless `sudo` is available as a fallback for small missing dependency
 installs and diagnostics when entering the container with `docker compose exec`.

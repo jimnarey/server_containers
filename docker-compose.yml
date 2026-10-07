@@ -3,6 +3,13 @@
 include:
   - path: compose.bases.yml
   - path: compose.ai.yml
+  # Preserve the current Amiga-focused harness environment as the aggregate
+  # stack's default. Select projects/xbox360/compose.yml explicitly instead
+  # when working on the Xbox 360 project.
+  - path: projects/amiga/compose.yml
+    # The project overlays are also usable with `-f` from this repository.
+    # Keep their build paths rooted here in both invocation styles.
+    project_directory: .
   - path: compose.emulation.yml
   - path: compose.hardware.yml
   - path: compose.nas.yml

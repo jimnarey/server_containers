@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: capture-xvfb OUTPUT.png" >&2
+    exit 64
+fi
+
+: "${DISPLAY:=:99}"
+xwd -display "$DISPLAY" -root -silent | convert xwd:- "$1"

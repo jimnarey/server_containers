@@ -1,0 +1,31 @@
+# Overlay this after compose.ai.yml. It replaces only the images built for the
+# two existing harness services; it does not create parallel DeepSeek/Pi
+# containers.
+services:
+  deepseek:
+    build:
+      context: .
+      dockerfile: projects/xbox360/Dockerfile
+      args:
+        HARNESS_IMAGE: deepseek-harness:core
+        XENIA_CANARY_RELEASE: ${XENIA_CANARY_RELEASE:-cc4981a}
+        XENIA_CANARY_LINUX_SHA256: ${XENIA_CANARY_LINUX_SHA256:-82914b57c0f673e39e7e43ffe4a0222088520f35e2a05b20ad43a586f811455c}
+        XENIA_CANARY_WINDOWS_SHA256: ${XENIA_CANARY_WINDOWS_SHA256:-46d531e3cdc5ab0144509a780005f4736df62264150c49e52bcd2545ef6bf2fc}
+    image: deepseek-harness:xbox360
+    environment:
+      XENIA_HOME: /home/runuser/xenia-canary
+      XENIA_WINEPREFIX: /home/runuser/.xenia-canary-wineprefix
+
+  pi:
+    build:
+      context: .
+      dockerfile: projects/xbox360/Dockerfile
+      args:
+        HARNESS_IMAGE: pi-coding-agent:core
+        XENIA_CANARY_RELEASE: ${XENIA_CANARY_RELEASE:-cc4981a}
+        XENIA_CANARY_LINUX_SHA256: ${XENIA_CANARY_LINUX_SHA256:-82914b57c0f673e39e7e43ffe4a0222088520f35e2a05b20ad43a586f811455c}
+        XENIA_CANARY_WINDOWS_SHA256: ${XENIA_CANARY_WINDOWS_SHA256:-46d531e3cdc5ab0144509a780005f4736df62264150c49e52bcd2545ef6bf2fc}
+    image: pi-coding-agent:xbox360
+    environment:
+      XENIA_HOME: /home/runuser/xenia-canary
+      XENIA_WINEPREFIX: /home/runuser/.xenia-canary-wineprefix

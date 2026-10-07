@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+
+# Xenia Canary's Windows build is x86-64, so this intentionally uses wine64
+# and a fresh, project-scoped 64-bit prefix. Other 32-bit Windows tools need a
+# separate explicitly multiarch project layer.
+export WINEPREFIX=${XENIA_WINEPREFIX:-"$HOME/.xenia-canary-wineprefix"}
+mkdir -p "$WINEPREFIX"
+exec wine64 /opt/xenia-canary/windows/xenia_canary.exe "$@"

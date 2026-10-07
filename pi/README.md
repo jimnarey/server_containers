@@ -44,10 +44,12 @@ docker compose exec -it -w /workspace/amiga-ui pi pi
 ```
 
 Pi is a terminal coding agent: its shell tool runs as `runuser` and can modify
-the mounted workspace. Its developer environment matches the DeepSeek harness:
-it includes the same apt-installed build, Python, Qt/X11, diagnostics, and
-terminal utilities; `uv`; and passwordless `sudo` for `runuser`. Use `sudo`
-only when a task genuinely requires a system-level change inside the container.
+the mounted workspace. Its harness core matches DeepSeek's common environment:
+build tools, terminal diagnostics, `uv`, and passwordless `sudo` for `runuser`.
+The Python, GUI, emulator, and reverse-engineering packages belong to a chosen
+project overlay under [`projects`](../projects/), rather than to Pi itself. Use
+`sudo` only when a task genuinely requires a system-level change inside the
+container.
 
 ## Long-running work
 

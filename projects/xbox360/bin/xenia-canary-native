@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+# AppImages normally need FUSE. Extraction keeps this headless container free
+# of a FUSE requirement and places any relative Xenia data in a persisted home.
+XENIA_HOME=${XENIA_HOME:-"$HOME/xenia-canary"}
+mkdir -p "$XENIA_HOME"
+cd "$XENIA_HOME"
+exec /opt/xenia-canary/linux/xenia_canary_linux.AppImage \
+    --appimage-extract-and-run "$@"

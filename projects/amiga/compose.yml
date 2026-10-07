@@ -1,0 +1,18 @@
+# Overlay this after compose.ai.yml. It keeps the runtime service names
+# unchanged while selecting the Amiga project environment for each harness.
+services:
+  deepseek:
+    build:
+      context: .
+      dockerfile: projects/amiga/Dockerfile
+      args:
+        HARNESS_IMAGE: deepseek-harness:core
+    image: deepseek-harness:amiga
+
+  pi:
+    build:
+      context: .
+      dockerfile: projects/amiga/Dockerfile
+      args:
+        HARNESS_IMAGE: pi-coding-agent:core
+    image: pi-coding-agent:amiga

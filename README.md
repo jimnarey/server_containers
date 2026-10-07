@@ -32,6 +32,8 @@ The repository is organised in layers:
 - `base-ubuntu-caddy-*`: adds Caddy and authenticated web access
 - `base-ubuntu-gui-*`, `base-ubuntu-xfce-*`, `base-ubuntu-kde-*`: adds desktop/UI stacks
 - `base-ubuntu-wine-*`, `base-ubuntu-kde-wine-24`: adds Wine for Windows GUI apps
+- `agent-base/`, `agent-base-caddy/`: common coding-agent runtime layers
+- `projects/`: selectable per-project DeepSeek/Pi OS toolchain overlays
 - app folders such as `calibre/`, `double-commander/`, `inkscape/`, `lightburn/`, `transmission/`, `webdav/`
 - `docker-compose.yml`: default aggregate of the grouped Compose definitions
 - `compose.bases.yml`, `compose.ai.yml`, `compose.emulation.yml`,
@@ -72,13 +74,38 @@ docker run --rm -it base-ubuntu-caddy-24:latest \
 
 The Compose files read `.env`. Some older `Makefile` targets expect an `env.sh` file that can be sourced in the shell; if you use those targets, create a compatible file locally.
 
-The default `docker-compose.yml` includes every grouped definition, so existing
-commands continue to work. To work on a host-specific subset, pass the needed
-files explicitly; for example:
+The default `docker-compose.yml` includes every grouped definition and selects
+the existing Amiga harness environment. To work on a host-specific subset,
+pass the needed files explicitly; for example:
 
 ```bash
-docker compose -f compose.bases.yml -f compose.ai.yml up -d deepseek
+docker compose -f compose.bases.yml -f compose.ai.yml \
+  -f projects/amiga/compose.yml up -d deepseek
 ```
+
+The Xbox 360 toolchain is an alternative, not an additional pair of agent
+services:
+
+```bash
+docker compose -f compose.bases.yml -f compose.ai.yml \
+  -f projects/xbox360/compose.yml up -d deepseek pi
+```
+
+See [`projects`](./projects/) for the toolchain ownership and build notes.
+
+On a clean Docker host, build the parent images once before building either
+project overlay:
+
+```bash
+docker compose --profile base build base-ubuntu-24
+docker compose --profile harness-build build agent-base
+docker compose --profile harness-build build agent-base-caddy
+docker compose --profile harness-build build deepseek-core pi-core
+```
+
+Then build the selected project's `deepseek` and `pi` services. These build
+targets do not run helper containers; the `harness-build` profile is only for
+the parent images.
 
 `sync_compose_env.py` creates or extends an environment file from only the
 variables interpolated by services in the Compose files you name. It preserves

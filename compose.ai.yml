@@ -11,6 +11,37 @@ x-defaults: &defaults
 
 services:
 
+  # Build-only parents for the agent images. They are hidden behind a profile,
+  # so `up` never starts helper containers. Build them in parent-to-child
+  # order before a project overlay; the runtime remains one `deepseek` and one
+  # `pi` service.
+  agent-base:
+    image: agent-base:latest
+    build: ./agent-base
+    profiles: ["harness-build"]
+
+  agent-base-caddy:
+    image: agent-base-caddy:latest
+    build:
+      context: ./agent-base-caddy
+    profiles: ["harness-build"]
+
+  deepseek-core:
+    image: deepseek-harness:core
+    build:
+      context: ./deepseek
+      args:
+        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.1.1-rc.2}
+    profiles: ["harness-build"]
+
+  pi-core:
+    image: pi-coding-agent:core
+    build:
+      context: ./pi
+      args:
+        PI_VERSION: ${PI_VERSION:-0.85.1}
+    profiles: ["harness-build"]
+
   ollama:
     image: ollama/ollama:${OLLAMA_TAG:-latest}
     volumes:
@@ -222,11 +253,10 @@ services:
     tty: true
 
   deepseek:
-    build:
-      context: ./deepseek
-      args:
-        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.1.1-rc.2}
-    image: deepseek-harness:latest
+    # This is a harness template. A project overlay supplies the final image
+    # build; without one, explicitly build deepseek-core and this service runs
+    # that minimal core image.
+    image: deepseek-harness:core
     container_name: deepseek-c
     restart: unless-stopped
     # depends_on:
@@ -397,11 +427,8 @@ services:
       start_period: 10s
 
   pi:
-    build:
-      context: ./pi
-      args:
-        PI_VERSION: ${PI_VERSION:-0.85.1}
-    image: pi-coding-agent:latest
+    # See deepseek above. Project overlays select a final project image.
+    image: pi-coding-agent:core
     container_name: pi-c
     restart: unless-stopped
     environment:
