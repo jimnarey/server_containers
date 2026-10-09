@@ -1,14 +1,15 @@
 services:
 
   https-gateway:
-    image: caddy:2.8.4-alpine
+    # Watches opted-in containers and turns their caddy.* labels into Caddy
+    # routes. It has no host Docker-socket mount; the narrowly scoped proxy
+    # below is its only Docker API path.
+    build: ./https-gateway
+    image: https-gateway:dynamic
     container_name: https-gateway-c
-    # Read the real host name rather than Docker's ephemeral container name.
-    # Caddy uses this environment value in its per-host local CA name.
-    entrypoint:
-      - /bin/sh
-      - -ec
-      - 'export HOSTNAME="$(cat /run/host-hostname)"; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile'
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
     restart: unless-stopped
     ports:
       # Default to loopback so a missing machine-specific setting cannot
@@ -17,9 +18,14 @@ services:
       - "${HTTPS_GATEWAY_BIND_ADDRESS:-127.0.0.1}:443:443"
     environment:
       HTTPS_GATEWAY_HOSTNAME: ${HTTPS_GATEWAY_HOSTNAME:-gateway.ai.home.arpa}
-      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}
-      DESKTOP_XFCE_GATEWAY_HOSTNAME: ${DESKTOP_XFCE_GATEWAY_HOSTNAME:-xfce.ai.home.arpa}
-      COMFYUI_GATEWAY_HOSTNAME: ${COMFYUI_GATEWAY_HOSTNAME:-comfyui.ai.home.arpa}
+      # Load the fixed gateway landing-page configuration before merging
+      # routes discovered from service labels.
+      CADDY_DOCKER_CADDYFILE_PATH: /etc/caddy/Caddyfile
+      # Restrict discovery and upstream selection to this Compose project's
+      # private application network. This intentionally does not discover
+      # containers from other Compose projects.
+      CADDY_INGRESS_NETWORKS: server_containers_https-gateway
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
     volumes:
       - ./https-gateway/Caddyfile:/etc/caddy/Caddyfile:ro
       - /etc/hostname:/run/host-hostname:ro
@@ -33,6 +39,24 @@ services:
       # application upstreams; the private network below remains the only path
       # from Caddy to DeepSeek.
       - https-gateway-ingress
+      - gateway-docker-api
+
+  # Restricts the gateway's read-only Docker API access to the endpoints it
+  # needs for container/network discovery and change events. Do not publish
+  # this port or attach application services to this network.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: docker-socket-proxy-c
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      INFO: "1"
+      NETWORKS: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - gateway-docker-api
 
   # Local resolver for the HTTPS gateway namespace. It is intentionally not
   # connected to application networks: DNS requests enter only through the
@@ -101,12 +125,18 @@ volumes:
 
 networks:
   # Future upstream services must opt in explicitly. Caddy is not attached to
-  # the default Compose network, so it cannot reach existing services yet.
+  # the default Compose network, so it cannot reach other application services.
   https-gateway:
+    # The aggregate project's existing conventional Compose name is explicit
+    # so Caddy can restrict discovery without making the network external.
+    name: server_containers_https-gateway
     internal: true
   # Allows Docker to publish Caddy's host ports without giving it access to
   # application containers. Only https-gateway joins this network.
   https-gateway-ingress:
+  # Docker API traffic is isolated from both public ingress and applications.
+  gateway-docker-api:
+    internal: true
   # The DNS resolver needs an egress path to its configured upstream resolver,
   # but no other service joins this network.
   lan-dns-ingress:

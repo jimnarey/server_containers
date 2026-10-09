@@ -18,6 +18,13 @@ services:
     networks:
       - default
       - https-gateway
+    labels:
+      # Preserve the established short browser hostname. Unlike generic
+      # project services, this legacy desktop name intentionally differs from
+      # the Compose service key.
+      caddy: ${DESKTOP_XFCE_GATEWAY_HOSTNAME:-xfce.ai.home.arpa}
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 8081}}"
     # GPU 0 (shared with comfyui) for Blender's Cycles renderer. "graphics" is
     # needed for OptiX; the desktop itself is still Xtigervnc software OpenGL.
     gpus:
@@ -95,4 +102,5 @@ volumes:
 networks:
   # Repeated in compose.network.yml so this group can also be used directly.
   https-gateway:
+    name: server_containers_https-gateway
     internal: true

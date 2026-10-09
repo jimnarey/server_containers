@@ -6,9 +6,9 @@ Caddy basic-auth proxy. It uses the NVIDIA GPU and does not need VNC.
 ## Configure and start
 
 Copy the ComfyUI settings from `.env_template` into `.env` if you want to
-override their defaults. Set `COMFYUI_GATEWAY_HOSTNAME` if you do not want to
-use `comfyui.ai.home.arpa`. The existing `CADDY_HASH` controls the web
-password.
+override their defaults. Its gateway hostname follows the Compose service key:
+`comfyui` is served as `comfyui.ai.home.arpa`. The existing `CADDY_HASH`
+controls the web password.
 
 Create the bind-mount directories as UID/GID 1000, then build and start the
 service:
@@ -25,11 +25,11 @@ docker compose build comfyui
 docker compose up -d https-gateway comfyui
 ```
 
-Open `https://<COMFYUI_GATEWAY_HOSTNAME>` and sign in with the Caddy
-credentials. The HTTPS gateway terminates TLS and sends traffic to ComfyUI's
-private Caddy proxy, which performs Basic Auth before forwarding to the
-loopback-only application. LAN clients must trust the gateway's local Caddy
-CA as described in the repository README.
+Open `https://comfyui.ai.home.arpa` and sign in with the Caddy credentials.
+The HTTPS gateway terminates TLS and sends traffic to ComfyUI's private Caddy
+proxy, which performs Basic Auth before forwarding to the loopback-only
+application. LAN clients must trust the gateway's local Caddy CA as described
+in the repository README.
 
 ## Persistent data
 
@@ -107,7 +107,7 @@ docker compose ps comfyui
 docker compose logs -f comfyui
 docker compose exec comfyui nvidia-smi
 curl --cacert /path/to/caddy-root-ca.crt -u admin:<password> \
-  https://<COMFYUI_GATEWAY_HOSTNAME>/system_stats
+  https://comfyui.ai.home.arpa/system_stats
 ```
 
 The image pins ComfyUI and the PyTorch CUDA wheels through `.env`. To upgrade,

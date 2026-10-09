@@ -31,7 +31,7 @@ services:
     build:
       context: ./deepseek
       args:
-        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.1.1-rc.2}
+        DEEPSEEK_VERSION: ${DEEPSEEK_VERSION:-0.2.0-rc.2}
     profiles: ["harness-build"]
 
   pi-core:
@@ -300,6 +300,10 @@ services:
       # browser/VNC containers rather than delegating authentication upstream.
       CADDY_USER: ${CADDY_USER:-admin}
       CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
+      # The local llama.cpp server does not validate API keys, but DSH's
+      # configured pi-ai route requires a non-empty credential to activate.
+      # This is an identifier, not a secret; deployments can override it.
+      LLAMA_CPP_API_KEY: ${LLAMA_CPP_API_KEY:-local}
       # DSH's built-in browser-trust fence must explicitly recognize the
       # HTTPS hostname which Caddy publishes. This is not an auth setting.
       DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}
@@ -307,13 +311,10 @@ services:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
       - /container-ssh:/home/runuser/.ssh:ro
-      # Repository-owned configuration is read-only. The persisted home keeps
-      # credentials, sessions, package state, and other mutable DSH data.
-      - ./deepseek/config/settings.yaml:/home/runuser/.dsh/settings.yaml:ro
-      # These overlays select local SearXNG search and the guarded fetch
-      # provider without replacing persisted models, credentials, sessions, or
-      # agent presets under DEEPSEEK_HOME. They are configuration, not state.
-      - ./deepseek/profile-patches/web.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml:ro
+      # DSH 0.2 stores editable web settings in this persistent profile. The
+      # repository-owned web capability overlay is applied from the image with
+      # DSH's --patch option, so it does not mask the writable profile file.
+      # The headless overlay remains a read-only explicit profile override.
       - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml:ro
       # Retains Standard as one capability mode while making compaction policy
       # exact-provider/model aware. This file follows DEEPSEEK_VERSION.
@@ -323,6 +324,13 @@ services:
     networks:
       - default
       - https-gateway
+    labels:
+      # DeepSeek is deliberately explicit: DSH must trust exactly this
+      # browser origin, so the label and DEEPSEEK_GATEWAY_HOSTNAME share one
+      # value. Project-specific copies can choose another hostname here.
+      caddy: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 8081}}"
     healthcheck:
       test: ["CMD", "curl", "--silent", "--output", "/dev/null", "http://127.0.0.1:3080/"]
       interval: 30s
@@ -364,6 +372,13 @@ services:
     networks:
       - default
       - https-gateway
+    labels:
+      # The hostname follows the Compose service key, e.g.
+      # comfyui.ai.home.arpa. The gateway only processes containers on its
+      # private opt-in network.
+      caddy: '{{ index .Labels "com.docker.compose.service" }}.ai.home.arpa'
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 8081}}"
     gpus:
       - driver: nvidia
         device_ids: ["0"]
@@ -476,4 +491,5 @@ networks:
   # Duplicated in compose.network.yml so either group remains a valid Compose
   # file. The service attachment above is the explicit gateway opt-in.
   https-gateway:
+    name: server_containers_https-gateway
     internal: true

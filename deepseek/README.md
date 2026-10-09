@@ -25,10 +25,12 @@ workflow should be added to this image instead.
 Optional settings in `.env` are:
 
 ```dotenv
-DEEPSEEK_VERSION=0.1.1-rc.2
+DEEPSEEK_VERSION=0.2.0-rc.2
 DEEPSEEK_HOME=/mnt/work/deepseek
 DEEPSEEK_WORKSPACE=/mnt/work/projects
 DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
+# Non-secret activation value for the local llama.cpp provider.
+LLAMA_CPP_API_KEY=local
 ```
 
 Two integration values are still literal Compose configuration rather than `.env` settings:
@@ -76,10 +78,26 @@ Internally, `dsh` retains its loopback listener. DeepSeek's in-container Caddy
 proxies directly to that loopback listener after authentication, so its
 successful Basic Auth check is part of the security boundary.
 
+DSH also uses a one-time, per-process launch token to establish its own
+browser-session cookie. After a DeepSeek restart, obtain the token from the
+startup log without sharing it, then replace the loopback base URL with the
+HTTPS gateway hostname:
+
+```bash
+docker compose logs --tail=50 deepseek | rg 'dsh web:'
+# Open https://deepseek.ai.home.arpa/?token=... using the printed token.
+```
+
+After that one request, DSH redirects to the clean HTTPS URL and uses its
+HTTP-only cookie for subsequent requests (normally valid for 30 days). Repeat
+the handoff only after clearing browser cookies, changing the hostname, or
+when the DSH browser-session credential is reset.
+
 The container passes `DEEPSEEK_GATEWAY_HOSTNAME` to DSH as its trusted browser
-authority. Keep it identical to the hostname in the gateway Caddyfile. This
-permits same-origin browser API requests (including workspace and session
-access) without relaxing DSH's trust fence for other hostnames.
+authority. Keep it identical to DeepSeek's `caddy` route label in
+`compose.ai.yml`. This permits same-origin browser API requests (including
+workspace and session access) without relaxing DSH's trust fence for other
+hostnames.
 
 The browser is only a client of the long-running Harness host. Closing the tab
 or disconnecting the workstation does not normally stop an active turn;
@@ -136,23 +154,20 @@ Use a non-secret placeholder if the form requires an API key; the current llama.
 
 Model discovery can query llama.cpp's `/v1/models` endpoint. Selecting the model sets it as the default for new sessions; existing sessions retain their saved model selection.
 
-At present, the provider form can save the catalogue without saving a default for the headless profile. Edit `deepseek/config/settings.yaml` and add this shared selection if `agent-default-model` is absent, then recreate the service:
+The first DSH 0.2 boot migrates the legacy model catalogue into the persistent
+web profile and retains its source as `settings.yaml.imported` in
+`DEEPSEEK_HOME`. Use the Models page to manage the migrated web-profile
+catalogue. The headless profile has a separate settings scope; pass an
+explicit model when using it until its own configuration is set.
 
-```yaml
-agent-default-model:
-  provider: llama-cpp
-  model: Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1
-```
+### Persistent local model configuration
 
-Without that section, `dsh --profile headless` falls back to the shipped `deepseek-official` / `deepseek-v4-flash` deployment default and asks for a `DEEPSEEK_API_KEY`, even though the custom llama.cpp catalogue is valid.
-
-### Repository-mounted local model configuration
-
-[`config`](./config/) is the repository-owned source for Harness configuration.
-`compose.ai.yml` mounts `deepseek/config/settings.yaml` read-only at
-`/home/runuser/.dsh/settings.yaml`. Edit the repository source and recreate
-the service; credentials, sessions, package state, and other Harness data stay
-in the writable `DEEPSEEK_HOME` mount.
+[`config/settings.yaml`](./config/settings.yaml) is a one-time seed for a
+brand-new DSH home. It is not bind-mounted: DSH 0.2 migrates it into the
+writable web-profile patch, where providers and models can survive upgrades
+without a repository overlay masking them. The persistent `DEEPSEEK_HOME`
+therefore contains credentials, sessions, package state, and web model
+configuration; back it up as one unit.
 
 This installation keeps every session on the built-in `standard` preset, with
 model-specific policy (including compaction) expressed as `modelPolicies` in
@@ -183,7 +198,7 @@ so revisit it as part of every `DEEPSEEK_VERSION` upgrade.
 
 The **Select Model** control chooses a provider/model independently. New
 sessions default to `llama-cpp` / `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1`
-through `agent-default-model` in `settings.yaml`. To use the same model on the
+through the migrated `agent-default-model` profile setting. To use the same model on the
 other physical GPU, keep Standard mode selected and choose
 `llama-cpp` with `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0`. A session's existing model selection remains
 durable when its capability mode changes.

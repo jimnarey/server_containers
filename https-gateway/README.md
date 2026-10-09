@@ -1,15 +1,16 @@
 # HTTPS gateway
 
 `https-gateway` is the dedicated Caddy HTTPS entry point for this host. It
-serves a confirmation page, DeepSeek Harness, and desktop-XFCE. Caddy uses an
-internal certificate authority (CA), appropriate for the LAN-only `home.arpa`
-names used by this repository.
+serves a confirmation page and discovers opted-in application routes from
+Docker Compose labels. Caddy uses an internal certificate authority (CA),
+appropriate for the LAN-only `home.arpa` names used by this repository.
 
-The service is deliberately attached only to the private `https-gateway`
-network. DeepSeek and desktop-XFCE are the only application services currently
-added to that network and the only application services Caddy can reach. Caddy
-also joins a separate ingress-only network so Docker can publish ports 80 and
-443; no application joins that network.
+It only discovers containers on the fixed, Compose-managed private
+`https-gateway` network. This repository does not make that network external
+or discover services from other Compose projects. Currently DeepSeek Harness,
+ComfyUI, and desktop-XFCE opt in. Caddy also joins a separate ingress-only
+network so Docker can publish ports 80 and 443; no application joins that
+network.
 
 ## Configure and start
 
@@ -21,7 +22,6 @@ address.  Set the values in the host's ignored `.env` file:
 HTTPS_GATEWAY_BIND_ADDRESS=192.168.50.136
 HTTPS_GATEWAY_HOSTNAME=gateway.ai.home.arpa
 DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
-DESKTOP_XFCE_GATEWAY_HOSTNAME=xfce.ai.home.arpa
 ```
 
 The gateway reads the host's `/etc/hostname` through a read-only bind mount and
@@ -32,11 +32,12 @@ Chrome/NSS even though they are all Caddy internal CAs.
 
 Use [`lan-dns/README.md`](../lan-dns/README.md) to configure the included
 resolver. It returns the gateway address for every `*.ai.home.arpa` name, so
-new services do not need separate router DNS records. `deepseek.ai.home.arpa`
-and `xfce.ai.home.arpa` are protected by their own in-container Caddy Basic
-Auth, using `CADDY_USER` and the bcrypt `CADDY_HASH` already used by the
-browser/VNC containers. The shared gateway provides only HTTPS and routing;
-neither service is published on a host port.
+new services do not need separate router DNS records. The existing
+`deepseek.ai.home.arpa`, `comfyui.ai.home.arpa`, and
+`desktop-xfce.ai.home.arpa` routes are protected by their own in-container
+Caddy Basic Auth, using `CADDY_USER` and the bcrypt `CADDY_HASH` already
+used by the browser/VNC containers. The shared gateway provides only HTTPS and
+routing; none is published on a host port.
 
 `HTTPS_GATEWAY_BIND_ADDRESS` defaults to `127.0.0.1` when it is omitted.  This
 is intentional: it prevents an incomplete configuration from exposing ports
@@ -45,15 +46,72 @@ is intentional: it prevents an incomplete configuration from exposing ports
 Start Caddy:
 
 ```sh
-docker compose up -d lan-dns https-gateway deepseek desktop-xfce
-docker compose logs -f lan-dns https-gateway deepseek desktop-xfce
+docker compose up -d lan-dns docker-socket-proxy https-gateway \
+  deepseek comfyui desktop-xfce
+docker compose logs -f docker-socket-proxy https-gateway
 ```
 
 Caddy redirects HTTP to HTTPS. Once the certificate is trusted as described
 below, `https://gateway.ai.home.arpa/` confirms that the gateway is running.
 Open `https://deepseek.ai.home.arpa/` for DeepSeek or
-`https://xfce.ai.home.arpa/` for desktop-XFCE, and enter the relevant Caddy
-Basic Auth credentials when prompted.
+`https://comfyui.ai.home.arpa/` for ComfyUI or
+`https://desktop-xfce.ai.home.arpa/` for desktop-XFCE, and enter the relevant
+Caddy Basic Auth credentials when prompted.
+
+### Upgrade an existing gateway
+
+Route labels live on containers, so existing DeepSeek, ComfyUI, and
+desktop-XFCE containers need one controlled recreation before the dynamic
+gateway can discover them. Build any image whose definition has changed, then
+run this from the aggregate repository stack:
+
+```sh
+docker compose --profile base build base-ubuntu-24       # if not already built
+docker compose --profile harness-build build agent-base
+docker compose --profile harness-build build agent-base-caddy
+docker compose --profile harness-build build deepseek-core
+docker compose build deepseek https-gateway
+docker compose up -d --force-recreate --no-deps deepseek comfyui desktop-xfce
+docker compose up -d --force-recreate docker-socket-proxy https-gateway
+```
+
+This does not remove named volumes or bind-mounted project data. It causes a
+brief interruption to the three browser services. It remains entirely within
+this Compose project; no external network or cross-project discovery is
+enabled. The parent-image commands are needed only when the local
+`deepseek-harness:core` image is absent, such as the first migration from
+the previous monolithic harness image. Build `pi-core` too only when you are
+also building a Pi project image.
+
+## Register an application route
+
+To publish an authenticated application, attach it to `https-gateway` and add
+these labels. The hostname is calculated from the Compose service key, so a
+service named `my-tool` gets `my-tool.ai.home.arpa` without changing the
+gateway configuration:
+
+```yaml
+services:
+  my-tool:
+    networks:
+      - https-gateway
+    labels:
+      caddy: '{{ index .Labels "com.docker.compose.service" }}.ai.home.arpa'
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 8081}}"
+```
+
+Use the port actually listened to by the service in `{{upstreams ...}}`.
+The gateway watches Docker events and applies the route when the container is
+created, removed, connected, or disconnected. The service must implement its
+own authentication and authorization: these labels only provide TLS and
+reverse-proxy routing.
+
+DeepSeek is the deliberate exception. Its route label uses the explicit
+`DEEPSEEK_GATEWAY_HOSTNAME`, because the same value is passed to DeepSeek as
+its trusted browser origin. Keep those two uses identical. A future named
+DeepSeek project service can set a distinct explicit hostname in its own
+Compose declaration without editing the gateway.
 
 ## Trust Caddy's local CA
 
@@ -192,8 +250,12 @@ any authenticated application route.
 - The `https-gateway-data` volume stores the local CA, certificate keys, and
   issued certificates. Do not delete it during ordinary upgrades or container
   recreation. Back it up as protected secret material.
-- The gateway has no Caddy admin API and no connection to the default Compose
-  network.
+- Caddy's admin API is enabled only on its private container interface because
+  the Docker-proxy plugin uses it for safe configuration reloads. It is not
+  published and the gateway has no connection to the default Compose network.
+- `docker-socket-proxy` alone mounts the Docker socket. It is not published
+  and exposes only the container/network discovery and event endpoints needed
+  by the gateway. Do not attach applications to `gateway-docker-api`.
 - Future routes should use subdomains and their upstream service should opt
   into the `https-gateway` network. Do not expose an application through the
-  gateway without adding suitable authentication in its Caddy route.
+  gateway without adding suitable application-level authentication.
