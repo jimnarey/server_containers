@@ -304,6 +304,9 @@ services:
       # configured pi-ai route requires a non-empty credential to activate.
       # This is an identifier, not a secret; deployments can override it.
       LLAMA_CPP_API_KEY: ${LLAMA_CPP_API_KEY:-local}
+      # The Strata server is optionally protected by the same host-side value.
+      # A non-empty value is still required by DSH when Strata has no auth.
+      STRATA_API_KEY: ${STRATA_API_KEY:-local}
       # DSH's built-in browser-trust fence must explicitly recognize the
       # HTTPS hostname which Caddy publishes. This is not an auth setting.
       DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}

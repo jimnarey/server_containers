@@ -31,6 +31,9 @@ DEEPSEEK_WORKSPACE=/mnt/work/projects
 DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
 # Non-secret activation value for the local llama.cpp provider.
 LLAMA_CPP_API_KEY=local
+# Optional server-side authentication for Strata. Leave empty when Strata is
+# unauthenticated; DSH then uses a harmless local placeholder.
+STRATA_API_KEY=
 ```
 
 Two integration values are still literal Compose configuration rather than `.env` settings:
@@ -139,20 +142,22 @@ The shipped capability modes retain their own `tool-web` configuration; set
 `fetch: true` and `fetchTimeoutMs: 30000` in the relevant mode composition to
 enable fetch there as well.
 
-## Configure the local llama.cpp model
+## Local providers
 
-In Settings -> Models, add a custom provider with:
+The web profile is seeded with two local OpenAI-compatible routes:
 
-```text
-Provider ID: llama-cpp
-Base URL: http://llama-cpp:8080/v1
-API protocol: OpenAI Completions
-Model: Qwen3.8-27B-UD-Q6_K_M--cuda0-cuda1
-```
+- `llama-cpp` at `http://llama-cpp:8080/v1`, with every model section from
+  [`../llama-cpp/config/models-preset.ini`](../llama-cpp/config/models-preset.ini).
+- `strata` at `http://strata:8080/v1`, with the one model currently served by
+  Strata. It is labelled `loaded-model` in the picker, so changing Strata's
+  command-line-selected quant does not require changing DSH configuration.
+  The context window remains a configured value (currently 131,072 tokens).
 
-Use a non-secret placeholder if the form requires an API key; the current llama.cpp service does not validate one. `localhost` is wrong here because it would refer to the DeepSeek container, not the llama.cpp service.
-
-Model discovery can query llama.cpp's `/v1/models` endpoint. Selecting the model sets it as the default for new sessions; existing sessions retain their saved model selection.
+Both addresses use the Compose-network service port (`8080`), not a
+host-published port. `localhost` would refer to the DeepSeek container.
+`LLAMA_CPP_API_KEY` is only a non-secret activation value because llama.cpp
+does not validate it. If `STRATA_API_KEY` is set, it protects Strata and DSH
+uses the same value; when it is unset, DSH uses a harmless local placeholder.
 
 The first DSH 0.2 boot migrates the legacy model catalogue into the persistent
 web profile and retains its source as `settings.yaml.imported` in
@@ -168,6 +173,22 @@ writable web-profile patch, where providers and models can survive upgrades
 without a repository overlay masking them. The persistent `DEEPSEEK_HOME`
 therefore contains credentials, sessions, package state, and web model
 configuration; back it up as one unit.
+
+The seed's llama.cpp model list is generated, not hand-maintained. After
+changing `llama-cpp/config/models-preset.ini`, run:
+
+```bash
+./deepseek/generate-default-settings.sh
+```
+
+The generated seed is used only by a new DSH home. Synchronise an existing
+web profile using the Models UI or DSH's settings API; do not delete the
+profile merely to re-run migration. When Strata is switched, rerun the
+generator only if its context changes, using its live `/v1/models` `meta.n_ctx`:
+
+```bash
+STRATA_DSH_CONTEXT=131072 ./deepseek/generate-default-settings.sh
+```
 
 This installation keeps every session on the built-in `standard` preset, with
 model-specific policy (including compaction) expressed as `modelPolicies` in
@@ -197,11 +218,9 @@ The local Standard composition is bind-mounted into the pinned Harness package,
 so revisit it as part of every `DEEPSEEK_VERSION` upgrade.
 
 The **Select Model** control chooses a provider/model independently. New
-sessions default to `llama-cpp` / `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda1`
-through the migrated `agent-default-model` profile setting. To use the same model on the
-other physical GPU, keep Standard mode selected and choose
-`llama-cpp` with `Qwen3.8-Flash-Next-UD-Q3_K_XL--cuda0`. A session's existing model selection remains
-durable when its capability mode changes.
+sessions default to the currently configured `strata` model; pick any
+`llama-cpp` model and placement from the same control. A session's existing
+model selection remains durable when its capability mode changes.
 
 ## Command-line use over SSH
 

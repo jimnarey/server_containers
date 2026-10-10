@@ -15,3 +15,15 @@ include:
   - path: compose.nas.yml
   - path: compose.network.yml
   - path: compose.desktop.yml
+
+# `include` retains the base service image when it merges a project build
+# definition. Pin the aggregate stack's selected project tags here so an
+# Amiga build never overwrites a reusable :core harness image. Explicit
+# `-f ... -f projects/<name>/compose.yml` invocations retain the tags in those
+# project files and are unaffected.
+services:
+  deepseek:
+    image: deepseek-harness:amiga
+
+  pi:
+    image: pi-coding-agent:amiga
