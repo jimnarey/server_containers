@@ -15,7 +15,14 @@ docker compose -f compose.bases.yml -f compose.ai.yml \
 docker compose -f compose.bases.yml -f compose.ai.yml \
   --profile harness-build build deepseek-core pi-core
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/amiga/compose.yml build deepseek pi
+  -f projects/amiga/compose.yml build deepseek-amiga pi-amiga
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/amiga/compose.yml up -d deepseek pi
+  -f projects/amiga/compose.yml up -d deepseek-amiga pi-amiga
 ```
+
+DeepSeek is available through the automatically registered gateway route at
+`https://deepseek-amiga.ai.home.arpa`. Its default DSH home and workspace
+remain `/mnt/work/deepseek` and `/mnt/work/projects`, preserving the existing
+Amiga Harness state. Set `DEEPSEEK_AMIGA_HOME`,
+`DEEPSEEK_AMIGA_WORKSPACE`, `PI_AMIGA_HOME`, or `PI_AMIGA_WORKSPACE` only when
+an alternative location is wanted.

@@ -253,11 +253,14 @@ services:
     tty: true
 
   deepseek:
-    # This is a harness template. A project overlay supplies the final image
-    # build; without one, explicitly build deepseek-core and this service runs
-    # that minimal core image.
+    # This is a harness template. Project overlays derive separately named
+    # services (for example deepseek-amiga) from it, so multiple project
+    # harnesses can coexist. It is deliberately not started by an unqualified
+    # `docker compose up`; activate the harness-template profile or name it
+    # explicitly only when testing the core image itself.
     image: deepseek-harness:core
     container_name: deepseek-c
+    profiles: [harness-template]
     restart: unless-stopped
     # depends_on:
     #   guarded-fetch:
@@ -445,9 +448,11 @@ services:
       start_period: 10s
 
   pi:
-    # See deepseek above. Project overlays select a final project image.
+    # See deepseek above. Project overlays derive separately named Pi services
+    # and opt out of this template-only profile.
     image: pi-coding-agent:core
     container_name: pi-c
+    profiles: [harness-template]
     restart: unless-stopped
     environment:
       USERID: "1000"

@@ -1,5 +1,5 @@
-# The default full stack. Start a subset by passing only the relevant files,
-# for example: docker compose -f compose.bases.yml -f compose.ai.yml up -d deepseek
+# The default full stack. The aggregate includes the Amiga harness instances;
+# start a subset by name, for example: docker compose up -d deepseek-amiga.
 include:
   - path: compose.bases.yml
   - path: compose.ai.yml
@@ -15,15 +15,3 @@ include:
   - path: compose.nas.yml
   - path: compose.network.yml
   - path: compose.desktop.yml
-
-# `include` retains the base service image when it merges a project build
-# definition. Pin the aggregate stack's selected project tags here so an
-# Amiga build never overwrites a reusable :core harness image. Explicit
-# `-f ... -f projects/<name>/compose.yml` invocations retain the tags in those
-# project files and are unaffected.
-services:
-  deepseek:
-    image: deepseek-harness:amiga
-
-  pi:
-    image: pi-coding-agent:amiga

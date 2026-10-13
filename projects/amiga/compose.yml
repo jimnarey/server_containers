@@ -1,18 +1,42 @@
-# Overlay this after compose.ai.yml. It keeps the runtime service names
-# unchanged while selecting the Amiga project environment for each harness.
+# Overlay this after compose.ai.yml. These independently named services extend
+# the shared harness templates, so they can run alongside other projects.
 services:
-  deepseek:
+  deepseek-amiga:
+    extends:
+      file: compose.ai.yml
+      service: deepseek
+    # The parent is intentionally template-only; this concrete service is not.
+    profiles: !reset []
     build:
       context: .
       dockerfile: projects/amiga/Dockerfile
       args:
         HARNESS_IMAGE: deepseek-harness:core
     image: deepseek-harness:amiga
+    container_name: deepseek-amiga-c
+    environment:
+      # This Amiga service retains the previous locations, preserving its DSH
+      # settings, sessions, credentials, and shared project checkout.
+      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_AMIGA_GATEWAY_HOSTNAME:-deepseek-amiga.ai.home.arpa}
+    volumes:
+      - ${DEEPSEEK_AMIGA_HOME:-/mnt/work/deepseek}:/home/runuser
+      - ${DEEPSEEK_AMIGA_WORKSPACE:-/mnt/work/projects}:/workspace
+    labels:
+      # DSH must trust the exact same hostname published by the gateway.
+      caddy: ${DEEPSEEK_AMIGA_GATEWAY_HOSTNAME:-deepseek-amiga.ai.home.arpa}
 
-  pi:
+  pi-amiga:
+    extends:
+      file: compose.ai.yml
+      service: pi
+    profiles: !reset []
     build:
       context: .
       dockerfile: projects/amiga/Dockerfile
       args:
         HARNESS_IMAGE: pi-coding-agent:core
     image: pi-coding-agent:amiga
+    container_name: pi-amiga-c
+    volumes:
+      - ${PI_AMIGA_HOME:-/mnt/work/pi}:/home/runuser
+      - ${PI_AMIGA_WORKSPACE:-/mnt/work/projects}:/workspace

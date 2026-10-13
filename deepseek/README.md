@@ -2,7 +2,11 @@
 
 This service runs the official DeepSeek Harness (`dsh`) developer preview. It provides the browser workbench and the one-shot headless command-line profile, runs as `runuser` (UID/GID 1000 by default), and has passwordless `sudo` inside the container.
 
-Harness profiles, settings, credentials, sessions, and installed plugins are persisted in `/mnt/work/deepseek` on the host by default. The shared agent workspace defaults to `/mnt/work/projects` on the host and is mounted at `/workspace`.
+Harness profiles, settings, credentials, sessions, and installed plugins are
+persisted outside the image. The Amiga instance keeps the historic defaults of
+`/mnt/work/deepseek` and `/mnt/work/projects`; the Xbox 360 instance uses
+`/mnt/work/deepseek-xbox360` and `/mnt/work/projects-xbox360`. This keeps
+separately named Harness containers independent when they run concurrently.
 
 DeepSeek Harness is a developer preview and may make compatibility-breaking changes. The image therefore pins its npm package version rather than installing `latest` on every build. The repository also bind-mounts a version-matched copy of the shipped Standard agent composition to apply local compaction policies; review that copy whenever `DEEPSEEK_VERSION` changes.
 
@@ -26,9 +30,12 @@ Optional settings in `.env` are:
 
 ```dotenv
 DEEPSEEK_VERSION=0.2.0-rc.2
-DEEPSEEK_HOME=/mnt/work/deepseek
-DEEPSEEK_WORKSPACE=/mnt/work/projects
-DEEPSEEK_GATEWAY_HOSTNAME=deepseek.ai.home.arpa
+DEEPSEEK_AMIGA_HOME=/mnt/work/deepseek
+DEEPSEEK_AMIGA_WORKSPACE=/mnt/work/projects
+DEEPSEEK_AMIGA_GATEWAY_HOSTNAME=deepseek-amiga.ai.home.arpa
+DEEPSEEK_XBOX360_HOME=/mnt/work/deepseek-xbox360
+DEEPSEEK_XBOX360_WORKSPACE=/mnt/work/projects-xbox360
+DEEPSEEK_XBOX360_GATEWAY_HOSTNAME=deepseek-xbox360.ai.home.arpa
 # Non-secret activation value for the local llama.cpp provider.
 LLAMA_CPP_API_KEY=local
 # Optional server-side authentication for Strata. Leave empty when Strata is
@@ -51,13 +58,13 @@ private `https-gateway` Docker network.
 ## Start the service
 
 ```bash
-docker compose build deepseek
-docker compose up -d https-gateway deepseek
-docker compose logs -f https-gateway deepseek
+docker compose build deepseek-amiga
+docker compose up -d https-gateway deepseek-amiga
+docker compose logs -f https-gateway deepseek-amiga
 ```
 
-Before starting the services, configure local DNS for
-`DEEPSEEK_GATEWAY_HOSTNAME` and trust the Caddy local CA as described in
+Before starting the services, configure local DNS for each project-specific
+gateway hostname and trust the Caddy local CA as described in
 [`https-gateway/README.md`](../https-gateway/README.md). DeepSeek's own
 in-container Caddy obtains its username and bcrypt password hash from
 `CADDY_USER` and `CADDY_HASH`, the same variables used by the existing
@@ -68,7 +75,7 @@ browser/VNC containers.
 Open the configured hostname, for example:
 
 ```text
-https://deepseek.ai.home.arpa/
+https://deepseek-amiga.ai.home.arpa/
 ```
 
 The browser first reaches the shared gateway over HTTPS, which routes to
@@ -87,8 +94,8 @@ startup log without sharing it, then replace the loopback base URL with the
 HTTPS gateway hostname:
 
 ```bash
-docker compose logs --tail=50 deepseek | rg 'dsh web:'
-# Open https://deepseek.ai.home.arpa/?token=... using the printed token.
+docker compose logs --tail=50 deepseek-amiga | rg 'dsh web:'
+# Open https://deepseek-amiga.ai.home.arpa/?token=... using the printed token.
 ```
 
 After that one request, DSH redirects to the clean HTTPS URL and uses its
@@ -96,11 +103,11 @@ HTTP-only cookie for subsequent requests (normally valid for 30 days). Repeat
 the handoff only after clearing browser cookies, changing the hostname, or
 when the DSH browser-session credential is reset.
 
-The container passes `DEEPSEEK_GATEWAY_HOSTNAME` to DSH as its trusted browser
-authority. Keep it identical to DeepSeek's `caddy` route label in
-`compose.ai.yml`. This permits same-origin browser API requests (including
-workspace and session access) without relaxing DSH's trust fence for other
-hostnames.
+Each project container passes its `DEEPSEEK_*_GATEWAY_HOSTNAME` setting to DSH
+as its trusted browser authority. Keep it identical to that project's `caddy`
+route label in `projects/*/compose.yml`. This permits same-origin browser API
+requests (including workspace and session access) without relaxing DSH's trust
+fence for other hostnames.
 
 The browser is only a client of the long-running Harness host. Closing the tab
 or disconnecting the workstation does not normally stop an active turn;
@@ -114,6 +121,23 @@ container/model process is not guaranteed to resume the exact in-flight turn.
 profiles. The local provider definitions remain in the profile overlays so they
 can be re-enabled deliberately by removing the `tool-web` `disabled: true`
 entries from both patch files.
+
+### DSH upgrade compatibility
+
+The local providers are compatible with the pinned DSH `0.2.0-rc.2` release:
+they use its current `ctx.web.registerSearchProvider()` and
+`ctx.web.registerFetchProvider()` interfaces. The upgrade does not require a
+provider rewrite, though the tools remain deliberately disabled pending an
+end-to-end smoke test.
+
+Keep the tools disabled until they are deliberately smoke-tested after any DSH
+upgrade. DSH is a developer preview and its plugin API is not a stable external
+contract. For an upgrade, rebuild the core image, start `searxng` and
+`guarded-fetch`, re-enable the two `tool-web` patch entries and the commented
+health-based `depends_on` entries, then test one public search and one public
+HTTPS fetch in a disposable session. Confirm that a private or loopback URL is
+still rejected by `guarded-fetch` before enabling the capability for routine
+use.
 
 When enabled, the `web_search` tool uses the Compose-local SearXNG API at
 `http://searxng:8080/`; it does not use DeepSeek's cloud search or require a
@@ -160,8 +184,8 @@ does not validate it. If `STRATA_API_KEY` is set, it protects Strata and DSH
 uses the same value; when it is unset, DSH uses a harmless local placeholder.
 
 The first DSH 0.2 boot migrates the legacy model catalogue into the persistent
-web profile and retains its source as `settings.yaml.imported` in
-`DEEPSEEK_HOME`. Use the Models page to manage the migrated web-profile
+web profile and retains its source as `settings.yaml.imported` in the
+persistent DSH home. Use the Models page to manage the migrated web-profile
 catalogue. The headless profile has a separate settings scope; pass an
 explicit model when using it until its own configuration is set.
 
@@ -170,8 +194,8 @@ explicit model when using it until its own configuration is set.
 [`config/settings.yaml`](./config/settings.yaml) is a one-time seed for a
 brand-new DSH home. It is not bind-mounted: DSH 0.2 migrates it into the
 writable web-profile patch, where providers and models can survive upgrades
-without a repository overlay masking them. The persistent `DEEPSEEK_HOME`
-therefore contains credentials, sessions, package state, and web model
+without a repository overlay masking them. The persistent DSH home therefore
+contains credentials, sessions, package state, and web model
 configuration; back it up as one unit.
 
 The seed's llama.cpp model list is generated, not hand-maintained. After

@@ -31,14 +31,20 @@ docker compose -f compose.bases.yml -f compose.ai.yml \
 docker compose -f compose.bases.yml -f compose.ai.yml \
   --profile harness-build build deepseek-core pi-core
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/xbox360/compose.yml build deepseek pi
+  -f projects/xbox360/compose.yml build deepseek-xbox360 pi-xbox360
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/xbox360/compose.yml up -d deepseek pi
+  -f projects/xbox360/compose.yml up -d deepseek-xbox360 pi-xbox360
 ```
 
 The overlay Dockerfile inherits the matching tagged harness core image. The
 first build follows the parent-to-child commands above; subsequent builds reuse
 the core image tags.
+
+The DeepSeek gateway route is automatically registered as
+`https://deepseek-xbox360.ai.home.arpa`. The Xbox 360 services use their own
+homes (`/mnt/work/deepseek-xbox360`, `/mnt/work/pi-xbox360`) and shared project
+workspace (`/mnt/work/projects-xbox360`) by default, so they do not share
+settings, sessions, or checkouts with the Amiga services.
 
 ## Xenia commands
 

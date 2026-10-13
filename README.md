@@ -74,21 +74,20 @@ docker run --rm -it base-ubuntu-caddy-24:latest \
 
 The Compose files read `.env`. Some older `Makefile` targets expect an `env.sh` file that can be sourced in the shell; if you use those targets, create a compatible file locally.
 
-The default `docker-compose.yml` includes every grouped definition and selects
-the existing Amiga harness environment. To work on a host-specific subset,
-pass the needed files explicitly; for example:
+The default `docker-compose.yml` includes every grouped definition and the
+Amiga harness instances. To work on a project-specific subset, pass the needed
+files explicitly; for example:
 
 ```bash
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/amiga/compose.yml up -d deepseek
+  -f projects/amiga/compose.yml up -d deepseek-amiga pi-amiga
 ```
 
-The Xbox 360 toolchain is an alternative, not an additional pair of agent
-services:
+The Xbox 360 toolchain can run alongside the Amiga harnesses:
 
 ```bash
 docker compose -f compose.bases.yml -f compose.ai.yml \
-  -f projects/xbox360/compose.yml up -d deepseek pi
+  -f projects/xbox360/compose.yml up -d deepseek-xbox360 pi-xbox360
 ```
 
 See [`projects`](./projects/) for the toolchain ownership and build notes.
@@ -103,9 +102,9 @@ docker compose --profile harness-build build agent-base-caddy
 docker compose --profile harness-build build deepseek-core pi-core
 ```
 
-Then build the selected project's `deepseek` and `pi` services. These build
-targets do not run helper containers; the `harness-build` profile is only for
-the parent images.
+Then build the selected project's named services (for example,
+`deepseek-amiga` and `pi-amiga`). These build targets do not run helper
+containers; the `harness-build` profile is only for the parent images.
 
 `sync_compose_env.py` creates or extends an environment file from only the
 variables interpolated by services in the Compose files you name. It preserves

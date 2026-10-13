@@ -1,8 +1,11 @@
-# Overlay this after compose.ai.yml. It replaces only the images built for the
-# two existing harness services; it does not create parallel DeepSeek/Pi
-# containers.
+# Overlay this after compose.ai.yml. These independently named services extend
+# the shared harness templates and can run alongside the Amiga harnesses.
 services:
-  deepseek:
+  deepseek-xbox360:
+    extends:
+      file: compose.ai.yml
+      service: deepseek
+    profiles: !reset []
     build:
       context: .
       dockerfile: projects/xbox360/Dockerfile
@@ -12,11 +15,23 @@ services:
         XENIA_CANARY_LINUX_SHA256: ${XENIA_CANARY_LINUX_SHA256:-82914b57c0f673e39e7e43ffe4a0222088520f35e2a05b20ad43a586f811455c}
         XENIA_CANARY_WINDOWS_SHA256: ${XENIA_CANARY_WINDOWS_SHA256:-46d531e3cdc5ab0144509a780005f4736df62264150c49e52bcd2545ef6bf2fc}
     image: deepseek-harness:xbox360
+    container_name: deepseek-xbox360-c
     environment:
       XENIA_HOME: /home/runuser/xenia-canary
       XENIA_WINEPREFIX: /home/runuser/.xenia-canary-wineprefix
+      DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_XBOX360_GATEWAY_HOSTNAME:-deepseek-xbox360.ai.home.arpa}
+    volumes:
+      - ${DEEPSEEK_XBOX360_HOME:-/mnt/work/deepseek-xbox360}:/home/runuser
+      - ${DEEPSEEK_XBOX360_WORKSPACE:-/mnt/work/projects-xbox360}:/workspace
+    labels:
+      # DSH's trusted browser origin must equal the gateway's host label.
+      caddy: ${DEEPSEEK_XBOX360_GATEWAY_HOSTNAME:-deepseek-xbox360.ai.home.arpa}
 
-  pi:
+  pi-xbox360:
+    extends:
+      file: compose.ai.yml
+      service: pi
+    profiles: !reset []
     build:
       context: .
       dockerfile: projects/xbox360/Dockerfile
@@ -26,6 +41,10 @@ services:
         XENIA_CANARY_LINUX_SHA256: ${XENIA_CANARY_LINUX_SHA256:-82914b57c0f673e39e7e43ffe4a0222088520f35e2a05b20ad43a586f811455c}
         XENIA_CANARY_WINDOWS_SHA256: ${XENIA_CANARY_WINDOWS_SHA256:-46d531e3cdc5ab0144509a780005f4736df62264150c49e52bcd2545ef6bf2fc}
     image: pi-coding-agent:xbox360
+    container_name: pi-xbox360-c
     environment:
       XENIA_HOME: /home/runuser/xenia-canary
       XENIA_WINEPREFIX: /home/runuser/.xenia-canary-wineprefix
+    volumes:
+      - ${PI_XBOX360_HOME:-/mnt/work/pi-xbox360}:/home/runuser
+      - ${PI_XBOX360_WORKSPACE:-/mnt/work/projects-xbox360}:/workspace
