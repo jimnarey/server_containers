@@ -49,8 +49,9 @@ ready-made download instead and this toolchain simply goes unused.
 - **GPU: defaults to GPU 1 only.** `compose.ai.yml` restricts the container to physical GPU 1
   via `device_ids`, so Strata only ever sees one card (always index 0 from its own point of
   view — `entrypoint.sh` always passes `--gpu 0`). Change `STRATA_GPU_DEVICE_ID` in `.env` to
-  move it. It also acquires the same GPU lock file (`llama-gpu-locks` volume) that the unified `llama-cpp` service locks on both GPUs. Strata and the unified service
-  therefore cannot run concurrently on GPU 1; whichever starts first keeps the card until it stops.
+  move it. Nothing stops Strata and the unified `llama-cpp` service using GPU 1 at the same
+  time (there used to be a lock file; it was removed), so only start one of them on that card at
+  once. The model broker, which loads and unloads both, is meant to be the only thing that does.
 - **Models: always under `/mnt/data/models/strata`.** Override with `STRATA_MODELS` in `.env`
   if you want them elsewhere. Engine/venv/config state (small) lives separately under
   `STRATA_HOME` (default `/mnt/work/strata`), matching this repo's `/mnt/data` = bulk assets,
@@ -59,6 +60,7 @@ ready-made download instead and this toolchain simply goes unused.
   actually serves (default `qwen` / `IQ2_XS`, with the uncensored speed-projection vector on —
   see below). Switching is a restart, not a re-download, once the quant you want is already on
   disk (see below).
+  The model broker changes it for you: see "Switching models with the model broker" below.
 - **Context**: `STRATA_CONTEXT` (default `131072`). Strata's suggested values are `8192, 32768,
   65536, 131072, 262144`; it's a fixed ceiling set at model-load time, not a per-request
   parameter — see the context/compaction note below.
@@ -67,6 +69,28 @@ ready-made download instead and this toolchain simply goes unused.
 - **RAM mode**: `STRATA_LOW_RAM` (default `auto`, matching Strata's own default) — `on` forces
   experts to be read from the model files on `/mnt/data/models/strata` through the OS file cache
   instead of copied into RAM; `off` disables that fallback outright. See below.
+
+## Switching models with the model broker
+
+Strata serves one model per process and cannot change it while running, so the model broker
+changes model by stopping the container and starting it again with another model's settings. The
+broker has no Docker access; its host service, `model-broker-service-control` (in the
+model-broker repository), does it. This container knows nothing of either: it is the same
+image and entrypoint, started with different environment variables.
+
+`config/models-preset.ini` lists the models the broker offers, one section each, in the broker's
+preset format. A section's `env.` keys are exactly the `STRATA_*` variables below, and the host
+service must list the same names under `allowed-env` for `strata` (its example configuration does).
+The plain and uncensored `IQ2_XS` models share weights and differ only in
+`STRATA_SPEED_PROJECTION`. To offer another quant, install it (see "Downloading additional
+quants ahead of time"), then add a section. A model whose files are missing makes the container
+start a 60-85 GB download, which the broker would wait on until its load timeout.
+
+The `STRATA_FAMILY`, `STRATA_MODEL`, `STRATA_CONTEXT`, `STRATA_LOW_RAM` and
+`STRATA_SPEED_PROJECTION` values in `.env` still apply to `docker compose up -d strata`, which
+is how you run a model by hand. The broker recognises a container started that way if its settings
+match a section exactly, and treats one that matches none as an unrecognised model that holds
+the GPU. Do not start Strata by hand while the broker has a model on the same GPU.
 
 ## Quant sizes (from Strata's own `MODELS` table)
 

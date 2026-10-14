@@ -30,12 +30,11 @@ LABEL org.opencontainers.image.source="${STRATA_REPOSITORY}" \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # python3-venv provides ensurepip, which setup.sh checks for before reusing
-# a venv; util-linux provides flock for with-gpu-lock; libgomp1 is the
-# OpenMP runtime the compiled engine links against; build-essential is the
-# C++ compiler setup.py looks for (g++) before compiling the engine.
+# a venv; libgomp1 is the OpenMP runtime the compiled engine links against;
+# build-essential is the C++ compiler setup.py looks for (g++) before compiling the engine.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        git ca-certificates curl bash libgomp1 util-linux build-essential \
+        git ca-certificates curl bash libgomp1 build-essential \
         python3 python3-venv python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
@@ -47,8 +46,7 @@ RUN git clone --no-checkout "${STRATA_REPOSITORY}" /app && \
     test "$(git -C /app rev-parse HEAD)" = "${STRATA_COMMIT}"
 
 COPY entrypoint.sh /app/entrypoint.sh
-COPY with-gpu-lock /app/with-gpu-lock
-RUN chmod 0555 /app/entrypoint.sh /app/with-gpu-lock
+RUN chmod 0555 /app/entrypoint.sh
 
 WORKDIR /app
 
@@ -59,4 +57,4 @@ WORKDIR /app
 HEALTHCHECK --start-period=2700s --interval=30s --timeout=5s --retries=5 \
     CMD curl --fail --silent --output /dev/null http://127.0.0.1:8080/ || exit 1
 
-ENTRYPOINT ["/app/with-gpu-lock", "/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

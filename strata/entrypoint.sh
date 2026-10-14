@@ -16,9 +16,7 @@ set -eu
 : "${STRATA_MODELS_DIR:=/models}"
 
 # Compose restricts this container to exactly one physical GPU (device_ids),
-# so it is always index 0 from Strata's point of view. The physical id only
-# matters to with-gpu-lock, which acquires the shared lock before exec'ing
-# this script.
+# so it is always index 0 from Strata's point of view.
 set -- --yes \
     --family "$STRATA_FAMILY" \
     --model "$STRATA_MODEL" \
