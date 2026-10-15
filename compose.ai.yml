@@ -134,11 +134,15 @@ services:
     command:
       - --models-preset
       - /models-preset.ini
+      # The model broker decides what is loaded and loads it explicitly, so the router
+      # must not autoload, and --models-max must be at least the most models that can be
+      # loaded together without competing for a GPU or RAM (a GPU0 model, a GPU1 model
+      # and a CPU model), so that it never has to choose a model to unload itself. The
+      # broker refuses to schedule if either is wrong. The unified preset assigns each
+      # model's exact CPU/GPU placement.
       - --models-max
-      - "1"
-      # The router autoloads one model at a time; the unified preset assigns its
-      # exact CPU/GPU placement per model.
-      - --models-autoload
+      - "3"
+      - --no-models-autoload
       - --host
       - 0.0.0.0
       - --port
@@ -180,8 +184,13 @@ services:
     init: true
     environment:
       STRATA_FAMILY: ${STRATA_FAMILY:-qwen}
-      STRATA_MODEL: ${STRATA_MODEL:-IQ3_S}
+      STRATA_MODEL: ${STRATA_MODEL:-IQ2_XS}
       STRATA_CONTEXT: ${STRATA_CONTEXT:-131072}
+      # KV-cache precision and vision. The model broker sets every variable named in
+      # strata/config/models-preset.ini and recognises the running model by finding all of
+      # them in the container's environment, so each must be passed through here.
+      STRATA_KV: ${STRATA_KV:-int8}
+      STRATA_VISION: ${STRATA_VISION:-no}
       # auto: Strata only drops experts to NVMe-backed file-cache reads when
       # RAM is clearly short (its own threshold is a model's arena_gb + 10 GB
       # headroom); "on" forces it even when RAM would technically fit the
@@ -223,6 +232,54 @@ services:
         capabilities: [gpu]
     ports:
       - "${STRATA_BIND_ADDRESS:-192.168.50.136}:${STRATA_PORT:-11441}:8080"
+
+  # Schedules llama.cpp and Strata models onto the GPUs and RAM, and proxies chat requests
+  # to them. It is built from its own repository (MODEL_BROKER_CONTEXT) and shares nothing
+  # with this one except the two preset files below, which it reads. It has no Docker
+  # access: to start or stop Strata's container it asks the model-broker-service-control
+  # host service over a Unix socket (install-model-broker-service-control.sh in the broker
+  # repository). Until the host service is installed this service cannot start, because
+  # the socket's directory does not exist.
+  model-broker:
+    build:
+      context: ${MODEL_BROKER_CONTEXT:-/mnt/work/projects/model-broker}
+    image: model-broker:latest
+    container_name: model-broker-c
+    restart: unless-stopped
+    environment:
+      MODEL_BROKER_LLAMA_URL: http://llama-cpp:8080
+      MODEL_BROKER_PRESET_PATH: /config/llama-models-preset.ini
+      MODEL_BROKER_SERVICE_PRESET_PATH: /config/strata-models-preset.ini
+      MODEL_BROKER_SERVICE_CONTROL_SOCKET: /run/model-broker-service-control/control.sock
+      MODEL_BROKER_STRATA_URL: http://strata:8080
+      MODEL_BROKER_STRATA_API_KEY: ${STRATA_API_KEY:-}
+      MODEL_BROKER_IDLE_PROTECT_SECONDS: ${MODEL_BROKER_IDLE_PROTECT_SECONDS:-300}
+      MODEL_BROKER_MAX_WAIT_SECONDS: ${MODEL_BROKER_MAX_WAIT_SECONDS:-30}
+      MODEL_BROKER_LOG_LEVEL: ${MODEL_BROKER_LOG_LEVEL:-INFO}
+    volumes:
+      - ./llama-cpp/config/models-preset.ini:/config/llama-models-preset.ini:ro
+      - ./strata/config/models-preset.ini:/config/strata-models-preset.ini:ro
+      # The directory, not the socket file: the host service replaces the socket when it
+      # restarts. create_host_path is off so that Docker does not make the directory
+      # itself, as root, if the host service is not installed.
+      - type: bind
+        source: /run/model-broker-service-control
+        target: /run/model-broker-service-control
+        bind:
+          create_host_path: false
+    # The numeric ID of the host group model-broker-control-client, which owns the socket.
+    # The installer prints it. The default is a group nothing uses, so the broker starts
+    # but cannot reach the host service until this is set in .env.
+    group_add:
+      - "${MODEL_BROKER_CONTROL_GID:-65534}"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    ports:
+      - "${MODEL_BROKER_BIND_ADDRESS:-192.168.50.136}:${MODEL_BROKER_PORT:-11460}:8000"
 
   opencode:
     build:
