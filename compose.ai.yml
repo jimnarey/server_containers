@@ -353,15 +353,9 @@ services:
       # browser/VNC containers rather than delegating authentication upstream.
       CADDY_USER: ${CADDY_USER:-admin}
       CADDY_HASH: ${CADDY_HASH:?CADDY_HASH is required}
-      # The local llama.cpp server does not validate API keys, but DSH's
-      # configured pi-ai route requires a non-empty credential to activate.
-      # This is an identifier, not a secret; deployments can override it.
-      LLAMA_CPP_API_KEY: ${LLAMA_CPP_API_KEY:-local}
-      # The Strata server is optionally protected by the same host-side value.
-      # A non-empty value is still required by DSH when Strata has no auth.
-      STRATA_API_KEY: ${STRATA_API_KEY:-local}
-      # The model broker does not authenticate yet; DSH still needs a non-empty value.
-      # If the broker is given API keys, set the client's key here.
+      # The model broker does not authenticate yet, but DSH's configured pi-ai route
+      # requires a non-empty credential to activate. This is an identifier, not a
+      # secret; if the broker is given API keys, set the client's key here.
       MODEL_BROKER_API_KEY: ${MODEL_BROKER_API_KEY:-local}
       # DSH's built-in browser-trust fence must explicitly recognize the
       # HTTPS hostname which Caddy publishes. This is not an auth setting.
@@ -370,10 +364,13 @@ services:
       - ${DEEPSEEK_HOME:-/mnt/work/deepseek}:/home/runuser
       - ${DEEPSEEK_WORKSPACE:-/mnt/work/projects}:/workspace
       - /container-ssh:/home/runuser/.ssh:ro
-      # DSH 0.2 stores editable web settings in this persistent profile. The
-      # repository-owned web capability overlay is applied from the image with
-      # DSH's --patch option, so it does not mask the writable profile file.
-      # The headless overlay remains a read-only explicit profile override.
+      # The web profile's providers, models and default model come from one generated
+      # file in this repository (deepseek/generate-web-profile.sh), mounted read-only
+      # over the profile's cordis.patch.yml, so every DeepSeek service has the same ones
+      # whatever its home holds. DSH does not write that file. The repository-owned web
+      # capability overlay is applied separately from the image with DSH's --patch option.
+      # The headless overlay is a read-only explicit profile override.
+      - ./deepseek/profile-patches/web.profile.cordis.patch.yml:/home/runuser/.dsh/profiles/web/cordis.patch.yml:ro
       - ./deepseek/profile-patches/headless.cordis.patch.yml:/home/runuser/.dsh/profiles/headless/cordis.patch.yml:ro
       # Retains Standard as one capability mode while making compaction policy
       # exact-provider/model aware. This file follows DEEPSEEK_VERSION.

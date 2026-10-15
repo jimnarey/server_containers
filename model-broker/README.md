@@ -26,4 +26,4 @@ entry's input limit is its context size less the 8192-token output limit, as in
 Rerun it when either preset gains or loses a model or changes a context size. It keeps the
 file's `apiKey` placeholder so VS Code's saved value still applies; the broker does not
 authenticate yet, so any non-empty value works. DeepSeek's provider for the broker is
-generated separately, by `../deepseek/generate-default-settings.sh`.
+generated separately, by `../deepseek/generate-web-profile.sh`.

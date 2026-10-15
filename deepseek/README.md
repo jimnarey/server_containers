@@ -36,11 +36,8 @@ DEEPSEEK_AMIGA_GATEWAY_HOSTNAME=deepseek-amiga.ai.home.arpa
 DEEPSEEK_XBOX360_HOME=/mnt/work/deepseek-xbox360
 DEEPSEEK_XBOX360_WORKSPACE=/mnt/work/projects-xbox360
 DEEPSEEK_XBOX360_GATEWAY_HOSTNAME=deepseek-xbox360.ai.home.arpa
-# Non-secret activation value for the local llama.cpp provider.
-LLAMA_CPP_API_KEY=local
-# Optional server-side authentication for Strata. Leave empty when Strata is
-# unauthenticated; DSH then uses a harmless local placeholder.
-STRATA_API_KEY=
+# Non-secret activation value for the model broker provider.
+MODEL_BROKER_API_KEY=local
 ```
 
 Two integration values are still literal Compose configuration rather than `.env` settings:
@@ -168,75 +165,39 @@ enable fetch there as well.
 
 ## Local providers
 
-The web profile is seeded with three local OpenAI-compatible routes:
+The web profile has one model route, the model broker at `http://model-broker:8000/v1`
+(the Compose-network port, not the host-published one; `localhost` would refer to the
+DeepSeek container). It serves every llama.cpp model and every Strata model under its full
+suffixed ID, and loads the model a request names, unloading whatever competes for its GPU or
+RAM. A request for a model that is not loaded waits for the load; for a Strata model that
+can take most of an hour, so the provider's idle timeout is longer than that. `llama-cpp` and
+`strata` are not DSH providers: neither loads models by itself any more. The broker does not
+authenticate yet, so `MODEL_BROKER_API_KEY` is only a non-secret activation value that DSH
+needs to be non-empty.
 
-- `llama-cpp` at `http://llama-cpp:8080/v1`, with every model section from
-  [`../llama-cpp/config/models-preset.ini`](../llama-cpp/config/models-preset.ini).
-- `strata` at `http://strata:8080/v1`, with the one model currently served by
-  Strata. It is labelled `loaded-model` in the picker, so changing Strata's
-  command-line-selected quant does not require changing DSH configuration.
-  The context window remains a configured value (currently 131,072 tokens).
+### Model configuration
 
-- `model-broker` at `http://model-broker:8000/v1`, with every model of both of the
-  above under its full suffixed ID (the llama.cpp sections plus the Strata ones from
-  [`../strata/config/models-preset.ini`](../strata/config/models-preset.ini)). The broker
-  loads the model a request names, unloading whatever competes for its GPU or RAM, so it
-  is the route to use now that `llama-cpp` no longer loads models by itself. A request for
-  a model that is not loaded waits for the load; for a Strata model that can take most of
-  an hour, so this provider's idle timeout is longer than the others.
+Every DeepSeek service mounts the same file read-only over its web profile:
+[`profile-patches/web.profile.cordis.patch.yml`](./profile-patches/web.profile.cordis.patch.yml)
+at `/home/runuser/.dsh/profiles/web/cordis.patch.yml`. It holds the providers, the model list
+and the default model, so the Amiga, Xbox 360 and any other project service always have the
+same ones, whatever their persistent home contains. DSH does not write it, so the Models page
+cannot change them. The file in a home's own `.dsh/profiles/web/` is hidden by the mount.
 
-The `llama-cpp` and `strata` addresses use the Compose-network service port (`8080`), not a
-host-published port. `localhost` would refer to the DeepSeek container.
-`LLAMA_CPP_API_KEY` is only a non-secret activation value because llama.cpp
-does not validate it. If `STRATA_API_KEY` is set, it protects Strata and DSH
-uses the same value; when it is unset, DSH uses a harmless local placeholder. The model
-broker has no authentication yet, so `MODEL_BROKER_API_KEY` is likewise only an activation
-value.
-
-The first DSH 0.2 boot migrates the legacy model catalogue into the persistent
-web profile and retains its source as `settings.yaml.imported` in the
-persistent DSH home. Use the Models page to manage the migrated web-profile
-catalogue. The headless profile has a separate settings scope; pass an
-explicit model when using it until its own configuration is set.
-
-### Persistent local model configuration
-
-[`config/settings.yaml`](./config/settings.yaml) is a one-time seed for a
-brand-new DSH home. It is not bind-mounted: DSH 0.2 migrates it into the
-writable web-profile patch, where providers and models can survive upgrades
-without a repository overlay masking them. The persistent DSH home therefore
-contains credentials, sessions, package state, and web model
-configuration; back it up as one unit.
-
-The seed's llama.cpp and model broker model lists are generated, not hand-maintained.
-After changing `llama-cpp/config/models-preset.ini` or `strata/config/models-preset.ini`, run:
+The file is generated, not hand-maintained. After changing
+`llama-cpp/config/models-preset.ini` or `strata/config/models-preset.ini`, run:
 
 ```bash
-./deepseek/generate-default-settings.sh
+./deepseek/generate-web-profile.sh
 ```
 
-The generated seed is used only by a new DSH home. Synchronise an existing
-web profile using the Models UI or DSH's settings API; do not delete the
-profile merely to re-run migration.
-To add the model broker provider (or refresh its model list) in an existing home without the
-UI, stop the container, copy and update the profile's patch file, and start it again:
+and restart the DeepSeek containers (the mount is read when DSH starts; a restart interrupts
+any turn in progress). `DSH_DEFAULT_MODEL` sets the default model, which must be one the
+broker serves; it is currently `Qwen3.8-27B-UD-Q6_K_M--cuda0-cuda1`. A model's context
+window is its `ctx-size` (llama.cpp) or `env.STRATA_CONTEXT` (Strata).
 
-```bash
-docker stop deepseek-c
-cp /mnt/work/deepseek/.dsh/profiles/web/cordis.patch.yml /mnt/work/deepseek/cordis.patch.yml.bak
-./deepseek/add-model-broker-provider.py deepseek/config/settings.yaml \
-  /mnt/work/deepseek/.dsh/profiles/web/cordis.patch.yml --default-to-broker
-docker start deepseek-c
-```
-
-The script refuses to run if the profile already has a `model-broker` provider; to refresh
-the list, delete that provider's block from the patch file first.
- When Strata is switched, rerun the
-generator only if its context changes, using its live `/v1/models` `meta.n_ctx`:
-
-```bash
-STRATA_DSH_CONTEXT=131072 ./deepseek/generate-default-settings.sh
-```
+The headless profile has a separate settings scope with no providers; pass an explicit model
+when using it.
 
 This installation keeps every session on the built-in `standard` preset, with
 model-specific policy (including compaction) expressed as `modelPolicies` in

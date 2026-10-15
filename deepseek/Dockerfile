@@ -15,10 +15,6 @@ RUN npm install --global \
 # repository-owned web capability overlay separate and apply it through DSH's
 # supported --patch option rather than masking that writable profile file.
 COPY profile-patches/web.cordis.patch.yml /opt/dsh/profile-patches/web.cordis.patch.yml
-# A pre-0.2 settings document is a one-time seed for a brand-new persisted
-# DSH home. init_chowns.sh copies it only before DSH has created/imported any
-# settings, then DSH migrates it into the writable web profile.
-COPY config/settings.yaml /opt/dsh/default-settings.yaml
 
 # DSH loads capability providers from its own node_modules tree. Both deployed
 # providers are local: SearXNG search and a guarded-fetch adapter for fetch.

@@ -17,16 +17,10 @@ if [ -d /home/runuser/.dsh ]; then
         -exec chown runuser:runuser {} +
 fi
 
-# DSH 0.2 migrates the legacy document to the writable web profile. Seed it
-# only for a genuinely new home; an imported backup is the durable sentinel
-# that prevents a later container recreation from overwriting user settings.
+# The web profile's providers and models are a read-only bind mount from this
+# repository (deepseek/profile-patches/web.profile.cordis.patch.yml), so there is
+# nothing to seed into a new home.
 mkdir -p /home/runuser/.dsh
 chown runuser:runuser /home/runuser/.dsh
-if [ ! -e /home/runuser/.dsh/settings.yaml ] && \
-   [ ! -e /home/runuser/.dsh/settings.yaml.imported ] && \
-   [ ! -e /home/runuser/.dsh/profiles/web/cordis.patch.yml ]; then
-    install -o runuser -g runuser -m 600 \
-        /opt/dsh/default-settings.yaml /home/runuser/.dsh/settings.yaml
-fi
 
 chown runuser:runuser /dev/stdout
