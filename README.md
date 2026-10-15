@@ -218,6 +218,8 @@ These are the main services currently defined in `docker-compose.yml`:
   --no-models-autoload`, which `compose.ai.yml` sets: clients must go through the broker (port
   `MODEL_BROKER_PORT`, 11460) rather than calling `llama-cpp` directly, which no longer loads
   models by itself.
+  VS Code and DeepSeek provider entries for it are in [`model-broker/`](./model-broker/README.md)
+  and `deepseek/config/settings.yaml`.
 - Coding agents and development: `deepseek`, `goose`, `opencode`, `pi`, `vscode`
 - Generative media: `comfyui`
 - Search: `searxng` (with its `searxng-valkey` cache/rate-limiting backend), used by DeepSeek Harness and Pi's web-search extension; see [`searxng/README.md`](./searxng/README.md)

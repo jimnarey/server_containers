@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate the one-time DSH seed from the llama.cpp router catalogue.
+# Regenerate the one-time DSH seed from the llama.cpp router catalogue and, for the
+# model broker, from that catalogue plus the Strata one.
 #
 # Existing DSH 0.2 installations keep their editable settings in the web
 # profile, so use this script when updating the image seed and then use the
@@ -8,6 +9,7 @@ set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 models_file=${MODELS_PRESET_FILE:-"$script_dir/../llama-cpp/config/models-preset.ini"}
+strata_models_file=${STRATA_PRESET_FILE:-"$script_dir/../strata/config/models-preset.ini"}
 output_file=${1:-"$script_dir/config/settings.yaml"}
 
 # Strata selects and loads its real model on its own command line. Its
@@ -16,14 +18,59 @@ output_file=${1:-"$script_dir/config/settings.yaml"}
 strata_model=${STRATA_DSH_MODEL:-loaded-model}
 strata_context=${STRATA_DSH_CONTEXT:-131072}
 
-if [[ ! -r $models_file ]]; then
-    echo "Cannot read llama.cpp preset: $models_file" >&2
-    exit 1
-fi
+for preset in "$models_file" "$strata_models_file"; do
+    if [[ ! -r $preset ]]; then
+        echo "Cannot read preset: $preset" >&2
+        exit 1
+    fi
+done
 if [[ ! $strata_context =~ ^[1-9][0-9]*$ ]]; then
     echo "STRATA_DSH_CONTEXT must be a positive integer" >&2
     exit 1
 fi
+
+# Print "<model id>\t<context>" for every section of a preset, in file order, where the
+# context is the section's value of $2 (ctx-size for llama.cpp; env.STRATA_CONTEXT for
+# Strata, whose settings are the environment its container is started with).
+model_contexts() {
+    awk -v key="$2" '
+        function finish() {
+            if (name == "") return
+            if (ctx !~ /^[1-9][0-9]*$/) {
+                printf "Invalid or missing %s for %s\n", key, name > "/dev/stderr"
+                bad = 1
+                exit 1
+            }
+            printf "%s\t%s\n", name, ctx
+        }
+        /^\[/ {
+            finish()
+            name = substr($0, 2, length($0) - 2)
+            ctx = ""
+            next
+        }
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            if (index(line, key) == 1 && substr(line, length(key) + 1) ~ /^[[:space:]]*=/) {
+                sub(/^[^=]*=[[:space:]]*/, "", line)
+                ctx = line
+            }
+        }
+        END {
+            if (bad) exit 1
+            if (name == "") {
+                print "No model sections found" > "/dev/stderr"
+                exit 1
+            }
+            finish()
+        }
+    ' "$1"
+}
+
+yaml_models() {
+    awk -F '\t' '{ printf "        - id: %s\n          contextWindow: %s\n", $1, $2 }'
+}
 
 tmp_file=$(mktemp "${output_file}.tmp.XXXXXX")
 trap 'rm -f -- "$tmp_file"' EXIT
@@ -43,36 +90,8 @@ trap 'rm -f -- "$tmp_file"' EXIT
         '      streamIdleTimeoutMs: 1800000' \
         '      models:'
 
-    awk '
-        /^\[/ {
-            if (name != "") {
-                if (ctx !~ /^[1-9][0-9]*$/) {
-                    printf "Invalid or missing ctx-size for %s\n", name > "/dev/stderr"
-                    exit 1
-                }
-                printf "%s\t%s\n", name, ctx
-            }
-            name = substr($0, 2, length($0) - 2)
-            ctx = ""
-            next
-        }
-        /^[[:space:]]*ctx-size[[:space:]]*=/ {
-            sub(/^[^=]*=[[:space:]]*/, "")
-            ctx = $0
-        }
-        END {
-            if (name == "") {
-                print "No model sections found" > "/dev/stderr"
-                exit 1
-            }
-            if (ctx !~ /^[1-9][0-9]*$/) {
-                printf "Invalid or missing ctx-size for %s\n", name > "/dev/stderr"
-                exit 1
-            }
-            printf "%s\t%s\n", name, ctx
-        }
-    ' "$models_file" | LC_ALL=C sort --ignore-case --field-separator=$'\t' --key=1,1 | \
-        awk -F '\t' '{ printf "        - id: %s\n          contextWindow: %s\n", $1, $2 }'
+    model_contexts "$models_file" ctx-size | LC_ALL=C sort --ignore-case --field-separator=$'\t' --key=1,1 | \
+        yaml_models
 
     printf '%s\n' \
         '    strata:' \
@@ -83,6 +102,24 @@ trap 'rm -f -- "$tmp_file"' EXIT
         '      models:' \
         "        - id: $strata_model" \
         "          contextWindow: $strata_context"
+
+    # The model broker serves every model of both servers behind one address, loading and
+    # unloading them itself, so each is declared here under its full suffixed ID. A model that
+    # is not loaded is loaded by the request for it: the broker holds the request until then,
+    # which for Strata can take most of an hour (its load timeout is 3600 s), so the idle
+    # timeout is longer than that. The broker has no authentication yet, so the key is a
+    # placeholder that only has to be non-empty.
+    printf '%s\n' \
+        '    model-broker:' \
+        '      apiKeyEnv: MODEL_BROKER_API_KEY' \
+        '      api: openai-completions' \
+        '      baseURL: http://model-broker:8000/v1' \
+        '      streamIdleTimeoutMs: 3900000' \
+        '      models:'
+    {
+        model_contexts "$models_file" ctx-size | LC_ALL=C sort --ignore-case --field-separator=$'\t' --key=1,1
+        model_contexts "$strata_models_file" env.STRATA_CONTEXT | LC_ALL=C sort --ignore-case --field-separator=$'\t' --key=1,1
+    } | yaml_models
 } > "$tmp_file"
 
 mv -- "$tmp_file" "$output_file"

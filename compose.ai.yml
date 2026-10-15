@@ -360,6 +360,9 @@ services:
       # The Strata server is optionally protected by the same host-side value.
       # A non-empty value is still required by DSH when Strata has no auth.
       STRATA_API_KEY: ${STRATA_API_KEY:-local}
+      # The model broker does not authenticate yet; DSH still needs a non-empty value.
+      # If the broker is given API keys, set the client's key here.
+      MODEL_BROKER_API_KEY: ${MODEL_BROKER_API_KEY:-local}
       # DSH's built-in browser-trust fence must explicitly recognize the
       # HTTPS hostname which Caddy publishes. This is not an auth setting.
       DEEPSEEK_GATEWAY_HOSTNAME: ${DEEPSEEK_GATEWAY_HOSTNAME:-deepseek.ai.home.arpa}

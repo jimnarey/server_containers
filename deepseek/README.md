@@ -168,7 +168,7 @@ enable fetch there as well.
 
 ## Local providers
 
-The web profile is seeded with two local OpenAI-compatible routes:
+The web profile is seeded with three local OpenAI-compatible routes:
 
 - `llama-cpp` at `http://llama-cpp:8080/v1`, with every model section from
   [`../llama-cpp/config/models-preset.ini`](../llama-cpp/config/models-preset.ini).
@@ -177,11 +177,21 @@ The web profile is seeded with two local OpenAI-compatible routes:
   command-line-selected quant does not require changing DSH configuration.
   The context window remains a configured value (currently 131,072 tokens).
 
-Both addresses use the Compose-network service port (`8080`), not a
+- `model-broker` at `http://model-broker:8000/v1`, with every model of both of the
+  above under its full suffixed ID (the llama.cpp sections plus the Strata ones from
+  [`../strata/config/models-preset.ini`](../strata/config/models-preset.ini)). The broker
+  loads the model a request names, unloading whatever competes for its GPU or RAM, so it
+  is the route to use now that `llama-cpp` no longer loads models by itself. A request for
+  a model that is not loaded waits for the load; for a Strata model that can take most of
+  an hour, so this provider's idle timeout is longer than the others.
+
+The `llama-cpp` and `strata` addresses use the Compose-network service port (`8080`), not a
 host-published port. `localhost` would refer to the DeepSeek container.
 `LLAMA_CPP_API_KEY` is only a non-secret activation value because llama.cpp
 does not validate it. If `STRATA_API_KEY` is set, it protects Strata and DSH
-uses the same value; when it is unset, DSH uses a harmless local placeholder.
+uses the same value; when it is unset, DSH uses a harmless local placeholder. The model
+broker has no authentication yet, so `MODEL_BROKER_API_KEY` is likewise only an activation
+value.
 
 The first DSH 0.2 boot migrates the legacy model catalogue into the persistent
 web profile and retains its source as `settings.yaml.imported` in the
@@ -198,8 +208,8 @@ without a repository overlay masking them. The persistent DSH home therefore
 contains credentials, sessions, package state, and web model
 configuration; back it up as one unit.
 
-The seed's llama.cpp model list is generated, not hand-maintained. After
-changing `llama-cpp/config/models-preset.ini`, run:
+The seed's llama.cpp and model broker model lists are generated, not hand-maintained.
+After changing `llama-cpp/config/models-preset.ini` or `strata/config/models-preset.ini`, run:
 
 ```bash
 ./deepseek/generate-default-settings.sh
@@ -207,7 +217,21 @@ changing `llama-cpp/config/models-preset.ini`, run:
 
 The generated seed is used only by a new DSH home. Synchronise an existing
 web profile using the Models UI or DSH's settings API; do not delete the
-profile merely to re-run migration. When Strata is switched, rerun the
+profile merely to re-run migration.
+To add the model broker provider (or refresh its model list) in an existing home without the
+UI, stop the container, copy and update the profile's patch file, and start it again:
+
+```bash
+docker stop deepseek-c
+cp /mnt/work/deepseek/.dsh/profiles/web/cordis.patch.yml /mnt/work/deepseek/cordis.patch.yml.bak
+./deepseek/add-model-broker-provider.py deepseek/config/settings.yaml \
+  /mnt/work/deepseek/.dsh/profiles/web/cordis.patch.yml --default-to-broker
+docker start deepseek-c
+```
+
+The script refuses to run if the profile already has a `model-broker` provider; to refresh
+the list, delete that provider's block from the patch file first.
+ When Strata is switched, rerun the
 generator only if its context changes, using its live `/v1/models` `meta.n_ctx`:
 
 ```bash
